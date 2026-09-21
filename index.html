@@ -5,52 +5,93 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Spotter</title>
 <style>
-:root{--bg:#07090d;--card:#121820;--line:#2a3544;--text:#eef3f8;--mut:#8fa0b3;--hit:#3dd68c;--miss:#ff6b6b;--dead:#f5c542}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 420px at 0% -10%,#1a3a52 0%,var(--bg) 50%);color:var(--text);font:16px/1.45 ui-sans-serif,system-ui}
-main{max-width:880px;margin:auto;padding:32px 18px}
-.kicker{letter-spacing:.14em;text-transform:uppercase;color:#9ecbff;font-size:12px}
-h1{font-size:40px;margin:8px 0}p{color:var(--mut)}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
-input,textarea,button{border:1px solid var(--line);background:var(--card);color:#fff;border-radius:12px;padding:10px 12px;font:inherit}
-textarea{width:100%;min-height:64px}
-button{cursor:pointer}button.primary{background:#1d4e89}
-.addr,.err{font-family:ui-monospace,monospace;font-size:13px;word-break:break-all}
-.err{color:#ff8a8a}
-article{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
-.tag{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}
-.HIT{background:#123d2c;color:var(--hit)}.MISS{background:#3d1515;color:var(--miss)}
-.DEAD{background:#3d3410;color:var(--dead)}.OPEN,.SUBMITTED{background:#1b2430;color:#9ecbff}
-pre{white-space:pre-wrap;color:#9aa8b8}
+  :root {
+    --bg:#081015; --ink:#f4f7fb; --mut:#9aacbe; --line:rgba(255,255,255,.08);
+    --card:rgba(16,24,32,.86); --hit:#3dd68c; --miss:#ff6b81; --dead:#f5c542;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;color:var(--ink);
+    font:16px/1.5 "Sora",ui-sans-serif,system-ui;
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(56,189,248,.18), transparent 50%),
+      radial-gradient(700px 400px at -10% 20%, rgba(52,211,153,.12), transparent 45%),
+      var(--bg);
+  }
+  @import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap");
+  main{max-width:980px;margin:auto;padding:40px 20px 80px}
+  header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .brand{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#7dd3fc}
+  h1{font-size:52px;letter-spacing:-.04em;margin:8px 0}
+  .lead{max-width:560px;color:var(--mut);font-size:18px}
+  .wallet{background:var(--card);border:1px solid var(--line);backdrop-filter:blur(16px);border-radius:20px;padding:14px 16px;min-width:260px}
+  .wallet b{display:block;font-size:12px;color:var(--mut);font-weight:500}
+  .mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
+  button{
+    border:0;border-radius:999px;padding:11px 16px;font-weight:600;cursor:pointer;
+    background:#e8f3ff;color:#082033;
+  }
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .grid{display:grid;gap:16px;margin-top:28px}
+  @media(min-width:820px){.grid{grid-template-columns:1.1fr .9fr}}
+  section{
+    background:var(--card);border:1px solid var(--line);border-radius:28px;
+    padding:22px;backdrop-filter:blur(18px);
+  }
+  label{display:block;font-size:12px;color:var(--mut);margin:10px 0 6px}
+  input,textarea{
+    width:100%;border:1px solid var(--line);background:#0b141c;color:var(--ink);
+    border-radius:16px;padding:12px 14px;font:inherit;
+  }
+  textarea{min-height:76px;resize:vertical}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .err{color:#ff8a8a;min-height:1.2em;margin-top:12px}
+  .tag{display:inline-flex;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .HIT{background:#123d2c;color:var(--hit)}.MISS{background:#3d1518;color:var(--miss)}
+  .DEAD{background:#3d3410;color:var(--dead)}.OPEN,.SUBMITTED{background:#163044;color:#7dd3fc}
+  pre{white-space:pre-wrap;color:#b8c7d6;font-size:13px}
 </style>
 </head>
 <body>
 <main>
-  <div class="kicker">GenLayer · Studionet 61999</div>
-  <h1>Spotter</h1>
-  <p>Post a question. Someone submits a live URL. Validators fetch the page and finish HIT, MISS, or DEAD.</p>
-  <p class="addr" id="caddr"></p>
-  <div class="row">
-    <button class="primary" id="connect">Connect wallet</button>
-    <span class="addr" id="who">not connected</span>
-  </div>
-  <article>
-    <h3>Open job</h3>
-    <textarea id="q" placeholder="Question"></textarea>
-    <textarea id="r" placeholder="Rubric"></textarea>
-    <div class="row"><button id="open">Open job</button></div>
-  </article>
-  <article>
-    <h3>Submit + judge</h3>
-    <div class="row">
-      <input id="jid" placeholder="job id" style="width:90px"/>
-      <input id="url" placeholder="https://..." style="flex:1;min-width:220px"/>
-      <button id="sub">Submit URL</button>
-      <button id="judge">Judge</button>
-      <button id="read">Read</button>
+  <header>
+    <div>
+      <div class="brand">Studionet 61999</div>
+      <h1>Spotter</h1>
+      <p class="lead">Ask whether a live page currently says something. A hunter drops the URL. The network fetches it and closes the job.</p>
     </div>
-  </article>
+    <div class="wallet">
+      <b>Wallet</b>
+      <div class="mono" id="who">not connected</div>
+      <div class="actions"><button id="connect">Connect</button></div>
+      <div class="mono" id="caddr" style="margin-top:10px;color:#7dd3fc"></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section>
+      <h2>Open a hunt</h2>
+      <label>Question</label>
+      <textarea id="q" placeholder="Does this page still say X?"></textarea>
+      <label>How to decide</label>
+      <textarea id="r" placeholder="HIT if the live text supports it."></textarea>
+      <div class="actions"><button id="open">Open job</button></div>
+    </section>
+    <section>
+      <h2>Close it</h2>
+      <label>Job id</label>
+      <input id="jid" placeholder="1"/>
+      <label>URL</label>
+      <input id="url" placeholder="https://"/>
+      <div class="actions">
+        <button id="sub">Submit</button>
+        <button class="ghost" id="judge">Judge</button>
+        <button class="ghost" id="read">Read</button>
+      </div>
+    </section>
+  </div>
   <p class="err" id="err"></p>
-  <article id="out"></article>
+  <section id="out" style="margin-top:16px"></section>
 </main>
 <script type="module">
 import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
@@ -60,69 +101,43 @@ const CONTRACT = "0xbAd5ebca394B17Daf395427455c1493bc40CEE0B";
 const RPC = "https://studio.genlayer.com/api";
 const ZERO = "0x0000000000000000000000000000000000000000";
 caddr.textContent = CONTRACT;
-
 const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO });
 let account = null;
-
-function writeClient() {
-  if (!account || !window.ethereum) throw new Error("Connect wallet first");
+const writeClient = () => {
+  if (!account || !window.ethereum) throw new Error("Connect first");
   return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
-}
-
+};
 async function ensureChain() {
-  const hex = "0x" + (61999).toString(16);
-  try {
-    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
-  } catch (e) {
-    if (e.code === 4902) {
-      await window.ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [{
-          chainId: hex,
-          chainName: "GenLayer Studionet",
-          nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-          rpcUrls: [RPC],
-          blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
-        }],
-      });
-    } else throw e;
+  const hex = "0xf1af";
+  try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] }); }
+  catch (e) {
+    if (e.code !== 4902) throw e;
+    await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{
+      chainId: hex, chainName: "GenLayer Studionet",
+      nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+      rpcUrls: [RPC], blockExplorerUrls: ["https://explorer-studio.genlayer.com"]
+    }]});
   }
 }
-
 connect.onclick = async () => {
-  err.textContent = "";
   try {
-    const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
-    account = accs[0];
+    account = (await window.ethereum.request({ method: "eth_requestAccounts" }))[0];
     await ensureChain();
     who.textContent = account;
+    err.textContent = "";
   } catch (e) { err.textContent = String(e.message || e); }
 };
-
 async function send(fn, args) {
+  err.textContent = "tx pending";
   const tx = await writeClient().writeContract({ address: CONTRACT, functionName: fn, args });
-  err.textContent = "tx " + tx;
-  return tx;
+  err.textContent = "sent " + tx;
 }
-
-open.onclick = async () => {
-  try { await send("open_job", [q.value.trim(), r.value.trim()]); }
-  catch (e) { err.textContent = String(e.message || e); }
-};
-sub.onclick = async () => {
-  try { await send("submit_url", [jid.value.trim(), url.value.trim()]); }
-  catch (e) { err.textContent = String(e.message || e); }
-};
-judge.onclick = async () => {
-  try { await send("judge", [jid.value.trim()]); }
-  catch (e) { err.textContent = String(e.message || e); }
-};
+open.onclick = () => send("open_job", [q.value.trim(), r.value.trim()]).catch(e => err.textContent = String(e.message||e));
+sub.onclick = () => send("submit_url", [jid.value.trim(), url.value.trim()]).catch(e => err.textContent = String(e.message||e));
+judge.onclick = () => send("judge", [jid.value.trim()]).catch(e => err.textContent = String(e.message||e));
 read.onclick = async () => {
-  err.textContent = "reading…";
   try {
-    const raw = await readClient.readContract({
-      address: CONTRACT, functionName: "get_job", args: [jid.value.trim() || "1"], stateStatus: "accepted",
-    });
+    const raw = await readClient.readContract({ address: CONTRACT, functionName: "get_job", args: [jid.value.trim() || "1"], stateStatus: "accepted" });
     const data = typeof raw === "string" ? JSON.parse(raw) : raw;
     out.innerHTML = `<span class="tag ${data.status||""}">${data.status||"?"}</span><pre>${JSON.stringify(data,null,2)}</pre>`;
     err.textContent = "";
