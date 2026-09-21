@@ -13,30 +13,26 @@
     background:
       radial-gradient(80vw 50vw at 110% -10%, rgba(46,230,214,.22), transparent 40%),
       radial-gradient(60vw 40vw at -20% 110%, rgba(16,185,129,.18), transparent 45%),
-      linear-gradient(180deg,#07161b 0%,#061014 100%);
+      #061014;
     min-height:100vh;
   }
   main{max-width:1040px;margin:auto;padding:36px 18px 90px}
   header{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:flex-end}
   .brand{color:var(--teal);letter-spacing:.2em;text-transform:uppercase;font-size:12px}
-  h1{font:700 64px/1 Fraunces,serif;margin:8px 0;letter-spacing:-.03em}
+  h1{font:700 64px/1 Fraunces,serif;margin:8px 0}
   .lead{max-width:520px;color:var(--mut);font-size:18px}
   .wallet,.panel{
     background:linear-gradient(180deg,rgba(18,36,40,.9),rgba(8,18,22,.92));
     border:1px solid var(--line);border-radius:28px;padding:20px;
-    box-shadow:0 20px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(46,230,214,.12);
+    box-shadow:0 20px 60px rgba(0,0,0,.28);
   }
-  .wallet{min-width:280px}
   .mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;color:#b7fff6}
   button{border:0;border-radius:999px;padding:12px 18px;font-weight:700;cursor:pointer;background:var(--teal);color:#042226}
   button.ghost{background:transparent;color:#9ff7ee;border:1px solid rgba(46,230,214,.35)}
   .grid{display:grid;gap:18px;margin-top:28px}
   @media(min-width:860px){.grid{grid-template-columns:1.15fr .85fr}}
   label{display:block;margin:12px 0 6px;color:var(--mut);font-size:12px}
-  input,textarea{
-    width:100%;border:1px solid var(--line);background:#071416;color:var(--ink);
-    border-radius:18px;padding:14px;font:inherit;
-  }
+  input,textarea{width:100%;border:1px solid var(--line);background:#071416;color:var(--ink);border-radius:18px;padding:14px;font:inherit}
   textarea{min-height:84px}
   .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
   .err{color:#ff8b8b;margin-top:14px;min-height:1.3em}
@@ -57,11 +53,10 @@
     <div class="wallet">
       <div style="color:var(--mut);font-size:12px">Wallet</div>
       <div class="mono" id="who">not connected</div>
-      <div class="actions"><button id="connect">Connect</button></div>
+      <div class="actions"><button id="connectBtn">Connect</button></div>
       <div class="mono" id="caddr" style="margin-top:12px"></div>
     </div>
   </header>
-
   <div class="grid">
     <section class="panel">
       <h2>Open a hunt</h2>
@@ -69,7 +64,7 @@
       <textarea id="q">Does example.org say the domain is for documentation examples?</textarea>
       <label>How to decide</label>
       <textarea id="r">HIT if the live page says that.</textarea>
-      <div class="actions"><button id="open">Open job</button></div>
+      <div class="actions"><button id="openBtn">Open job</button></div>
     </section>
     <section class="panel">
       <h2>Close it</h2>
@@ -78,9 +73,9 @@
       <label>URL</label>
       <input id="url" value="https://example.org"/>
       <div class="actions">
-        <button id="sub">Submit</button>
-        <button class="ghost" id="judge">Judge</button>
-        <button class="ghost" id="read">Read</button>
+        <button id="subBtn">Submit</button>
+        <button class="ghost" id="judgeBtn">Judge</button>
+        <button class="ghost" id="readBtn">Read</button>
       </div>
     </section>
   </div>
@@ -91,10 +86,12 @@
 import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.0/chains?bundle";
 
+const $ = (id) => document.getElementById(id);
 const CONTRACT = "0xbAd5ebca394B17Daf395427455c1493bc40CEE0B";
 const RPC = "https://studio.genlayer.com/api";
 const ZERO = "0x0000000000000000000000000000000000000000";
-caddr.textContent = CONTRACT;
+$("caddr").textContent = CONTRACT;
+
 const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO });
 let account = null;
 
@@ -102,20 +99,19 @@ function writeClient() {
   if (!account || !window.ethereum) throw new Error("Connect first");
   return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
 }
-async function ensureChain() {
-  await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xf22f" }] });
-}
-connect.onclick = async () => {
+
+$("connectBtn").onclick = async () => {
   try {
     account = (await window.ethereum.request({ method: "eth_requestAccounts" }))[0];
-    await ensureChain();
-    who.textContent = account;
-    err.textContent = "";
-  } catch (e) { err.textContent = String(e.message || e); }
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xf22f" }] });
+    $("who").textContent = account;
+    $("err").textContent = "";
+  } catch (e) { $("err").textContent = String(e.message || e); }
 };
+
 async function send(fn, args) {
   if (!args.every((x) => String(x || "").trim())) throw new Error("Fill every field first");
-  err.textContent = "tx pending";
+  $("err").textContent = "tx pending";
   const client = writeClient();
   const write = { address: CONTRACT, functionName: fn, args };
   try {
@@ -124,29 +120,25 @@ async function send(fn, args) {
       ...write,
       fees: { distribution: estimate.distribution, feeValue: estimate.feeValue },
     });
-    err.textContent = "sent " + tx;
+    $("err").textContent = "sent " + tx;
   } catch (first) {
-    try {
-      const tx = await client.writeContract(write);
-      err.textContent = "sent " + tx;
-    } catch (e) {
-      err.textContent = String(e.message || first.message || e);
-      throw e;
-    }
+    const tx = await client.writeContract(write);
+    $("err").textContent = "sent " + tx;
   }
 }
-open.onclick = () => send("open_job", [q.value.trim(), r.value.trim()]).catch(() => {});
-sub.onclick = () => send("submit_url", [jid.value.trim(), url.value.trim()]).catch(() => {});
-judge.onclick = () => send("judge", [jid.value.trim()]).catch(() => {});
-read.onclick = async () => {
+
+$("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).catch((e) => { $("err").textContent = String(e.message || e); });
+$("subBtn").onclick = () => send("submit_url", [$("jid").value.trim(), $("url").value.trim()]).catch((e) => { $("err").textContent = String(e.message || e); });
+$("judgeBtn").onclick = () => send("judge", [$("jid").value.trim()]).catch((e) => { $("err").textContent = String(e.message || e); });
+$("readBtn").onclick = async () => {
   try {
     const raw = await readClient.readContract({
-      address: CONTRACT, functionName: "get_job", args: [jid.value.trim() || "1"], stateStatus: "accepted",
+      address: CONTRACT, functionName: "get_job", args: [$("jid").value.trim() || "1"], stateStatus: "accepted",
     });
     const data = typeof raw === "string" ? JSON.parse(raw) : raw;
-    out.innerHTML = `<span class="tag ${data.status || ""}">${data.status || "?"}</span><pre>${JSON.stringify(data, null, 2)}</pre>`;
-    err.textContent = "";
-  } catch (e) { err.textContent = String(e.message || e); }
+    $("out").innerHTML = `<span class="tag ${data.status || ""}">${data.status || "?"}</span><pre>${JSON.stringify(data, null, 2)}</pre>`;
+    $("err").textContent = "";
+  } catch (e) { $("err").textContent = String(e.message || e); }
 };
 </script>
 </body>
