@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Spotter</title>
+<style>
+:root{--bg:#07090d;--card:#121820;--line:#2a3544;--text:#eef3f8;--mut:#8fa0b3;--hit:#3dd68c;--miss:#ff6b6b;--dead:#f5c542}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 420px at 0% -10%,#1a3a52 0%,var(--bg) 50%);color:var(--text);font:16px/1.45 ui-sans-serif,system-ui}
+main{max-width:880px;margin:auto;padding:32px 18px}
+.kicker{letter-spacing:.14em;text-transform:uppercase;color:#9ecbff;font-size:12px}
+h1{font-size:40px;margin:8px 0}p{color:var(--mut)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+input,textarea,button{border:1px solid var(--line);background:var(--card);color:#fff;border-radius:12px;padding:10px 12px;font:inherit}
+textarea{width:100%;min-height:64px}
+button{cursor:pointer}button.primary{background:#1d4e89}
+.addr,.err{font-family:ui-monospace,monospace;font-size:13px;word-break:break-all}
+.err{color:#ff8a8a}
+article{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+.tag{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.HIT{background:#123d2c;color:var(--hit)}.MISS{background:#3d1515;color:var(--miss)}
+.DEAD{background:#3d3410;color:var(--dead)}.OPEN,.SUBMITTED{background:#1b2430;color:#9ecbff}
+pre{white-space:pre-wrap;color:#9aa8b8}
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">GenLayer · Studionet 61999</div>
+  <h1>Spotter</h1>
+  <p>Post a question. Someone submits a live URL. Validators fetch the page and finish HIT, MISS, or DEAD.</p>
+  <p class="addr" id="caddr"></p>
+  <div class="row">
+    <button class="primary" id="connect">Connect wallet</button>
+    <span class="addr" id="who">not connected</span>
+  </div>
+  <article>
+    <h3>Open job</h3>
+    <textarea id="q" placeholder="Question"></textarea>
+    <textarea id="r" placeholder="Rubric"></textarea>
+    <div class="row"><button id="open">Open job</button></div>
+  </article>
+  <article>
+    <h3>Submit + judge</h3>
+    <div class="row">
+      <input id="jid" placeholder="job id" style="width:90px"/>
+      <input id="url" placeholder="https://..." style="flex:1;min-width:220px"/>
+      <button id="sub">Submit URL</button>
+      <button id="judge">Judge</button>
+      <button id="read">Read</button>
+    </div>
+  </article>
+  <p class="err" id="err"></p>
+  <article id="out"></article>
+</main>
+<script type="module">
+import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
+import { studionet } from "https://esm.sh/genlayer-js@0.18.0/chains?bundle";
+
+const CONTRACT = "0xbAd5ebca394B17Daf395427455c1493bc40CEE0B";
+const RPC = "https://studio.genlayer.com/api";
+const ZERO = "0x0000000000000000000000000000000000000000";
+caddr.textContent = CONTRACT;
+
+const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO });
+let account = null;
+
+function writeClient() {
+  if (!account || !window.ethereum) throw new Error("Connect wallet first");
+  return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
+}
+
+async function ensureChain() {
+  const hex = "0x" + (61999).toString(16);
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
+  } catch (e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: hex,
+          chainName: "GenLayer Studionet",
+          nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+          rpcUrls: [RPC],
+          blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
+        }],
+      });
+    } else throw e;
+  }
+}
+
+connect.onclick = async () => {
+  err.textContent = "";
+  try {
+    const accs = await window.ethereum.request({ method: "eth_requestAccounts" });
+    account = accs[0];
+    await ensureChain();
+    who.textContent = account;
+  } catch (e) { err.textContent = String(e.message || e); }
+};
+
+async function send(fn, args) {
+  const tx = await writeClient().writeContract({ address: CONTRACT, functionName: fn, args });
+  err.textContent = "tx " + tx;
+  return tx;
+}
+
+open.onclick = async () => {
+  try { await send("open_job", [q.value.trim(), r.value.trim()]); }
+  catch (e) { err.textContent = String(e.message || e); }
+};
+sub.onclick = async () => {
+  try { await send("submit_url", [jid.value.trim(), url.value.trim()]); }
+  catch (e) { err.textContent = String(e.message || e); }
+};
+judge.onclick = async () => {
+  try { await send("judge", [jid.value.trim()]); }
+  catch (e) { err.textContent = String(e.message || e); }
+};
+read.onclick = async () => {
+  err.textContent = "reading…";
+  try {
+    const raw = await readClient.readContract({
+      address: CONTRACT, functionName: "get_job", args: [jid.value.trim() || "1"], stateStatus: "accepted",
+    });
+    const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+    out.innerHTML = `<span class="tag ${data.status||""}">${data.status||"?"}</span><pre>${JSON.stringify(data,null,2)}</pre>`;
+    err.textContent = "";
+  } catch (e) { err.textContent = String(e.message || e); }
+};
+</script>
+</body>
+</html>
