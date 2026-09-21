@@ -8,24 +8,13 @@
 <style>
   :root{--bg:#061014;--ink:#f6fffd;--mut:#9eb4b0;--teal:#2ee6d6;--line:rgba(46,230,214,.16)}
   *{box-sizing:border-box}
-  body{
-    margin:0;color:var(--ink);font:16px/1.5 Sora,system-ui;
-    background:
-      radial-gradient(80vw 50vw at 110% -10%, rgba(46,230,214,.22), transparent 40%),
-      radial-gradient(60vw 40vw at -20% 110%, rgba(16,185,129,.18), transparent 45%),
-      #061014;
-    min-height:100vh;
-  }
+  body{margin:0;color:var(--ink);font:16px/1.5 Sora,system-ui;background:radial-gradient(80vw 50vw at 110% -10%,rgba(46,230,214,.22),transparent 40%),#061014;min-height:100vh}
   main{max-width:1040px;margin:auto;padding:36px 18px 90px}
   header{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:flex-end}
   .brand{color:var(--teal);letter-spacing:.2em;text-transform:uppercase;font-size:12px}
   h1{font:700 64px/1 Fraunces,serif;margin:8px 0}
   .lead{max-width:520px;color:var(--mut);font-size:18px}
-  .wallet,.panel{
-    background:linear-gradient(180deg,rgba(18,36,40,.9),rgba(8,18,22,.92));
-    border:1px solid var(--line);border-radius:28px;padding:20px;
-    box-shadow:0 20px 60px rgba(0,0,0,.28);
-  }
+  .wallet,.panel{background:rgba(8,18,22,.92);border:1px solid var(--line);border-radius:28px;padding:20px}
   .mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;color:#b7fff6}
   button{border:0;border-radius:999px;padding:12px 18px;font-weight:700;cursor:pointer;background:var(--teal);color:#042226}
   button.ghost{background:transparent;color:#9ff7ee;border:1px solid rgba(46,230,214,.35)}
@@ -35,7 +24,8 @@
   input,textarea{width:100%;border:1px solid var(--line);background:#071416;color:var(--ink);border-radius:18px;padding:14px;font:inherit}
   textarea{min-height:84px}
   .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-  .err{color:#ff8b8b;margin-top:14px;min-height:1.3em}
+  .msg{margin-top:14px;min-height:1.3em;color:#7ff5ea}
+  .msg.bad{color:#ff8b8b}
   .tag{display:inline-flex;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
   .HIT{background:#10382c;color:#3dd68c}.MISS{background:#3a1418;color:#ff6b81}
   .DEAD{background:#3a320f;color:#f5c542}.OPEN,.SUBMITTED{background:#12343c;color:#7ff5ea}
@@ -53,7 +43,10 @@
     <div class="wallet">
       <div style="color:var(--mut);font-size:12px">Wallet</div>
       <div class="mono" id="who">not connected</div>
-      <div class="actions"><button id="connectBtn">Connect</button></div>
+      <div class="actions">
+        <button id="connectBtn">Connect</button>
+        <button class="ghost" id="disconnectBtn">Disconnect</button>
+      </div>
       <div class="mono" id="caddr" style="margin-top:12px"></div>
     </div>
   </header>
@@ -79,7 +72,7 @@
       </div>
     </section>
   </div>
-  <p class="err" id="err"></p>
+  <p class="msg" id="msg"></p>
   <section class="panel" id="out" style="margin-top:18px"></section>
 </main>
 <script type="module">
@@ -91,54 +84,62 @@ const CONTRACT = "0xbAd5ebca394B17Daf395427455c1493bc40CEE0B";
 const RPC = "https://studio.genlayer.com/api";
 const ZERO = "0x0000000000000000000000000000000000000000";
 $("caddr").textContent = CONTRACT;
-
 const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO });
 let account = null;
 
+function note(text, bad) {
+  $("msg").className = bad ? "msg bad" : "msg";
+  $("msg").textContent = text;
+}
 function writeClient() {
-  if (!account || !window.ethereum) throw new Error("Connect first");
+  if (!account || !window.ethereum) throw new Error("Connect wallet first");
   return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
 }
 
 $("connectBtn").onclick = async () => {
   try {
+    if (!window.ethereum) throw new Error("No wallet in this browser");
     account = (await window.ethereum.request({ method: "eth_requestAccounts" }))[0];
     await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xf22f" }] });
     $("who").textContent = account;
-    $("err").textContent = "";
-  } catch (e) { $("err").textContent = String(e.message || e); }
+    note("Connected " + account + " on Studionet 61999");
+  } catch (e) { note(String(e.message || e), true); }
+};
+
+$("disconnectBtn").onclick = () => {
+  account = null;
+  $("who").textContent = "not connected";
+  note("Disconnected. Connect again before sending a transaction.");
 };
 
 async function send(fn, args) {
   if (!args.every((x) => String(x || "").trim())) throw new Error("Fill every field first");
-  $("err").textContent = "tx pending";
+  note("Sending " + fn + "…");
   const client = writeClient();
   const write = { address: CONTRACT, functionName: fn, args };
   try {
     const estimate = await client.estimateTransactionFeesForWrite(write);
-    const tx = await client.writeContract({
-      ...write,
-      fees: { distribution: estimate.distribution, feeValue: estimate.feeValue },
-    });
-    $("err").textContent = "sent " + tx;
+    const tx = await client.writeContract({ ...write, fees: { distribution: estimate.distribution, feeValue: estimate.feeValue } });
+    note("Sent " + fn + " · " + tx);
   } catch (first) {
     const tx = await client.writeContract(write);
-    $("err").textContent = "sent " + tx;
+    note("Sent " + fn + " · " + tx);
   }
 }
 
-$("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).catch((e) => { $("err").textContent = String(e.message || e); });
-$("subBtn").onclick = () => send("submit_url", [$("jid").value.trim(), $("url").value.trim()]).catch((e) => { $("err").textContent = String(e.message || e); });
-$("judgeBtn").onclick = () => send("judge", [$("jid").value.trim()]).catch((e) => { $("err").textContent = String(e.message || e); });
+$("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).catch((e) => note(String(e.message || e), true));
+$("subBtn").onclick = () => send("submit_url", [$("jid").value.trim(), $("url").value.trim()]).catch((e) => note(String(e.message || e), true));
+$("judgeBtn").onclick = () => send("judge", [$("jid").value.trim()]).catch((e) => note(String(e.message || e), true));
 $("readBtn").onclick = async () => {
   try {
+    note("Reading job…");
     const raw = await readClient.readContract({
       address: CONTRACT, functionName: "get_job", args: [$("jid").value.trim() || "1"], stateStatus: "accepted",
     });
     const data = typeof raw === "string" ? JSON.parse(raw) : raw;
     $("out").innerHTML = `<span class="tag ${data.status || ""}">${data.status || "?"}</span><pre>${JSON.stringify(data, null, 2)}</pre>`;
-    $("err").textContent = "";
-  } catch (e) { $("err").textContent = String(e.message || e); }
+    note("Read " + (data.status || "empty"));
+  } catch (e) { note(String(e.message || e), true); }
 };
 </script>
 </body>
