@@ -43,7 +43,7 @@
     <div>
       <div class="brand">Studionet 61999</div>
       <h1>Spotter</h1>
-      <p class="lead">Connect. Pick an example or write your own. The app walks Open → Submit → Judge → Read.</p>
+      <p class="lead">Connect. Open a hunt. last_job_of fills the id. Submit one URL, judge, read the receipt.</p>
     </div>
     <div class="wallet">
       <div style="color:var(--mut);font-size:12px">Wallet</div>
@@ -99,7 +99,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.0/chains?bundle";
 
 const $ = (id) => document.getElementById(id);
-const CONTRACT = "0xbAd5ebca394B17Daf395427455c1493bc40CEE0B";
+const CONTRACT = "0x1BB9b00027c36EdAdeec03857Dbe09AF6AC1e871";
 const RPC = "https://studio.genlayer.com/api";
 const ZERO = "0x0000000000000000000000000000000000000000";
 $("caddr").textContent = CONTRACT;
@@ -135,10 +135,10 @@ function why(e) {
   if (t.includes("rejected") || t.includes("denied")) return "Signature rejected in MetaMask. Confirm the next popup.";
   if (t.includes("unrecognized chain") || t.includes("0xf22f")) return "Switch MetaMask to GenLayer Studio (61999).";
   if (t.includes("already final")) return "This job is already closed. Press New hunt.";
+  if (t.includes("locked to hunter")) return "This pending URL is locked to the first hunter.";
   if (t.includes("submit a url")) return "Submit a URL before Judge.";
   if (t.includes("fill every field")) return "A required field is empty.";
   if (t.includes("insufficient")) return "Not enough GEN. Use the Studio faucet.";
-  if (t.includes("eth_filltransaction")) return "If a hash appeared, the transaction still landed.";
   return raw;
 }
 function setStep(n) {
@@ -149,9 +149,9 @@ function setStep(n) {
   $("hint").textContent = ({
     1: "Step 1: Connect MetaMask on Studionet 61999.",
     2: "Step 2: Pick an example or edit the question, then press Open job.",
-    3: "Step 3: The job id is filled. Press Submit URL.",
+    3: "Step 3: Job id comes from last_job_of. Press Submit URL.",
     4: "Step 4: Press Judge and wait while the page is fetched.",
-    5: "Step 5: Press Read. Then press New hunt for another example.",
+    5: "Step 5: Press Read for status plus page_hash / fail_kind.",
   })[n];
 }
 function loadExample(key) {
@@ -168,13 +168,12 @@ async function readJob(id) {
   });
   return typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {});
 }
-async function latestOpenId() {
-  let found = "";
-  for (let i = 1; i <= 20; i++) {
-    const data = await readJob(i);
-    if (data.status === "OPEN") found = String(i);
-  }
-  return found;
+async function lastJobId() {
+  if (!account) return "";
+  const raw = await readClient.readContract({
+    address: CONTRACT, functionName: "last_job_of", args: [account], stateStatus: "accepted",
+  });
+  return String(raw || "").replace(/"/g, "");
 }
 function writeClient() {
   if (!account || !window.ethereum) throw new Error("Connect wallet first");
@@ -228,11 +227,11 @@ async function send(fn, args) {
 }
 
 $("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).then(async () => {
-  note("Looking up the new job id…");
-  await new Promise((r) => setTimeout(r, 8000));
-  const id = await latestOpenId();
+  note("Reading last_job_of…");
+  await new Promise((r) => setTimeout(r, 6000));
+  const id = await lastJobId();
   if (id) $("jid").value = id;
-  note(id ? ("Job " + id + " is OPEN. Press Submit URL.") : "Open job sent. If Submit fails, try the next id.");
+  note(id ? ("Job " + id + " is OPEN. Press Submit URL.") : "Open job sent. Call last_job_of if the id is empty.");
   setStep(3);
 }).catch((e) => note(why(e), true));
 
@@ -247,9 +246,9 @@ $("readBtn").onclick = async () => {
     const data = await readJob($("jid").value.trim() || "1");
     $("out").innerHTML = `<span class="tag ${data.status || ""}">${data.status || "?"}</span><pre>${JSON.stringify(data, null, 2)}</pre>`;
     if (data.status === "HIT" || data.status === "MISS" || data.status === "DEAD") {
-      note("Success. Job is " + data.status + ". Press New hunt to run another example.");
+      note("Success. Job is " + data.status + (data.fail_kind ? " / " + data.fail_kind : "") + ".");
     } else {
-      note("Current status is " + (data.status || "empty") + ". Finish the highlighted step.");
+      note("Current status is " + (data.status || "empty") + ".");
     }
     setStep(5);
   } catch (e) { note(why(e), true); }
