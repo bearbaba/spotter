@@ -120,39 +120,21 @@ class Spotter(gl.Contract):
                     }
                 )
 
-        raw_ev = collect()
-        try:
-            ev = json.loads(raw_ev)
-        except Exception:
-            ev = {"ok": False, "url": url, "chars": 0, "sha256": "", "error": "collect-json"}
-
-        rec = self.jobs[job_id]
-        rec.round_no = u32(int(rec.round_no) + 1)
-        rec.page_hash = str(ev.get("sha256", ""))[:64]
-        rec.page_chars = u32(int(ev.get("chars", 0)))
-        rec.fetch_ok = bool(ev.get("ok"))
-
-        if not rec.fetch_ok:
-            rec.status = "DEAD"
-            rec.fail_kind = "FETCH"
-            rec.justification = str(ev.get("error", "fetch failed"))[:500]
-            self.jobs[job_id] = rec
-            return
-
         raw = gl.eq_principle.prompt_non_comparative(
-            lambda: str(ev.get("page", "")),
+            collect,
             task=(
-                "QUESTION: " + question
-                + " RUBRIC: " + rubric
-                + " HIT if the live page answers yes. "
-                + "MISS if the page loads but does not support it. "
-                + "Do not use DEAD; fetch already succeeded. "
-                + "Return ONLY JSON keys status, justification."
+                "You receive JSON from collect() with ok, url, chars, sha256, page or error. "
+                "QUESTION: " + question + " RUBRIC: " + rubric + " "
+                "If ok is false: status DEAD, fail_kind FETCH, copy error into justification. "
+                "If ok is true: status HIT or MISS only, fail_kind empty. "
+                "Always echo sha256, chars, fetch_ok. "
+                "Return ONLY JSON keys status, justification, fail_kind, sha256, chars, fetch_ok."
             ),
             criteria=(
-                "JSON with status and justification. "
-                + "status exactly HIT or MISS. "
-                + "Do not invent page text. Valid JSON alone is not enough."
+                "JSON with status, justification, fail_kind, sha256, chars, fetch_ok. "
+                "DEAD + FETCH only when collect ok is false. "
+                "HIT or MISS only when collect ok is true. "
+                "sha256 and chars must match collect(). Do not invent page text."
             ),
         )
 
@@ -167,17 +149,34 @@ class Spotter(gl.Contract):
             except Exception:
                 parsed = {}
 
+        rec = self.jobs[job_id]
+        rec.round_no = u32(int(rec.round_no) + 1)
+        rec.page_hash = str(parsed.get("sha256", ""))[:64]
+        try:
+            rec.page_chars = u32(int(parsed.get("chars", 0)))
+        except Exception:
+            rec.page_chars = u32(0)
+        rec.justification = str(parsed.get("justification", ""))[:500]
+
         status = str(parsed.get("status", "")).upper()
-        if status not in ("HIT", "MISS"):
+        fail = str(parsed.get("fail_kind", "")).upper()
+        if status not in ("HIT", "MISS", "DEAD"):
             rec.status = "SUBMITTED"
             rec.fail_kind = "PARSE"
+            rec.fetch_ok = False
             rec.justification = "malformed or unexpected consensus output"
-            self.jobs[job_id] = rec
-            return
-
-        rec.status = status
-        rec.fail_kind = ""
-        rec.justification = str(parsed.get("justification", ""))[:500]
+        elif status == "DEAD":
+            rec.status = "DEAD"
+            rec.fail_kind = "FETCH"
+            rec.fetch_ok = False
+        else:
+            rec.status = status
+            rec.fail_kind = ""
+            rec.fetch_ok = True
+        if fail == "PARSE":
+            rec.status = "SUBMITTED"
+            rec.fail_kind = "PARSE"
+            rec.fetch_ok = False
         self.jobs[job_id] = rec
 
     @gl.public.view
