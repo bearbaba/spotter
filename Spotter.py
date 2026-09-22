@@ -3,9 +3,11 @@
 from genlayer import *
 from dataclasses import dataclass
 import json
+import hashlib
 
 
 FINAL = ("HIT", "MISS", "DEAD")
+ZERO = Address("0x0000000000000000000000000000000000000000")
 
 
 @allow_storage
@@ -16,48 +18,70 @@ class Job:
     question: str
     rubric: str
     url: str
+    url_history: str
     status: str
     justification: str
+    fail_kind: str
+    page_hash: str
+    page_chars: u32
+    fetch_ok: bool
     round_no: u32
 
 
 class Spotter(gl.Contract):
     jobs: TreeMap[str, Job]
+    last_job: TreeMap[str, str]
     next_id: u32
 
     def __init__(self):
         self.next_id = u32(1)
 
     @gl.public.write
-    def open_job(self, question: str, rubric: str) -> None:
+    def open_job(self, question: str, rubric: str) -> str:
         q = question.strip()
         r = rubric.strip()
         if not q or not r:
             raise Exception("question and rubric required")
         cid = int(self.next_id)
         self.next_id = u32(cid + 1)
-        self.jobs[str(cid)] = Job(
+        key = str(cid)
+        self.jobs[key] = Job(
             poster=gl.message.sender_address,
-            hunter=Address("0x0000000000000000000000000000000000000000"),
+            hunter=ZERO,
             question=q,
             rubric=r,
             url="",
+            url_history="",
             status="OPEN",
             justification="",
+            fail_kind="",
+            page_hash="",
+            page_chars=u32(0),
+            fetch_ok=False,
             round_no=u32(0),
         )
+        self.last_job[str(gl.message.sender_address)] = key
+        return key
 
     @gl.public.write
     def submit_url(self, job_id: str, url: str) -> None:
         rec = self.jobs[job_id]
         if rec.status in FINAL:
             raise Exception("already final")
-        u = url.strip()
+        u = url.strip()[:300]
         if not u:
             raise Exception("url required")
-        rec.url = u[:300]
-        rec.hunter = gl.message.sender_address
+        sender = gl.message.sender_address
+        if rec.status == "SUBMITTED":
+            if rec.hunter != sender:
+                raise Exception("pending url locked to hunter")
+        rec.url = u
+        rec.hunter = sender
+        hist = [p for p in rec.url_history.split("|") if p]
+        hist.append(u)
+        rec.url_history = "|".join(hist[-8:])
         rec.status = "SUBMITTED"
+        rec.fail_kind = ""
         self.jobs[job_id] = rec
 
     @gl.public.write
@@ -74,24 +98,60 @@ class Spotter(gl.Contract):
         def collect() -> str:
             try:
                 page = gl.nondet.web.render(url, mode="text")
-                return "URL: " + url + "\nPAGE:\n" + page[:7000]
+                body = page[:7000]
+                digest = hashlib.sha256(body.encode("utf-8", "replace")).hexdigest()
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "url": url,
+                        "chars": len(body),
+                        "sha256": digest,
+                        "page": body,
+                    }
+                )
             except Exception as err:
-                return "URL: " + url + "\nFAIL: " + str(err)
+                return json.dumps(
+                    {
+                        "ok": False,
+                        "url": url,
+                        "chars": 0,
+                        "sha256": "",
+                        "error": str(err),
+                    }
+                )
+
+        raw_ev = collect()
+        try:
+            ev = json.loads(raw_ev)
+        except Exception:
+            ev = {"ok": False, "url": url, "chars": 0, "sha256": "", "error": "collect-json"}
+
+        rec = self.jobs[job_id]
+        rec.round_no = u32(int(rec.round_no) + 1)
+        rec.page_hash = str(ev.get("sha256", ""))[:64]
+        rec.page_chars = u32(int(ev.get("chars", 0)))
+        rec.fetch_ok = bool(ev.get("ok"))
+
+        if not rec.fetch_ok:
+            rec.status = "DEAD"
+            rec.fail_kind = "FETCH"
+            rec.justification = str(ev.get("error", "fetch failed"))[:500]
+            self.jobs[job_id] = rec
+            return
 
         raw = gl.eq_principle.prompt_non_comparative(
-            collect,
+            lambda: str(ev.get("page", "")),
             task=(
                 "QUESTION: " + question
                 + " RUBRIC: " + rubric
                 + " HIT if the live page answers yes. "
                 + "MISS if the page loads but does not support it. "
-                + "DEAD if the page cannot be fetched. "
+                + "Do not use DEAD; fetch already succeeded. "
                 + "Return ONLY JSON keys status, justification."
             ),
             criteria=(
                 "JSON with status and justification. "
-                + "status exactly HIT, MISS or DEAD. "
-                + "DEAD only when fetch failed. "
+                + "status exactly HIT or MISS. "
                 + "Do not invent page text. Valid JSON alone is not enough."
             ),
         )
@@ -105,16 +165,19 @@ class Spotter(gl.Contract):
             try:
                 parsed = json.loads(text[start:end + 1]) if start >= 0 and end > start else {}
             except Exception:
-                parsed = {"status": "DEAD", "justification": "unparseable"}
+                parsed = {}
 
-        status = str(parsed.get("status", "DEAD")).upper()
-        if status not in FINAL:
-            status = "DEAD"
+        status = str(parsed.get("status", "")).upper()
+        if status not in ("HIT", "MISS"):
+            rec.status = "SUBMITTED"
+            rec.fail_kind = "PARSE"
+            rec.justification = "malformed or unexpected consensus output"
+            self.jobs[job_id] = rec
+            return
 
-        rec = self.jobs[job_id]
         rec.status = status
+        rec.fail_kind = ""
         rec.justification = str(parsed.get("justification", ""))[:500]
-        rec.round_no = u32(int(rec.round_no) + 1)
         self.jobs[job_id] = rec
 
     @gl.public.view
@@ -124,16 +187,26 @@ class Spotter(gl.Contract):
         rec = self.jobs[job_id]
         return json.dumps(
             {
+                "id": job_id,
                 "poster": str(rec.poster),
                 "hunter": str(rec.hunter),
                 "question": rec.question,
                 "rubric": rec.rubric,
                 "url": rec.url,
+                "url_history": rec.url_history,
                 "status": rec.status,
                 "justification": rec.justification,
+                "fail_kind": rec.fail_kind,
+                "page_hash": rec.page_hash,
+                "page_chars": int(rec.page_chars),
+                "fetch_ok": rec.fetch_ok,
                 "round_no": int(rec.round_no),
             }
         )
+
+    @gl.public.view
+    def last_job_of(self, who: str) -> str:
+        return self.last_job[who] if who in self.last_job else ""
 
     @gl.public.view
     def get_status(self, job_id: str) -> str:
