@@ -43,7 +43,7 @@
     <div>
       <div class="brand">Studionet 61999</div>
       <h1>Spotter</h1>
-      <p class="lead">Connect. Open a hunt. last_job_of fills the id. Submit one URL, judge, read the receipt.</p>
+      <p class="lead">Connect. Open a hunt. The job id comes from the open_job transaction return. Submit one URL, judge, read the receipt.</p>
     </div>
     <div class="wallet">
       <div style="color:var(--mut);font-size:12px">Wallet</div>
@@ -149,7 +149,7 @@ function setStep(n) {
   $("hint").textContent = ({
     1: "Step 1: Connect MetaMask on Studionet 61999.",
     2: "Step 2: Pick an example or edit the question, then press Open job.",
-    3: "Step 3: Job id comes from last_job_of. Press Submit URL.",
+    3: "Step 3: Job id comes from the open_job return. Press Submit URL.",
     4: "Step 4: Press Judge and wait while the page is fetched.",
     5: "Step 5: Press Read for status plus page_hash / fail_kind.",
   })[n];
@@ -162,6 +162,12 @@ function loadExample(key) {
   note("Loaded " + key + " example. Connect if needed, then Open job.");
   setStep(account ? 2 : 1);
 }
+function parseId(v) {
+  if (v == null) return "";
+  const s = String(v).replace(/"/g, "").trim();
+  if (!s || s === "undefined" || s === "null") return "";
+  return s;
+}
 async function readJob(id) {
   const raw = await readClient.readContract({
     address: CONTRACT, functionName: "get_job", args: [String(id)], stateStatus: "accepted",
@@ -173,7 +179,7 @@ async function lastJobId() {
   const raw = await readClient.readContract({
     address: CONTRACT, functionName: "last_job_of", args: [account], stateStatus: "accepted",
   });
-  return String(raw || "").replace(/"/g, "");
+  return parseId(raw);
 }
 function writeClient() {
   if (!account || !window.ethereum) throw new Error("Connect wallet first");
@@ -212,26 +218,43 @@ async function send(fn, args) {
   note("Sending " + fn + "…");
   const client = writeClient();
   const write = { address: CONTRACT, functionName: fn, args };
+  let tx;
   try {
     const estimate = await client.estimateTransactionFeesForWrite(write);
-    const tx = await client.writeContract({ ...write, fees: { distribution: estimate.distribution, feeValue: estimate.feeValue } });
-    note("Success. " + fn + " sent. Hash: " + tx);
-    return tx;
+    tx = await client.writeContract({ ...write, fees: { distribution: estimate.distribution, feeValue: estimate.feeValue } });
   } catch (first) {
     try {
-      const tx = await client.writeContract(write);
-      note("Success. " + fn + " sent. Hash: " + tx);
-      return tx;
+      tx = await client.writeContract(write);
     } catch (e) { throw new Error(why(e) || why(first)); }
   }
+  note("Success. " + fn + " sent. Hash: " + tx);
+  return { tx, client };
 }
 
-$("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).then(async () => {
-  note("Reading last_job_of…");
-  await new Promise((r) => setTimeout(r, 6000));
-  const id = await lastJobId();
+async function idFromOpenTx(client, tx) {
+  const hash = typeof tx === "string" ? tx : (tx && (tx.hash || tx.id || tx));
+  const tries = ["waitForFinalization", "waitForDecision", "waitForTransactionReceipt"];
+  for (const name of tries) {
+    if (typeof client[name] !== "function") continue;
+    try {
+      const done = await client[name]({ hash });
+      const ret = done && (done.result ?? done.returnValue ?? done.value ?? done.output);
+      const id = parseId(ret);
+      if (id) return id;
+    } catch (_) {}
+  }
+  return "";
+}
+
+$("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).then(async ({ tx, client }) => {
+  note("Reading open_job transaction return…");
+  let id = await idFromOpenTx(client, tx);
+  if (!id) {
+    await new Promise((r) => setTimeout(r, 6000));
+    id = await lastJobId();
+  }
   if (id) $("jid").value = id;
-  note(id ? ("Job " + id + " is OPEN. Press Submit URL.") : "Open job sent. Call last_job_of if the id is empty.");
+  note(id ? ("Job " + id + " from open_job. Press Submit URL.") : "Open sent. Set job id from the Studio return value of open_job.");
   setStep(3);
 }).catch((e) => note(why(e), true));
 
