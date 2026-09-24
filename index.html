@@ -6,7 +6,7 @@
 <title>Spotter</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Sora:wght@400;600&display=swap" rel="stylesheet"/>
 <style>
-  :root{--bg:#061014;--ink:#f6fffd;--mut:#9eb4b0;--teal:#2ee6d6;--line:rgba(46,230,214,.16)}
+  :root{--ink:#f6fffd;--mut:#9eb4b0;--teal:#2ee6d6;--line:rgba(46,230,214,.16)}
   *{box-sizing:border-box}
   body{margin:0;color:var(--ink);font:16px/1.5 Sora,system-ui;background:radial-gradient(80vw 50vw at 110% -10%,rgba(46,230,214,.22),transparent 40%),#061014;min-height:100vh}
   main{max-width:1040px;margin:auto;padding:36px 18px 90px}
@@ -16,9 +16,9 @@
   .lead{max-width:540px;color:var(--mut)}
   .wallet,.panel{background:rgba(8,18,22,.92);border:1px solid var(--line);border-radius:28px;padding:20px}
   .mono{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;color:#b7fff6}
-  button{border:0;border-radius:999px;padding:12px 18px;font-weight:700;cursor:pointer;background:transparent;color:#9ff7ee;border:1px solid rgba(46,230,214,.28)}
-  button.on{background:var(--teal);color:#042226;border-color:var(--teal);font-weight:800;box-shadow:0 0 0 4px rgba(46,230,214,.16)}
-  .chip{border-radius:14px;padding:10px 12px;font-size:13px;text-align:left}
+  button{border-radius:999px;padding:12px 18px;font-weight:700;cursor:pointer;background:transparent;color:#9ff7ee;border:1px solid rgba(46,230,214,.28)}
+  button.on{background:var(--teal);color:#042226;border-color:var(--teal)}
+  .chip{border-radius:14px;padding:10px 12px;font-size:13px}
   .steps{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0}
   .step{padding:8px 12px;border-radius:999px;border:1px solid var(--line);color:var(--mut);font-size:13px}
   .step.on{border-color:var(--teal);color:var(--teal);font-weight:700}
@@ -43,7 +43,7 @@
     <div>
       <div class="brand">Studionet 61999</div>
       <h1>Spotter</h1>
-      <p class="lead">Connect. Open a hunt. The job id comes from the open_job transaction return. Submit one URL, judge, read the receipt.</p>
+      <p class="lead">Job id comes from the open_job transaction return. The app does not call last_job_of.</p>
     </div>
     <div class="wallet">
       <div style="color:var(--mut);font-size:12px">Wallet</div>
@@ -67,6 +67,7 @@
     <button class="chip" id="exHit">Example HIT</button>
     <button class="chip" id="exMiss">Example MISS</button>
     <button class="chip" id="exDead">Example DEAD</button>
+    <button class="chip" id="exParse">Example PARSE</button>
     <button class="chip" id="newHunt">New hunt</button>
   </div>
   <div class="grid">
@@ -75,13 +76,13 @@
       <label>Question</label>
       <textarea id="q">Does example.org say the domain is for documentation examples?</textarea>
       <label>How to decide</label>
-      <textarea id="r">HIT if the live page says that. MISS if the page loads but does not. DEAD if it cannot be fetched.</textarea>
+      <textarea id="r">HIT if the live page says that.</textarea>
       <div class="actions"><button id="openBtn">2. Open job</button></div>
     </section>
     <section class="panel">
       <h2>Close it</h2>
-      <label>Job id</label>
-      <input id="jid" value="1"/>
+      <label>Job id (open_job return)</label>
+      <input id="jid" value=""/>
       <label>URL</label>
       <input id="url" value="https://example.org"/>
       <div class="actions">
@@ -99,7 +100,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.0/chains?bundle";
 
 const $ = (id) => document.getElementById(id);
-const CONTRACT = "0x1BB9b00027c36EdAdeec03857Dbe09AF6AC1e871";
+const CONTRACT = "0x730143dF831778569e15975Ef44dFDeCB668609b";
 const RPC = "https://studio.genlayer.com/api";
 const ZERO = "0x0000000000000000000000000000000000000000";
 $("caddr").textContent = CONTRACT;
@@ -107,21 +108,10 @@ const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO
 let account = null;
 
 const EXAMPLES = {
-  HIT: {
-    q: "Does example.org say the domain is for documentation examples?",
-    r: "HIT if the live page says that.",
-    url: "https://example.org",
-  },
-  MISS: {
-    q: "Is example.org the official United Nations homepage?",
-    r: "MISS if the page is not the UN.",
-    url: "https://example.org",
-  },
-  DEAD: {
-    q: "Does this page confirm the claim?",
-    r: "DEAD if the page cannot be fetched.",
-    url: "https://this-domain-should-not-resolve-genlayer-test.invalid",
-  },
+  HIT: { q: "Does example.org say the domain is for documentation examples?", r: "HIT if the live page says that.", url: "https://example.org" },
+  MISS: { q: "Is example.org the official United Nations homepage?", r: "MISS if the page is not the UN.", url: "https://example.org" },
+  DEAD: { q: "Does this page confirm the claim?", r: "DEAD if the page cannot be fetched.", url: "https://this-domain-should-not-resolve-genlayer-test.invalid" },
+  PARSE: { q: "__PARSE_TEST__", r: "n/a", url: "https://example.org" },
 };
 
 function note(text, bad) {
@@ -131,35 +121,21 @@ function note(text, bad) {
 function why(e) {
   const raw = String(e && (e.shortMessage || e.message || e));
   const t = raw.toLowerCase();
-  if (t.includes("connect")) return "Wallet is not connected. Press 1. Connect.";
-  if (t.includes("rejected") || t.includes("denied")) return "Signature rejected in MetaMask. Confirm the next popup.";
-  if (t.includes("unrecognized chain") || t.includes("0xf22f")) return "Switch MetaMask to GenLayer Studio (61999).";
-  if (t.includes("already final")) return "This job is already closed. Press New hunt.";
-  if (t.includes("locked to hunter")) return "This pending URL is locked to the first hunter.";
-  if (t.includes("submit a url")) return "Submit a URL before Judge.";
-  if (t.includes("fill every field")) return "A required field is empty.";
-  if (t.includes("insufficient")) return "Not enough GEN. Use the Studio faucet.";
+  if (t.includes("connect")) return "Wallet is not connected.";
+  if (t.includes("rejected") || t.includes("denied")) return "Signature rejected.";
+  if (t.includes("0xf22f")) return "Switch MetaMask to Studionet 61999.";
+  if (t.includes("locked to hunter")) return "Pending URL is locked to the first hunter.";
   return raw;
 }
 function setStep(n) {
   ["s1","s2","s3","s4","s5"].forEach((id, i) => $(id).classList.toggle("on", i + 1 === n));
-  ["connectBtn","openBtn","subBtn","judgeBtn","readBtn"].forEach((id) => $(id).classList.remove("on"));
-  ({1:"connectBtn",2:"openBtn",3:"subBtn",4:"judgeBtn",5:"readBtn"})[n] &&
-    $(({1:"connectBtn",2:"openBtn",3:"subBtn",4:"judgeBtn",5:"readBtn"})[n]).classList.add("on");
-  $("hint").textContent = ({
-    1: "Step 1: Connect MetaMask on Studionet 61999.",
-    2: "Step 2: Pick an example or edit the question, then press Open job.",
-    3: "Step 3: Job id comes from the open_job return. Press Submit URL.",
-    4: "Step 4: Press Judge and wait while the page is fetched.",
-    5: "Step 5: Press Read for status plus page_hash / fail_kind.",
-  })[n];
 }
 function loadExample(key) {
   const ex = EXAMPLES[key];
   $("q").value = ex.q;
   $("r").value = ex.r;
   $("url").value = ex.url;
-  note("Loaded " + key + " example. Connect if needed, then Open job.");
+  note("Loaded " + key + ".");
   setStep(account ? 2 : 1);
 }
 function parseId(v) {
@@ -174,13 +150,6 @@ async function readJob(id) {
   });
   return typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {});
 }
-async function lastJobId() {
-  if (!account) return "";
-  const raw = await readClient.readContract({
-    address: CONTRACT, functionName: "last_job_of", args: [account], stateStatus: "accepted",
-  });
-  return parseId(raw);
-}
 function writeClient() {
   if (!account || !window.ethereum) throw new Error("Connect wallet first");
   return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
@@ -188,12 +157,12 @@ function writeClient() {
 
 $("connectBtn").onclick = async () => {
   try {
-    if (!window.ethereum) throw new Error("No wallet in this browser");
+    if (!window.ethereum) throw new Error("No wallet");
     account = (await window.ethereum.request({ method: "eth_requestAccounts" }))[0];
     await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xf22f" }] });
     $("who").textContent = account;
     $("disconnectBtn").hidden = false;
-    note("Connected " + account + " on Studionet 61999.");
+    note("Connected " + account);
     setStep(2);
   } catch (e) { note(why(e), true); }
 };
@@ -201,21 +170,16 @@ $("disconnectBtn").onclick = () => {
   account = null;
   $("who").textContent = "not connected";
   $("disconnectBtn").hidden = true;
-  note("Disconnected.");
   setStep(1);
 };
 $("exHit").onclick = () => loadExample("HIT");
 $("exMiss").onclick = () => loadExample("MISS");
 $("exDead").onclick = () => loadExample("DEAD");
-$("newHunt").onclick = () => {
-  loadExample("MISS");
-  setStep(account ? 2 : 1);
-  note("New hunt ready. Open job, then Submit, Judge, Read.");
-};
+$("exParse").onclick = () => loadExample("PARSE");
+$("newHunt").onclick = () => loadExample("MISS");
 
 async function send(fn, args) {
   if (!args.every((x) => String(x || "").trim())) throw new Error("Fill every field first");
-  note("Sending " + fn + "…");
   const client = writeClient();
   const write = { address: CONTRACT, functionName: fn, args };
   let tx;
@@ -223,23 +187,19 @@ async function send(fn, args) {
     const estimate = await client.estimateTransactionFeesForWrite(write);
     tx = await client.writeContract({ ...write, fees: { distribution: estimate.distribution, feeValue: estimate.feeValue } });
   } catch (first) {
-    try {
-      tx = await client.writeContract(write);
-    } catch (e) { throw new Error(why(e) || why(first)); }
+    tx = await client.writeContract(write);
   }
-  note("Success. " + fn + " sent. Hash: " + tx);
+  note(fn + " sent " + tx);
   return { tx, client };
 }
 
 async function idFromOpenTx(client, tx) {
   const hash = typeof tx === "string" ? tx : (tx && (tx.hash || tx.id || tx));
-  const tries = ["waitForFinalization", "waitForDecision", "waitForTransactionReceipt"];
-  for (const name of tries) {
+  for (const name of ["waitForFinalization", "waitForDecision", "waitForTransactionReceipt"]) {
     if (typeof client[name] !== "function") continue;
     try {
       const done = await client[name]({ hash });
-      const ret = done && (done.result ?? done.returnValue ?? done.value ?? done.output);
-      const id = parseId(ret);
+      const id = parseId(done && (done.result ?? done.returnValue ?? done.value ?? done.output));
       if (id) return id;
     } catch (_) {}
   }
@@ -247,33 +207,21 @@ async function idFromOpenTx(client, tx) {
 }
 
 $("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).then(async ({ tx, client }) => {
-  note("Reading open_job transaction return…");
-  let id = await idFromOpenTx(client, tx);
-  if (!id) {
-    await new Promise((r) => setTimeout(r, 6000));
-    id = await lastJobId();
-  }
+  const id = await idFromOpenTx(client, tx);
   if (id) $("jid").value = id;
-  note(id ? ("Job " + id + " from open_job. Press Submit URL.") : "Open sent. Set job id from the Studio return value of open_job.");
+  note(id
+    ? ("Job " + id + " from open_job return.")
+    : "Paste the open_job return value into Job id. The app will not call last_job_of.");
   setStep(3);
 }).catch((e) => note(why(e), true));
 
 $("subBtn").onclick = () => send("submit_url", [$("jid").value.trim(), $("url").value.trim()]).then(() => setStep(4)).catch((e) => note(why(e), true));
-$("judgeBtn").onclick = () => send("judge", [$("jid").value.trim()]).then(() => {
-  note("Judge sent. Wait, then press Read.");
-  setStep(5);
-}).catch((e) => note(why(e), true));
-
+$("judgeBtn").onclick = () => send("judge", [$("jid").value.trim()]).then(() => setStep(5)).catch((e) => note(why(e), true));
 $("readBtn").onclick = async () => {
   try {
-    const data = await readJob($("jid").value.trim() || "1");
+    const data = await readJob($("jid").value.trim());
     $("out").innerHTML = `<span class="tag ${data.status || ""}">${data.status || "?"}</span><pre>${JSON.stringify(data, null, 2)}</pre>`;
-    if (data.status === "HIT" || data.status === "MISS" || data.status === "DEAD") {
-      note("Success. Job is " + data.status + (data.fail_kind ? " / " + data.fail_kind : "") + ".");
-    } else {
-      note("Current status is " + (data.status || "empty") + ".");
-    }
-    setStep(5);
+    note((data.status || "empty") + (data.fail_kind ? " / " + data.fail_kind : ""));
   } catch (e) { note(why(e), true); }
 };
 setStep(1);
