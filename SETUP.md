@@ -37,7 +37,6 @@ If those three views return JSON, the deployment works.
 git clone https://github.com/bearbaba/spotter.git
 cd spotter
 python -m http.server 8080
-
 Open http://localhost:8080/index.html
 Same wallet steps as Path B.
 
