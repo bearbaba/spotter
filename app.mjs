@@ -465,6 +465,15 @@ $("diagnoseBtn").onclick = async () => {
       show("Wallet receipt status: " + status);
       show("Event logs returned: " + (Array.isArray(evmReceipt.logs) ? evmReceipt.logs.length : "unknown"));
       show("Gas used: " + String(evmReceipt.gasUsed ?? "unknown"));
+      // Preserve public RPC log evidence even when the SDK event decoder does not recognize it.
+      // This never requests a signature and avoids interpreting an unrelated event as a success.
+      if (Array.isArray(evmReceipt.logs)) {
+        for (const [i, log] of evmReceipt.logs.slice(0, 5).entries()) {
+          show("Log #" + i + " emitter: " + String(log?.address ?? log?.emitter ?? "(missing)"));
+          show("Log #" + i + " topic[0]: " + String(log?.topics?.[0] ?? log?.topic0 ?? "(missing)"));
+          show("Log #" + i + " indexed topic count: " + (Array.isArray(log?.topics) ? log.topics.length : "unknown"));
+        }
+      }
       if (status === "0x0" || status === "0") {
         show("EVM execution failed. Do not assume a GenLayer Job exists.");
       } else {
@@ -478,6 +487,24 @@ $("diagnoseBtn").onclick = async () => {
       show("Wallet receipt unavailable. Transaction success or failure cannot be determined from this response.");
     }
 
+    // Independently verify that the historical contract itself is still readable on this RPC.
+    // A Studio editor list can be empty even when the deployed chain state is intact.
+    show("Checking historical contract Job #1 without submitting a transaction…");
+    try {
+      const proof = parseJobResult(await diagnosticRead("Contract read for Job #1", () =>
+        readClient.readContract({
+          address: CONTRACT, functionName: "get_job", args: ["1"],
+          transactionHashVariant: "latest-final",
+        })));
+      if (proof?.id === "1") {
+        show("Contract Job #1: FOUND — verdict " + String(proof.status ?? "unknown"));
+        if (proof.page_hash) show("Contract Job #1 page hash: " + String(proof.page_hash));
+      } else {
+        show("Contract Job #1: NOT FOUND in current final state. This does not by itself prove the deployment was deleted.");
+      }
+    } catch (error) {
+      show("Contract Job #1 read failed: " + errorText(error) + ". Network or RPC failure is also possible.");
+    }
     if (pending.wallet && /^0x[0-9a-fA-F]{40}$/.test(pending.wallet)) {
       show("Checking latest FINAL contract state…");
       try {

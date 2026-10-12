@@ -9,7 +9,7 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true, stallDiagnosticRpc = false } = {}) {
+function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false } = {}) {
   const wallet = "0x1111111111111111111111111111111111111111";
   const hash = "0x" + "a".repeat(64);
   const elements = new Map();
@@ -43,7 +43,13 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false } = {}) {
         if (stallDiagnosticRpc) return new Promise(() => {});
         return { hash, from: wallet, to: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575" };
       }
-      if (method === "eth_getTransactionReceipt") return { status: "0x1", logs: [] };
+      if (method === "eth_getTransactionReceipt") return {
+        status: "0x1",
+        logs: withUnknownLog ? [{
+          address: "0x2222222222222222222222222222222222222222",
+          topics: ["0x" + "b".repeat(64)],
+        }] : [],
+      };
       throw Error("Unexpected wallet RPC " + method);
     },
   };
@@ -238,4 +244,22 @@ test("a hung transaction RPC gives visible diagnostics and bounded timeout witho
   assert.equal(page.element("txDiagnostics").hidden, false);
   assert.equal(page.writes, countBefore);
   assert.equal(page.storage.get("spotter.pending"), pendingBefore);
+});
+
+test("diagnostics identify an unknown receipt event and check historical contract liveness", async () => {
+  const page = makePage({ applyWrites: false, withUnknownLog: true });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  const writesBefore = page.writes;
+  const storedBefore = page.storage.get("spotter.pending");
+  await page.element("diagnoseBtn").onclick();
+  const details = page.element("txDiagnostics").textContent;
+  assert.match(details, /Event logs returned: 1/);
+  assert.match(details, /Log #0 emitter: 0x2222222222222222222222222222222222222222/);
+  assert.match(details, /Log #0 topic\[0\]: 0x[b]{64}/);
+  assert.match(details, /No matching NewTransaction event/);
+  assert.match(details, /Contract Job #1: FOUND — verdict HIT/);
+  assert.match(details, /Contract Job #1 page hash: [f]{64}/);
+  assert.equal(page.writes, writesBefore, "no wallet writes permitted during diagnostics");
+  assert.equal(page.storage.get("spotter.pending"), storedBefore);
 });
