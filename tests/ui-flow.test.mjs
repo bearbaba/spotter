@@ -530,7 +530,7 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-preserve-evidence-url"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-auto-finality"/);
 });
 
 test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
@@ -559,7 +559,7 @@ test("proof result uses accessible mobile-safe layout without injecting contract
   assert.match(html,/\.proof-field-value\{/);
   assert.match(html,/\.proof-hash\{/);
   assert.match(html,/\.proof-json\{/);
-  assert.match(html,/preserve-evidence-url/);
+  assert.match(html,/auto-finality/);
 });
 
 test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
