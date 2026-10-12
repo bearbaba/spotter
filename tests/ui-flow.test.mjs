@@ -308,8 +308,8 @@ test("canonical GenLayer hash reports FINALIZED SUCCESS without relying on EVM N
   await page.element("connectBtn").onclick();
   await page.element("openBtn").onclick();
   assert.equal(page.writes, 1);
-  assert.match(page.element("msg").textContent, /GenLayer Studio confirms FINALIZED \/ SUCCESS/);
-  assert.match(page.element("msg").textContent, /Return Value/);
+  assert.match(page.element("msg").textContent, /Studio has accepted this open_job/);
+  assert.match(page.element("msg").textContent, /Browse jobs/);
   assert.equal(page.element("jid").value, "", "a successful transaction alone must not guess the Job ID");
   assert.equal(page.storage.has("spotter.pending"), true, "keep pending until exact Job ID is verified");
   await page.element("resumeBtn").onclick();
