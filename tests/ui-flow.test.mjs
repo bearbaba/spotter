@@ -145,7 +145,7 @@ test("missing NewTransaction logs: recover Create / Submit / Verify from exact f
   assert.equal(page.writes, 3);
   assert.equal(page.job.status, "HIT");
   assert.equal(page.storage.has("spotter.pending"), false);
-  assert.match(page.element("out").children.map(x=>x.textContent||"").join(" "), /HIT/);
+  assert.match(page.element("out").children.map(x=>x.textContent||"").join(" "), /Evidence supports this claim/);
 });
 test("no matching finalized state never auto-resends or announces success", async () => {
   const page = makePage({ applyWrites: false });
@@ -528,7 +528,7 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-resume-unblock-v2"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-readable-receipts"/);
 });
 
 test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
