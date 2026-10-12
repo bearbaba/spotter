@@ -412,13 +412,31 @@ test("a FINALIZED GenVM leader return automatically recovers the newly opened jo
   assert.equal(page.storage.has("spotter.pending"), false);
 });
 
-test("public job explorer exists and never requires wallet signatures or transaction hashes", async () => {
+test("secondary history loads only when explicitly opened and never signs", async () => {
   const page = makePage({ existingJob: true });
   assert.equal(page.writes, 0);
+  assert.equal(page.element("jobsList").children.length, 0, "history does not preload on the main page");
+  assert.equal(page.element("jobs").open, undefined, "secondary history starts collapsed");
+  await page.element("openActivityBtn").onclick();
+  assert.equal(page.element("jobs").open, true);
   assert.ok(page.element("jobsList").children.length > 0);
   await page.element("allJobsBtn").onclick();
   await page.element("myJobsBtn").onclick();
   assert.equal(page.writes, 0);
   assert.equal(page.element("jid").value, "");
   assert.equal(page.storage.has("spotter.pending"), false);
+});
+
+test("verification workspace remains ahead of collapsed Activity & history in the DOM", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /href="#workspace">Start verification/);
+  assert.ok(html.indexOf('<main id="workspace">') > 0);
+  const workspaceEnd=html.indexOf("</main>");
+  const activity=html.indexOf('id="jobs"');
+  const footer=html.indexOf('<footer class="footer">');
+  assert.ok(activity > workspaceEnd && activity < footer);
+  assert.match(html, /<details class="jobs-panel" id="jobs">/);
+  assert.doesNotMatch(html, /<details class="jobs-panel" id="jobs" open/);
+  assert.match(html, /id="openActivityBtn"/);
+  assert.doesNotMatch(html, /Explore verifications<\/h2>/);
 });
