@@ -641,7 +641,7 @@ $("checkCompletedBtn").onclick = async () => {
   if (!raw) { note("No transaction needs recovery. Open Activity & history to continue an existing Job."); setStage(flowStage); return; }
   let pending;
   try { pending = JSON.parse(raw); }
-  catch { note("Saved transaction details are invalid. Use transaction diagnostics; no transaction was sent.", true); btn.disabled=false; btn.textContent="Check completed transaction ↻"; return; }
+  catch { note("Saved transaction details are invalid. Use transaction diagnostics; no transaction was sent.", true); btn.disabled=false; btn.textContent="Check now (only if delayed) ↻"; return; }
   try {
     const chain = await diagnosticRead("Wallet network", () =>
       window.ethereum.request({method:"eth_chainId"}), 7000);
@@ -649,7 +649,7 @@ $("checkCompletedBtn").onclick = async () => {
     if (await reconcileTrackedExistingJob(pending)) return;
     note("Could not yet match the saved transaction to a finalized on-chain Job. The original transaction is still protected. Open Transaction details for diagnostics.", "pending");
   } catch (err) { note(errorText(err), true); }
-  finally { btn.textContent = "Check completed transaction ↻"; setStage(flowStage); }
+  finally { btn.textContent = "Check now (only if delayed) ↻"; setStage(flowStage); }
 };
 $("resumeBtn").onclick = () => guarded(async () => {
   const stored = sessionStorage.getItem("spotter.pending");

@@ -225,7 +225,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
           <button class="btn" type="button" id="subBtn" disabled>2 · Submit evidence</button>
           <button class="btn" type="button" id="judgeBtn" disabled>3 · Run verification</button>
         </div>
-        <div id="pendingRecoveryActions" class="hidden" style="margin:10px 0 12px"><button type="button" id="checkCompletedBtn" class="btn btn-primary" style="width:100%">Check completed transaction ↻</button><p class="hint">Read-only check. No new MetaMask signature or transaction.</p></div>
+        <div id="pendingRecoveryActions" class="hidden" style="margin:10px 0 12px"><p class="hint" style="margin-bottom:8px"><strong>Automatic updates enabled.</strong> Spotter checks GenLayer every few seconds and advances when the transaction is finalized.</p><button type="button" id="checkCompletedBtn" class="btn btn-subtle" style="width:100%">Check now (only if delayed) ↻</button><p class="hint">Optional read-only fallback if the network is slow. Never re-sign or resubmit.</p></div>
         <div class="action-guide" role="status" aria-live="polite" id="actionGuide"><strong>Next action:</strong> Enter your claim and rubric, then select the highlighted Create job button. Already have a job? Open Activity &amp; history to continue.</div>
         <p class="hint">You control every signature in MetaMask. Read-only actions never send transactions.</p>
       </section>
@@ -315,6 +315,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <nav><a href="https://github.com/bearbaba/spotter" target="_blank" rel="noopener noreferrer">GitHub ↗</a> · <a href="https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b" target="_blank" rel="noopener noreferrer">Contract ↗</a></nav>
   </footer>
 </div>
-<script type="module" src="./app.mjs?v=spotter-20261012-auto-finality"></script>
+<script type="module" src="./app.mjs?v=spotter-20261012-auto-finality-label"></script>
 </body>
 </html>
