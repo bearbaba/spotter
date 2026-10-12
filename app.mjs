@@ -1022,6 +1022,29 @@ async function restoreTrackedJobOnLoad() {
   if (await reconcileTrackedExistingJob(p)) return;
   setStage(flowStage); // Keep unresolved writes blocked, never silently re-send.
 }
+// Poll READ-ONLY finalized state while a wallet transaction is tracked.
+// No wallet signatures, retries of writeContract, or automatic clearing on uncertainty.
+let backgroundReconciliationBusy = false;
+async function autoReconcileTrackedJob() {
+  if (backgroundReconciliationBusy || busy || !account) return;
+  const raw = sessionStorage.getItem("spotter.pending");
+  if (!raw) return;
+  let pending;
+  try { pending = JSON.parse(raw); } catch { return; }
+  if (String(pending.wallet || "").toLowerCase() !== account.toLowerCase()) return;
+  backgroundReconciliationBusy = true;
+  try { await reconcileTrackedExistingJob(pending); }
+  catch { /* Testnet RPC may be intermittent. Keep tracking and retry later. */ }
+  finally { backgroundReconciliationBusy = false; }
+}
+if (typeof setInterval === "function") {
+  setInterval(() => { void autoReconcileTrackedJob(); }, 7000);
+}
+if (typeof document.addEventListener === "function") {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void autoReconcileTrackedJob();
+  });
+}
 $("jobs").ontoggle = () => {
   if ($("jobs").open) void jobsBrowser.scan();
 };
