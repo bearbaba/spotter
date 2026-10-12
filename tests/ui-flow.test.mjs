@@ -505,3 +505,28 @@ test("unmatched pending URL stays locked and does not resend or unlock Judge", a
   assert.equal(page.storage.has("spotter.pending"),true);
   assert.equal(page.element("judgeBtn").disabled,true);
 });
+
+test("visible read-only check button unlocks accepted submit without a duplicate write", async () => {
+  const page=makePage();
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  await page.element("subBtn").onclick();
+  const writes=page.writes;
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"b".repeat(64),fn:"submit_url",jobId:"7",
+    wallet:"0x1111111111111111111111111111111111111111",
+    url:"https://example.org",baselineStatus:"OPEN",baselineUrl:""
+  }));
+  page.element("recoveryHash").value="";
+  await page.element("checkCompletedBtn").onclick();
+  assert.equal(page.writes,writes);
+  assert.equal(page.storage.has("spotter.pending"),false);
+  assert.equal(page.element("judgeBtn").disabled,false);
+  assert.match(page.element("actionGuide").textContent,/Run verification/);
+});
+test("explicit pending recovery control and cache-busted release script stay present",()=>{
+  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+  assert.match(html,/id="checkCompletedBtn"/);
+  assert.match(html,/id="pendingRecoveryActions"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-resume-unblock-v2"/);
+});
