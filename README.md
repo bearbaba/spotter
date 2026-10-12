@@ -4,15 +4,15 @@
 
 Spotter lets a poster define a question and a decision rubric. A hunter submits a live public URL; GenLayer's validators fetch and evaluate it. The on-chain record exposes a **HIT**, **MISS**, or **DEAD** verdict, an explanation, and fetch metadata such as the returned page hash. **This is an experimental AI-assisted evaluation, not a guarantee of factual truth or immutable historical webpage content.** There is no bounty or payment system in the current Spotter contract.
 
-## Start in under a minute (no wallet, Job ID or transaction hash)
+## Main path: verify a source in four steps
 
-1. Open [Spotter](https://bearbaba.github.io/spotter/). The **Explore verifications** panel immediately reads sequential existing on-chain jobs in small bounded batches (IDs 1–12 initially), newest first.
-2. Select **All jobs** or **Read proof** on any job to inspect its current finalized verdict, URL, reason and page hash. No wallet, token or signature is required.
-3. To see jobs associated with a wallet, connect MetaMask on Studionet 61999 and select **My jobs**. Previously approved MetaMask accounts are detected with `eth_accounts` without prompting a signature.
-4. For an **OPEN** job, any connected Studionet wallet can select **Submit a source** to become its first hunter. For a **SUBMITTED** job, any connected wallet can request **Run verification** (the deployed contract's judge method is permissionless). Selecting a job re-reads its finalized status and fills the form **without sending a transaction**. An existing SUBMITTED source can only be replaced by the first hunter; the current UI instead offers Verify.
-5. Only **Submit evidence** and **Run verification** create wallet-approved testnet transactions. Wait for accepted chain state and use the public Job explorer to read the result.
+1. Open [Spotter](https://bearbaba.github.io/spotter/). The prominent **Start verification** action opens the four-step verification workspace; historical jobs do not appear in the hero.
+2. Define a claim and rubric, provide a public source URL, then connect a Studionet wallet and explicitly approve **Create job → Submit evidence → Run verification** as separate transactions. The sample public proof is readable without a wallet.
+3. Already have a job? Select **Find and continue your work** in the workspace. This opens the collapsed **Activity & history** section below the main workspace; it reads actual finalized jobs only when opened, without requesting a wallet signature.
+4. Within secondary Activity & history, use **My jobs** to filter by poster or hunter, or **All jobs** to participate permissionlessly. OPEN jobs can accept a source from any wallet; SUBMITTED jobs can be judged by any wallet. Selecting a job rechecks its finalized status and fills the main form without signing.
+5. Select **Read proof** in the public proof panel or activity list to inspect accepted status, justification and SHA-256. Each write requires separate wallet approval; history browsing is read-only.
 
-The existing deployed contract does not implement a native job index; the static frontend safely scans sequential contract IDs in throttled pages, with **Load more jobs** for further history (up to 480 per browser visit). If an RPC call fails it shows an error, never fabricates an empty result. No off-chain indexer, backend, external API key or contract upgrade is required.
+The existing deployed contract does not implement a native job index; the optional secondary Activity & history panel safely scans sequential contract IDs on demand, with **Load more jobs** (up to 480 per browser visit). If an RPC call fails it shows an error, never fabricates an empty result. No off-chain indexer, backend, external API key or contract upgrade is required.
 
 ## Verify without signing anything (legacy direct lookup path)
 
