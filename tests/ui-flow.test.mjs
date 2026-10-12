@@ -9,7 +9,7 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false, studioLeaderReturn = false } = {}) {
+function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false, studioLeaderReturn = false, existingJob = false } = {}) {
   const wallet = mixedCasePoster ? "0x" + "a".repeat(40) : "0x1111111111111111111111111111111111111111";
   const storedPoster = mixedCasePoster ? "0x" + "A".repeat(40) : wallet;
   const hash = "0x" + "a".repeat(64);
@@ -34,7 +34,7 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
     getElementById: element,
     createElement: (name) => ({ ...element("created-" + name + "-" + Math.random()), children: [], append(...items){this.children.push(...items);} }),
   };
-  let job = null, writes = 0;
+  let job = existingJob ? { id: "7", poster: storedPoster, status: "OPEN", question: "Historical result", rubric: "Exact match", url: "", round_no: 0 } : null, writes = 0;
   const ethereum = {
     async request({ method }) {
       if (method === "eth_requestAccounts") return [wallet];
@@ -340,7 +340,7 @@ test("recover existing hash without wallet or sessionStorage", async () => {
   assert.equal(page.element("jid").value, "");
 });
 test("return encoded in SDK leader receipt identifies a read-only proof without auto-unlocking wallet writes", async () => {
-  const page = makePage({ studioTxSuccess: true, studioLeaderReturn: true });
+  const page = makePage({ studioTxSuccess: true, studioLeaderReturn: true, existingJob: true });
   page.element("recoveryHash").value = "0x" + "a".repeat(64);
   await page.element("recoverHashBtn").onclick();
   assert.match(page.element("recoveryResult").textContent, /Explicit open_job return ID: 7/);
