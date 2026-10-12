@@ -8,10 +8,11 @@ export function createJobsBrowser({document, readJob, getAccount, isWriteBlocked
   let next = 1, ended = false, loading = false, mode = "all";
   const ownerMatches = (job,who) => Boolean(who && [job.poster,job.hunter].some(x =>
     typeof x === "string" && x.toLowerCase() === who.toLowerCase()));
+  // Contract policy: any wallet may become first hunter of an OPEN Job;
+  // judge is permissionless for SUBMITTED, while only a hunter can replace
+  // their already-submitted URL. The UI must not invent owner-only restrictions.
   const isActionable = (job,who) => Boolean(who && !isWriteBlocked() &&
-    String(job.poster || "").toLowerCase() === who.toLowerCase() &&
-    (job.status === "OPEN" || (job.status === "SUBMITTED" &&
-      String(job.hunter || "").toLowerCase() === who.toLowerCase())));
+    (job.status === "OPEN" || job.status === "SUBMITTED"));
   function button(label, cls, handler) {
     const el=document.createElement("button");
     el.type="button"; el.className=cls; el.textContent=label; el.onclick=handler;
@@ -51,7 +52,7 @@ export function createJobsBrowser({document, readJob, getAccount, isWriteBlocked
       const actions=document.createElement("div");actions.className="job-card-actions";
       actions.append(button("Read proof ↗","btn btn-small btn-subtle",()=>readProof(String(job.id))));
       if(isActionable(job,who)) {
-        actions.append(button(state==="OPEN"?"Continue · Submit ↗":"Continue · Verify ↗",
+        actions.append(button(state==="OPEN"?"Submit a source ↗":"Run verification ↗",
           "btn btn-small btn-primary",()=>continueJob(String(job.id))));
       }
       card.append(head,claim,meta,actions);el.append(card);
