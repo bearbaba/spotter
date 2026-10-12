@@ -453,7 +453,7 @@ async function waitOnChain(p) {
   if(!window.ethereum?.request)throw Error("Connect a wallet provider to inspect the pending transaction.");
   const chainId=await window.ethereum.request({method:"eth_chainId"});
   if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
-  if (await reconcileTrackedExistingJob(p)) return { statusName: "FINALIZED", returnValue: p.jobId, observedContractState: true, alreadyReconciled: true };
+  if (await reconcileTrackedExistingJob(p)) return { statusName: "FINALIZED", returnValue: p.fn === "open_job" ? $("jid").value : p.jobId, observedContractState: true, alreadyReconciled: true };
   let genId=p.genlayerId;
   // On GenLayer Studio, the hash returned to the wallet can ALREADY be
   // the canonical GenLayer transaction hash. Always read that exact ID first.
