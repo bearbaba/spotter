@@ -557,7 +557,7 @@ test("proof result uses accessible mobile-safe layout without injecting contract
   assert.match(html,/\.proof-field-value\{/);
   assert.match(html,/\.proof-hash\{/);
   assert.match(html,/\.proof-json\{/);
-  assert.match(html,/open-job-inline-recovery/);
+  assert.match(html,/preserve-evidence-url/);
 });
 
 test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
