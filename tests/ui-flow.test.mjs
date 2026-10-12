@@ -25,7 +25,8 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
       id, value: defaultValues[id] || "", textContent: "", className: "", hidden: false,
-      disabled: false, title: "", style: {}, children: [],
+      disabled: false, title: "", style: {}, children: [], dataset: {}, attributes: {},
+      setAttribute(name,value) { this.attributes[name] = String(value); },
       classList: { toggle(){}, remove(){}, add(){} },
       replaceChildren(...items) { this.children = [...items]; },
       append(...items) { this.children.push(...items); },
@@ -440,4 +441,31 @@ test("verification workspace remains ahead of collapsed Activity & history in th
   assert.doesNotMatch(html, /<details class="jobs-panel" id="jobs" open/);
   assert.match(html, /id="openActivityBtn"/);
   assert.doesNotMatch(html, /Explore verifications<\/h2>/);
+});
+
+test("primary actions visibly highlight only the next valid step and report busy state", async () => {
+  const page = makePage();
+  assert.equal(page.element("openBtn").dataset.current, "false");
+  assert.match(page.element("actionGuide").textContent, /Connect a Studionet wallet/);
+  await page.element("connectBtn").onclick();
+  assert.equal(page.element("openBtn").dataset.current, "true");
+  assert.equal(page.element("subBtn").dataset.current, "false");
+  assert.match(page.element("subBtn").title, /Complete the previous step/);
+  await page.element("openBtn").onclick();
+  assert.equal(page.element("openBtn").dataset.current, "false");
+  assert.equal(page.element("subBtn").dataset.current, "true");
+  assert.match(page.element("actionGuide").textContent, /Submit evidence/);
+  await page.element("subBtn").onclick();
+  assert.equal(page.element("judgeBtn").dataset.current, "true");
+  await page.element("judgeBtn").onclick();
+  assert.equal(page.element("judgeBtn").dataset.current, "false");
+  assert.equal(page.writes, 3);
+});
+test("rendered primary buttons have visible press, hover, focus and progress indicators", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(html, /\.action-row \.btn\[data-current="true"\]/);
+  assert.match(html, /\.btn:active:not\(:disabled\)/);
+  assert.match(html, /\.btn:focus-visible/);
+  assert.match(html, /\.btn\[aria-busy="true"\]/);
+  assert.match(html, /id="actionGuide"/);
 });
