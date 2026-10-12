@@ -528,7 +528,7 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-open-job-inline-recovery"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-preserve-evidence-url"/);
 });
 
 test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
@@ -557,11 +557,12 @@ test("proof result uses accessible mobile-safe layout without injecting contract
   assert.match(html,/\.proof-field-value\{/);
   assert.match(html,/\.proof-hash\{/);
   assert.match(html,/\.proof-json\{/);
-  assert.match(html,/open-job-inline-recovery/);
+  assert.match(html,/preserve-evidence-url/);
 });
 
 test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
   const page=makePage({existingJob:true});
+  page.element("url").value = "https://example.org";
   await page.element("connectBtn").onclick();
   const writesBefore=page.writes;
   page.storage.set("spotter.pending",JSON.stringify({
@@ -573,6 +574,7 @@ test("existing accepted open_job is restored to the primary Submit step without 
   assert.equal(page.writes,writesBefore);
   assert.equal(page.storage.has("spotter.pending"),false);
   assert.equal(page.element("jid").value,"7");
+  assert.equal(page.element("url").value,"https://example.org","an OPEN job must not erase the evidence URL draft");
   assert.equal(page.element("subBtn").disabled,false);
   assert.equal(page.element("openBtn").disabled,true);
   assert.match(page.element("msg").textContent,/Job #7 confirmed on GenLayer/);

@@ -438,7 +438,10 @@ async function reconcileTrackedExistingJob(p) {
   $("lookupId").value = actualId;
   $("q").value = String(job.question || "");
   $("r").value = String(job.rubric || "");
-  $("url").value = String(job.url || p.url || "");
+  // open_job has no on-chain URL yet: preserve the user's existing draft.
+  // Clearing it here strands the restored Job at Submit with an invalid input.
+  const source = String(job.url || p.url || "").trim();
+  if (source) $("url").value = source;
   const next = job.status === "OPEN" ? 1 : job.status === "SUBMITTED" ? 2 : 3;
   setStage(next);
   renderJob(job);
