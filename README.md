@@ -4,7 +4,17 @@
 
 Spotter lets a poster define a question and a decision rubric. A hunter submits a live public URL; GenLayer's validators fetch and evaluate it. The on-chain record exposes a **HIT**, **MISS**, or **DEAD** verdict, an explanation, and fetch metadata such as the returned page hash. **This is an experimental AI-assisted evaluation, not a guarantee of factual truth or immutable historical webpage content.** There is no bounty or payment system in the current Spotter contract.
 
-## Verify without signing anything (recommended reviewer path)
+## Start in under a minute (no wallet, Job ID or transaction hash)
+
+1. Open [Spotter](https://bearbaba.github.io/spotter/). The **Explore verifications** panel immediately reads sequential existing on-chain jobs in small bounded batches (IDs 1–12 initially), newest first.
+2. Select **All jobs** or **Read proof** on any job to inspect its current finalized verdict, URL, reason and page hash. No wallet, token or signature is required.
+3. To see jobs associated with a wallet, connect MetaMask on Studionet 61999 and select **My jobs**. Previously approved MetaMask accounts are detected with `eth_accounts` without prompting a signature.
+4. If you own an **OPEN** job, select its **Continue · Submit** button directly from the Job card. This re-reads the finalized Job owner/status and fills the form **without sending a transaction**. A **SUBMITTED** job with the connected wallet as its recorded hunter can similarly continue to verification.
+5. Only **Submit evidence** and **Run verification** create wallet-approved testnet transactions. Wait for accepted chain state and use the public Job explorer to read the result.
+
+The existing deployed contract does not implement a native job index; the static frontend safely scans sequential contract IDs in throttled pages, with **Load more jobs** for further history (up to 480 per browser visit). If an RPC call fails it shows an error, never fabricates an empty result. No off-chain indexer, backend, external API key or contract upgrade is required.
+
+## Verify without signing anything (legacy direct lookup path)
 
 1. Open **https://bearbaba.github.io/spotter/** and choose **Read live contract state** in the Sample verification card (no wallet).
 2. The application must read `get_job("1")` on Studionet, display the on-chain status, URL and stored `page_hash`.
@@ -39,18 +49,19 @@ Open `http://localhost:8080/`. To preview the generated build, run `cd dist && p
 4. Submit a public HTTP(S) URL, approve, wait; then click **3 · Run verification**, approve and wait.
 5. Press **Read proof** to display the chain's accepted job state. HIT/MISS/DEAD are the only terminal verdicts. A PARSE issue remains SUBMITTED, not settled.
 
-**Transaction safety:** One click makes at most one `writeContract` request. The pinned **genlayer-js v0.18.10** SDK estimates EVM gas internally; the app does not call unsupported v2 fee-estimation methods. A wallet write first yields an EVM hash. The UI decodes the distinct GenLayer ID from the Studionet consensus `NewTransaction` event, then checks `waitForTransactionReceipt({status: "ACCEPTED"})`. If an EVM receipt omits NewTransaction logs, Spotter checks finalized contract state against the pre-write baseline and exact expected action. It must not claim success on an unmatched state. Pending requests remain locked; **Resume previous transaction** only reads, never resends. **Clear local tracking** asks for explicit confirmation and does not cancel an on-chain transaction. This is a client-side safeguard; users must still review each MetaMask prompt. The UI never asks for a seed phrase or private key. A read-only check never creates blockchain transactions.
+**Transaction safety:** One click makes at most one `writeContract` request. Direct GenLayer Studio transaction status and exact GenVM return values are checked before falling back to EVM logs; no unsigned browser action can create a transaction. The pinned **genlayer-js v0.18.10** SDK estimates EVM gas internally; the app does not call unsupported v2 fee-estimation methods. A wallet write first yields an EVM hash. The UI decodes the distinct GenLayer ID from the Studionet consensus `NewTransaction` event, then checks `waitForTransactionReceipt({status: "ACCEPTED"})`. If an EVM receipt omits NewTransaction logs, Spotter checks finalized contract state against the pre-write baseline and exact expected action. It must not claim success on an unmatched state. Pending requests remain locked; **Resume previous transaction** only reads, never resends. **Clear local tracking** asks for explicit confirmation and does not cancel an on-chain transaction. This is a client-side safeguard; users must still review each MetaMask prompt. The UI never asks for a seed phrase or private key. A read-only check never creates blockchain transactions.
 
 ## Implementation
 
 - `Spotter.py`: deployed-compatible GenLayer Intelligent Contract source (unchanged by reviewer-readiness fixes).
-- `index.html`: static page; `app.mjs`: wallet, RPC, transaction lifecycle, safe DOM rendering.
+- `index.html`: responsive site; `app.mjs`: wallet, RPC, transaction lifecycle, safe DOM rendering.
+- `jobs-browser.mjs`: read-only contract discovery, paging, sorting, wallet filters and owner-checked continuation; independent Node tests.
 - `spotter-core.mjs`: testable input validation and receipt decoding helpers.
 - `tests/offline.test.mjs`: standalone Node.js tests (no external downloads).
 - `scripts/build.mjs`: syntax check and static dist builder.
 - `SETUP.md`: review walkthrough; `TESTS.md`: automated and manual evidence matrix.
 
-**Limitations:** Studionet is experimental. Validator web access and AI interpretation may vary. URL content can change and a page hash proves only the bytes observed during that evaluation, not enduring truth. Job discovery/indexing is not implemented. No escrow, bounty distribution, dispute market, wallet automation, or production mainnet security guarantees.
+**Limitations:** Studionet is experimental. Validator web access and AI interpretation may vary. URL content can change and a page hash proves only the bytes observed during that evaluation, not enduring truth. Job discovery uses bounded client-side scanning because this deployed contract has no enumeration endpoint; it is not a production-grade indexer. No escrow, bounty distribution, dispute market, wallet automation, or production mainnet security guarantees.
 
 For a reproducible acceptance decision, review the actual on-chain `get_job` result and a real wallet-signed transaction in a fresh session. CI validates syntax and frontend safety logic **offline**; it does not prove live GenVM consensus or MetaMask interoperability. The SDK version and wallet/GenLayer hash distinction are pinned and covered by regression tests.
 
