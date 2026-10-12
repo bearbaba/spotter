@@ -62,3 +62,10 @@ If an older browser tab was closed, find the full transaction hash in MetaMask A
 - The first hunter's URL stays locked while SUBMITTED; there is no monetary reward path.
 - `PARSE` is a nonterminal error state and should not be described as a fourth successful verdict.
 - The displayed page hash is a validator-observed text digest, not a cryptographically authenticated snapshot of the entire website.
+
+
+### Case-sensitive sender lookup on the existing deployed contract
+
+`last_job_of(who: str)` uses an exact string key stored by `str(gl.message.sender_address)`. If MetaMask returns a lowercase address but Studio shows a checksum-cased `poster`, a direct `last_job_of(lowercase)` call can return an empty string even after an accepted `open_job`. The frontend first checks the wallet address and then reads up to 16 finalized sequential Job records to find the exact `poster` string for the same address, retries `last_job_of`, and verifies the returned Job against its original action. This is read-only; **do not resend the prior transaction**.
+
+If there are multiple identical claims from the same wallet, use Studio to inspect each transaction's execution return and establish the exact ID. Do not assume a state-only match uniquely ties a specific EVM hash to a Job.

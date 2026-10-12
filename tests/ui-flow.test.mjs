@@ -9,8 +9,9 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false } = {}) {
-  const wallet = "0x1111111111111111111111111111111111111111";
+function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false } = {}) {
+  const wallet = mixedCasePoster ? "0x" + "a".repeat(40) : "0x1111111111111111111111111111111111111111";
+  const storedPoster = mixedCasePoster ? "0x" + "A".repeat(40) : wallet;
   const hash = "0x" + "a".repeat(64);
   const elements = new Map();
   const storage = new Map();
@@ -54,14 +55,14 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
     },
   };
   const historicalJob = {
-    id: "1", status: "HIT", url: "https://example.org",
+    id: "1", status: "HIT", url: "https://example.org", poster: storedPoster,
     question: "Historical sample", justification: "Documentation examples",
     page_hash: "f".repeat(64),
   };
   const readClient = {
     chain: { consensusMainContract: { address: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575" } },
     async readContract({ functionName, args = [] }) {
-      if (functionName === "last_job_of") return job ? "7" : "";
+      if (functionName === "last_job_of") return job && (!mixedCasePoster || args[0] === storedPoster) ? "7" : "";
       if (functionName === "get_job") {
         if (String(args[0]) === "1") return JSON.stringify(historicalJob);
         return JSON.stringify(job || {});
@@ -77,7 +78,7 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
       writes += 1;
       if (!applyWrites) return hash;
       if (functionName === "open_job") {
-        job = { id: "7", poster: wallet, hunter: "0x0000000000000000000000000000000000000000",
+        job = { id: "7", poster: storedPoster, hunter: "0x0000000000000000000000000000000000000000",
           question: args[0], rubric: args[1], url: "", status: "OPEN", round_no: 0, justification: "" };
       } else if (functionName === "submit_url") {
         job = { ...job, url: args[1], hunter: wallet, status: "SUBMITTED" };
@@ -262,4 +263,29 @@ test("diagnostics identify an unknown receipt event and check historical contrac
   assert.match(details, /Contract Job #1 page hash: [f]{64}/);
   assert.equal(page.writes, writesBefore, "no wallet writes permitted during diagnostics");
   assert.equal(page.storage.get("spotter.pending"), storedBefore);
+});
+
+test("historical Studio poster casing recovers accepted open_job without another wallet write", async () => {
+  const page = makePage({ mixedCasePoster: true });
+  await page.element("connectBtn").onclick();
+  assert.equal(page.element("openBtn").disabled, false);
+  await page.element("openBtn").onclick();
+  assert.equal(page.writes, 1, "exactly one signed transaction");
+  assert.equal(page.element("jid").value, "7", "recovers new job from case-matched last_job_of");
+  assert.equal(page.element("subBtn").disabled, false, "accepted Job is ready to submit evidence");
+  assert.equal(page.storage.has("spotter.pending"), false, "matched final state clears pending only after verification");
+  await page.element("sampleBtn").onclick();
+  assert.equal(page.element("jid").value, "7", "public sample never overrides active job");
+  assert.equal(page.writes, 1);
+});
+test("case-sensitive last_job_of failure never invents a Job ID or resends", async () => {
+  const page = makePage({ mixedCasePoster: true, applyWrites: false });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  assert.equal(page.writes, 1);
+  assert.equal(page.element("jid").value, "");
+  assert.equal(page.storage.has("spotter.pending"), true);
+  await page.element("resumeBtn").onclick();
+  assert.equal(page.writes, 1);
+  assert.equal(page.storage.has("spotter.pending"), true);
 });

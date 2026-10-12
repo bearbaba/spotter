@@ -188,12 +188,41 @@ async function getEthereumReceipt(hash) {
   }
   return null;
 }
+// The deployed Python contract stores last_job under str(gl.message.sender_address).
+// That string may use EIP-55 casing, while MetaMask may return a lowercase account.
+// Its TreeMap[str, str] lookup is case sensitive; use the exact poster string read from chain.
+const storedPosterCase = new Map();
 async function latestJobId(owner) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(String(owner))) throw Error("Invalid wallet for latest-job lookup.");
-  const raw=await readClient.readContract({
-    address:CONTRACT,functionName:"last_job_of",args:[owner],transactionHashVariant:"latest-final",
-  });
-  return parseJobId(raw); // Genuine empty means the wallet has not previously opened a job.
+  const key=owner.toLowerCase();
+  const lookup=async (who) => parseJobId(await readClient.readContract({
+    address:CONTRACT,functionName:"last_job_of",args:[who],transactionHashVariant:"latest-final",
+  }));
+  const remembered=storedPosterCase.get(key);
+  if (remembered) {
+    const id=await lookup(remembered);
+    if (id) return id;
+  }
+  const direct=await lookup(owner);
+  if (direct) return direct;
+
+  // Read a limited number of finalized, sequential existing IDs to recover the
+  // actual string stored by the contract. Read-only; no guesses or new writes.
+  for (let n=1;n<=16;n++) {
+    const raw=await readClient.readContract({
+      address:CONTRACT,functionName:"get_job",args:[String(n)],transactionHashVariant:"latest-final",
+    });
+    const job=parseJobResult(raw);
+    if (!parseJobId(job.id)) break;
+    if (typeof job.poster!=="string" || job.poster.toLowerCase()!==key) continue;
+    if (!/^0x[0-9a-fA-F]{40}$/.test(job.poster)) continue;
+    storedPosterCase.set(key,job.poster);
+    const id=await lookup(job.poster);
+    if (id) return id;
+    // If even the exact stored poster key fails, don't infer a latest ID.
+    return "";
+  }
+  return "";
 }
 async function captureBaseline(fn,args) {
   if(fn==="open_job")return {previousJobId:await latestJobId(account),question:args[0],rubric:args[1]};
