@@ -143,8 +143,15 @@ export function classifyStudioTransaction(tx, expectedHash, owner, contract) {
   if (typeof from === "string" && owner && from.toLowerCase() !== owner.toLowerCase()) {
     return { kind: "invalid", reason: "Transaction sender does not match saved wallet" };
   }
-  if (typeof to === "string" && contract && to.toLowerCase() !== contract.toLowerCase()) {
-    return { kind: "invalid", reason: "Transaction recipient does not match Spotter contract" };
+  // MetaMask-signed GenLayer writes can target Studionet's consensus gateway
+  // rather than the Intelligent Contract itself. That is NOT evidence of
+  // a different contract call. Retain strict rejection for unrelated addresses;
+  // subsequent action-specific finalized state checks remain mandatory.
+  const studioConsensusGateway = "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575";
+  if (typeof to === "string" && contract &&
+      to.toLowerCase() !== contract.toLowerCase() &&
+      to.toLowerCase() !== studioConsensusGateway.toLowerCase()) {
+    return { kind: "invalid", reason: "Transaction recipient is not Spotter or the known Studionet consensus gateway" };
   }
   const status = String(tx.statusName ?? (typeof tx.status === "string" ? tx.status : "")).toUpperCase();
   const execution = String(tx.txExecutionResultName ?? tx.resultName ?? (typeof tx.executionResult === "string" ? tx.executionResult : "")).toUpperCase();
