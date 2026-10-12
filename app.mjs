@@ -370,106 +370,139 @@ $("resumeBtn").onclick = () => guarded(async () => {
     note("Transaction accepted. Enter the original Job ID and press Read to verify chain state.");
   }
 });
-// Read-only diagnostic path: never signs, sends, retries, or clears an existing wallet transaction.
+// Read-only RPC inspection. Show progress BEFORE each async request so a slow wallet cannot hide results.
+async function diagnosticRead(label, request, timeoutMs = 7500) {
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(request),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label + " timed out after " + timeoutMs / 1000 + "s")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 $("diagnoseBtn").onclick = async () => {
   const output = $("txDiagnostics");
   output.hidden = false;
+  // This first message must be synchronous: even a stuck RPC will show useful feedback.
+  output.textContent = "READ-ONLY DIAGNOSTICS · NO WALLET SIGNATURE\nStarting inspection…";
   const raw = sessionStorage.getItem("spotter.pending");
   if (!raw) {
-    output.textContent = "No pending transaction is saved in this browser tab. Check the wallet's Activity history for an earlier transaction.";
+    output.textContent = "No pending transaction is saved in this browser tab. Find its full hash in MetaMask Activity.";
     return;
   }
   let pending;
-  try { pending = JSON.parse(raw); } catch {
-    output.textContent = "The saved transaction record is invalid. No changes were made.";
-    return;
-  }
+  try { pending = JSON.parse(raw); }
+  catch { output.textContent = "Saved transaction metadata is invalid. Nothing was changed."; return; }
   if (!transactionHash(pending.hash)) {
-    output.textContent = "The saved transaction hash is invalid. No changes were made.";
+    output.textContent = "Saved wallet transaction hash is invalid. Nothing was changed.";
     return;
   }
+  const lines = [
+    "READ-ONLY DIAGNOSTICS · NO WALLET SIGNATURE",
+    "Wallet tx: " + pending.hash,
+    "Action: " + String(pending.fn || "unknown"),
+  ];
+  const show = (message) => {
+    lines.push(String(message));
+    output.textContent = lines.join("\n");
+  };
+  show("Preparing wallet RPC read…");
   if (!window.ethereum?.request) {
-    output.textContent = "Connect the wallet provider to inspect the transaction. No signature is needed.";
+    show("Wallet provider unavailable. Reopen this page with MetaMask to inspect this transaction.");
     return;
   }
   $("diagnoseBtn").disabled = true;
   try {
-    const lines = [
-      "READ-ONLY DIAGNOSTICS · NO WALLET SIGNATURE",
-      "Wallet tx: " + pending.hash,
-      "Action: " + String(pending.fn || "unknown"),
-    ];
-    const chainId = await window.ethereum.request({ method: "eth_chainId" });
-    lines.push("Wallet chain ID: " + chainId);
-    if (String(chainId).toLowerCase() !== CHAIN_ID) {
-      lines.push("WRONG NETWORK. Switch the wallet to Studionet 61999 before inspecting the receipt.");
-      output.textContent = lines.join("\n");
+    show("Checking wallet network…");
+    let chainId;
+    try {
+      chainId = await diagnosticRead("Wallet network", () =>
+        window.ethereum.request({ method: "eth_chainId" }));
+      show("Wallet chain ID: " + String(chainId));
+    } catch (error) {
+      show("Wallet network read failed: " + errorText(error));
+      show("Transaction lookups skipped until wallet RPC network is known. No transaction has been resent.");
       return;
     }
-    let walletTx = null, evmReceipt = null;
-    try {
-      walletTx = await window.ethereum.request({ method: "eth_getTransactionByHash", params: [pending.hash] });
-    } catch (error) {
-      lines.push("Transaction lookup error: " + errorText(error));
-    }
-    try {
-      evmReceipt = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [pending.hash] });
-    } catch (error) {
-      lines.push("Receipt lookup error: " + errorText(error));
+    if (String(chainId).toLowerCase() !== CHAIN_ID) {
+      show("WRONG NETWORK. Switch MetaMask to Studionet 61999 and inspect again.");
+      return;
     }
     const expected = readClient.chain.consensusMainContract.address;
-    lines.push("Expected Studionet consensus address: " + expected);
+    show("Expected Studionet consensus address: " + expected);
+
+    show("Reading wallet transaction destination…");
+    let walletTx = null;
+    try {
+      walletTx = await diagnosticRead("Transaction lookup", () =>
+        window.ethereum.request({ method: "eth_getTransactionByHash", params: [pending.hash] }));
+    } catch (error) { show("Transaction lookup error: " + errorText(error)); }
+
     if (walletTx) {
-      lines.push("Actual transaction destination: " + String(walletTx.to || "contract creation / unknown"));
-      lines.push("Transaction sender: " + String(walletTx.from || "unknown"));
+      show("Actual transaction destination: " + String(walletTx.to || "unknown"));
+      show("Transaction sender: " + String(walletTx.from || "unknown"));
       if (walletTx.to && walletTx.to.toLowerCase() !== expected.toLowerCase()) {
-        lines.push("DESTINATION MISMATCH — this transaction did not target the configured consensus contract.");
+        show("DESTINATION MISMATCH: wallet transaction was not sent to this chain's consensus contract.");
       }
     } else {
-      lines.push("Wallet transaction details: not returned by this wallet RPC.");
+      show("Wallet transaction details: not returned by wallet RPC.");
     }
+
+    show("Reading mined wallet receipt…");
+    let evmReceipt = null;
+    try {
+      evmReceipt = await diagnosticRead("Receipt lookup", () =>
+        window.ethereum.request({ method: "eth_getTransactionReceipt", params: [pending.hash] }));
+    } catch (error) { show("Receipt lookup error: " + errorText(error)); }
+
     if (evmReceipt) {
       const status = String(evmReceipt.status ?? "unknown").toLowerCase();
-      const count = Array.isArray(evmReceipt.logs) ? evmReceipt.logs.length : 0;
-      lines.push("Wallet receipt status: " + status);
-      lines.push("Event logs returned: " + count);
-      lines.push("Gas used: " + String(evmReceipt.gasUsed ?? "unknown"));
+      show("Wallet receipt status: " + status);
+      show("Event logs returned: " + (Array.isArray(evmReceipt.logs) ? evmReceipt.logs.length : "unknown"));
+      show("Gas used: " + String(evmReceipt.gasUsed ?? "unknown"));
       if (status === "0x0" || status === "0") {
-        lines.push("EVM EXECUTION FAILED. Inspect the transaction before any new write.");
+        show("EVM execution failed. Do not assume a GenLayer Job exists.");
       } else {
         let genId = "";
         try { genId = genLayerTxIdFromEthereumReceipt(evmReceipt, expected); }
-        catch (error) { lines.push("GenLayer event decoder: " + errorText(error)); }
-        if (genId) lines.push("Verified NewTransaction GenLayer ID: " + genId);
-        else lines.push("No matching NewTransaction event in this wallet receipt. Mining is not proof that the Job was created.");
+        catch (error) { show("GenLayer event decoder: " + errorText(error)); }
+        if (genId) show("Verified NewTransaction GenLayer ID: " + genId);
+        else show("No matching NewTransaction event was returned. Mining alone does not prove a new Job exists.");
       }
     } else {
-      lines.push("No EVM receipt returned. This transaction remains unconfirmed by the wallet RPC.");
+      show("Wallet receipt unavailable. Transaction success or failure cannot be determined from this response.");
     }
+
     if (pending.wallet && /^0x[0-9a-fA-F]{40}$/.test(pending.wallet)) {
+      show("Checking latest FINAL contract state…");
       try {
-        const last = await latestJobId(pending.wallet);
-        lines.push("Latest FINAL Job ID for wallet: " + (last || "(none)"));
+        const last = await diagnosticRead("Finalized Job ID", () => latestJobId(pending.wallet));
+        show("Latest FINAL Job ID for wallet: " + (last || "(none)"));
         if (last) {
-          const job = parseJobResult(await readClient.readContract({
-            address: CONTRACT, functionName: "get_job", args: [last],
-            transactionHashVariant: "latest-final",
-          }));
-          const matches = independentlyVerifiedAction(pending, job, pending.wallet);
-          lines.push("Matches this action's stored baseline and fields: " + (matches ? "YES" : "NO"));
-          if (matches) lines.push("Matching finalized contract state observed. It still does not prove which EVM tx caused the state under concurrent identical writes.");
+          const rawJob = await diagnosticRead("Finalized Job state", () =>
+            readClient.readContract({
+              address: CONTRACT, functionName: "get_job", args: [last],
+              transactionHashVariant: "latest-final",
+            }));
+          const job = parseJobResult(rawJob);
+          const matched = independentlyVerifiedAction(pending, job, pending.wallet);
+          show("Matches stored action baseline: " + (matched ? "YES" : "NO"));
+          if (matched) show("Matching final contract state observed, but identical concurrent wallet writes cannot be uniquely attributed without receipts.");
         }
       } catch (error) {
-        lines.push("Finalized on-chain state unavailable: " + errorText(error));
+        show("Finalized contract read failed: " + errorText(error));
       }
     } else {
-      lines.push("Original sender metadata unavailable, so this historical transaction cannot be attributed automatically.");
+      show("Original sender metadata unavailable, so this transaction cannot be attributed automatically.");
     }
-    lines.push("Do not submit a replacement transaction solely because an event or receipt is missing.");
-    output.textContent = lines.join("\n");
+    show("Inspection finished. Do not resend or clear an unresolved transaction without checking the original hash.");
   } catch (error) {
-    output.textContent = "Read-only inspection failed: " + errorText(error) +
-      ". Keep the original hash; no blockchain write was made.";
+    show("Inspection interrupted: " + errorText(error) + ". No wallet transaction was sent.");
   } finally {
     $("diagnoseBtn").disabled = false;
   }
