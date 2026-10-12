@@ -1038,7 +1038,7 @@ async function autoReconcileTrackedJob() {
   finally { backgroundReconciliationBusy = false; }
 }
 if (typeof setInterval === "function") {
-  setInterval(() => { void autoReconcileTrackedJob(); }, 7000);
+  setInterval(() => autoReconcileTrackedJob(), 7000);
 }
 if (typeof document.addEventListener === "function") {
   document.addEventListener("visibilitychange", () => {
