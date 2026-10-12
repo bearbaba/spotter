@@ -157,3 +157,21 @@ test("historical proof lookup does not mutate live job ID or workflow state", as
   assert.equal(page.job.id, "7");
   assert.equal(page.job.status, "SUBMITTED");
 });
+
+test("on-screen guidance follows the actual wallet and transaction status", async () => {
+  const page = makePage();
+  assert.match(page.element("nextStepDescription").textContent, /Connect a Studionet wallet/);
+  await page.element("connectBtn").onclick();
+  assert.match(page.element("nextStepDescription").textContent, /Wallet connected to Studionet/);
+  assert.doesNotMatch(page.element("nextStepDescription").textContent, /Connect a Studionet wallet/);
+  await page.element("sampleBtn").onclick();
+  assert.match(page.element("nextStepDescription").textContent, /Wallet connected to Studionet/,
+    "reading public evidence must not alter the live-flow instruction");
+  await page.element("disconnectBtn").onclick();
+  assert.match(page.element("nextStepDescription").textContent, /Connect a Studionet wallet/);
+  const stalled = makePage({ applyWrites: false });
+  await stalled.element("connectBtn").onclick();
+  await stalled.element("openBtn").onclick();
+  assert.match(stalled.element("nextStepDescription").textContent, /A transaction is still being tracked/);
+  assert.equal(stalled.element("openBtn").disabled, true);
+});
