@@ -17,7 +17,10 @@ The GitHub Actions `Verify Spotter` workflow runs a dependency-free static bundl
 | Submission safety | One wallet write per action, no fallback resend; persistent pending record blocks duplicate clicks |
 | Missing event recovery | Strict wallet, job ID, source, round, and pre-write state matching; wrong-wallet and stale receipt regression checks |
 | Responsive UI | Core selectors, user-readable proof, mobile layout and accessible status announcements |
-| Packaging | `npm run build` emits `dist/index.html`, `dist/app.mjs`, `dist/spotter-core.mjs` |
+| Discovery & access | Auto-load public jobs without wallet, owner/hunter filtering, newest-first ordering, bounded pagination, safe RPC error recovery |
+| Existing Job continuation | Revalidate chain ID, owner and current finalized status before activation; read-only selection; only separately approved writes |
+| GenVM transaction return | Decode explicit FINALIZED GenVM return before event-based fallback and reject unmatched baseline |
+| Packaging | `npm run build` emits `dist/index.html`, `dist/app.mjs`, `dist/spotter-core.mjs`, `dist/jobs-browser.mjs` |
 | Python | Contract parses; this is **not** a GenVM execution test |
 
 ## Historical on-chain evidence (requires independent live reading)
@@ -32,7 +35,8 @@ These are prior reported samples, **not automated passes in CI**. Reviewer must 
 
 ## Manual adversarial tests (NOT claimed complete)
 
-1. **Concurrent opens:** open two jobs from different wallets, verify each returned ID maps to the original question; if falling back to `last_job_of`, require exact wallet/claim and a pre-write baseline; identical concurrent claims remain an ambiguous edge case.
+1. **Browser discovery:** With no wallet, see jobs automatically; then connect wallet and filter, switch accounts, test Load more and offline RPC errors (only simulated in CI, live manual still required).
+2. **Concurrent opens:** open two jobs from different wallets, verify each returned ID maps to the original question; if falling back to `last_job_of`, require exact wallet/claim and a pre-write baseline; identical concurrent claims remain an ambiguous edge case.
 2. **Competing hunters:** first hunter submits a URL; a different sender attempting to overwrite while SUBMITTED should revert.
 3. **Interrupted transaction:** submit once, reload, then use read-only Resume instead of clicking Submit again.
 4. **Account/network switching:** switch MetaMask account or chain and check the page resets the connected context.
