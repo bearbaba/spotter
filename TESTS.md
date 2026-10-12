@@ -18,7 +18,7 @@ The GitHub Actions `Verify Spotter` workflow runs a dependency-free static bundl
 | Missing event recovery | Strict wallet, job ID, source, round, and pre-write state matching; wrong-wallet and stale receipt regression checks |
 | Responsive UI | Core selectors, user-readable proof, mobile layout and accessible status announcements |
 | Discovery & access | Auto-load public jobs without wallet, owner/hunter filtering, newest-first ordering, bounded pagination, safe RPC error recovery |
-| Existing Job continuation | Revalidate chain ID, owner and current finalized status before activation; read-only selection; only separately approved writes |
+| Existing Job continuation | Revalidate chain ID, on-chain Job identity and allowed OPEN/SUBMITTED status before activation; permissionless contract roles, read-only selection and separately approved writes |
 | GenVM transaction return | Decode explicit FINALIZED GenVM return before event-based fallback and reject unmatched baseline |
 | Packaging | `npm run build` emits `dist/index.html`, `dist/app.mjs`, `dist/spotter-core.mjs`, `dist/jobs-browser.mjs` |
 | Python | Contract parses; this is **not** a GenVM execution test |
