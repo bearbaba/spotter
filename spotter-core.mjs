@@ -128,3 +128,31 @@ export function independentlyVerifiedAction(pending, job, wallet) {
   }
   return false;
 }
+
+/** Read-only Studio transaction classification. Never infer a Job ID from an unrelated numeric field. */
+export function classifyStudioTransaction(tx, expectedHash, owner, contract) {
+  if (!tx || typeof tx !== "object" || Array.isArray(tx)) return { kind: "missing" };
+  const expected = transactionHash(expectedHash);
+  if (!expected) return { kind: "invalid", reason: "Invalid transaction hash" };
+  const returnedHash = transactionHash(tx.hash ?? tx.txId);
+  if (returnedHash && returnedHash.toLowerCase() !== expected.toLowerCase()) {
+    return { kind: "invalid", reason: "RPC returned a different transaction hash" };
+  }
+  const from = tx.sender ?? tx.from_address ?? tx.from;
+  const to = tx.recipient ?? tx.to_address ?? tx.to;
+  if (typeof from === "string" && owner && from.toLowerCase() !== owner.toLowerCase()) {
+    return { kind: "invalid", reason: "Transaction sender does not match saved wallet" };
+  }
+  if (typeof to === "string" && contract && to.toLowerCase() !== contract.toLowerCase()) {
+    return { kind: "invalid", reason: "Transaction recipient does not match Spotter contract" };
+  }
+  const status = String(tx.statusName ?? (typeof tx.status === "string" ? tx.status : "")).toUpperCase();
+  const execution = String(tx.txExecutionResultName ?? tx.resultName ?? (typeof tx.executionResult === "string" ? tx.executionResult : "")).toUpperCase();
+  if (status === "FINALIZED" || status === "ACCEPTED") {
+    if (execution === "SUCCESS") return { kind: "confirmed", status, execution };
+    if (execution === "FAILURE" || execution === "ERROR") return { kind: "failed", status, execution };
+    return { kind: "status-only", status, execution };
+  }
+  if (status) return { kind: "pending", status, execution };
+  return { kind: "unknown" };
+}

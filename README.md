@@ -60,3 +60,9 @@ For a reproducible acceptance decision, review the actual on-chain `get_job` res
 The deployed `Spotter.py` contract stores `last_job` under the **exact string** returned by `str(gl.message.sender_address)`. Because this is a string-keyed map, a lowercase EVM wallet address can return an empty result when the stored string uses different checksum casing. The frontend first tries the connected address, then reads existing finalized Job records (bounded IDs 1–16) to obtain the **exact `poster` string as saved on-chain** and retries `last_job_of` with that value. It then verifies poster, question, rubric and the original pre-write baseline. This does not submit a replacement blockchain transaction.
 
 Two identical recent `open_job` actions from the same wallet are not uniquely attributable by contract state alone. Use the Studio transaction details and the real `open_job` return for indisputable attribution; never claim this heuristic proves which wallet transaction created which Job.
+
+### Distinguish a GenLayer transaction from its wallet receipt
+
+On GenLayer Studio the hash returned by MetaMask can already appear as the **GenLayer transaction hash** in Studio Explorer. Do not require a separate EVM `NewTransaction` event to recognize it. On **Resume previous transaction**, Spotter first calls the SDK's read-only `getTransaction({ hash: savedHash })`. Only if that direct lookup is unavailable does it fall back to the EVM log lookup and cautious contract-state comparison.
+
+A directly confirmed `FINALIZED / SUCCESS` transaction is **not** automatically assigned a Job ID. Spotter accepts only a distinct returned Job ID that matches the stored question, rubric, poster and pre-write baseline. If the SDK does not expose the output, open the exact hash in Studio Explorer and inspect **GenVM Execution → Return Value**. Do not create another Job or clear the old pending record just to bypass the missing return.

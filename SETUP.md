@@ -69,3 +69,7 @@ If an older browser tab was closed, find the full transaction hash in MetaMask A
 `last_job_of(who: str)` uses an exact string key stored by `str(gl.message.sender_address)`. If MetaMask returns a lowercase address but Studio shows a checksum-cased `poster`, a direct `last_job_of(lowercase)` call can return an empty string even after an accepted `open_job`. The frontend first checks the wallet address and then reads up to 16 finalized sequential Job records to find the exact `poster` string for the same address, retries `last_job_of`, and verifies the returned Job against its original action. This is read-only; **do not resend the prior transaction**.
 
 If there are multiple identical claims from the same wallet, use Studio to inspect each transaction's execution return and establish the exact ID. Do not assume a state-only match uniquely ties a specific EVM hash to a Job.
+
+### Inspect an exact GenLayer transaction hash
+
+The saved wallet hash may itself be indexed as a GenLayer transaction in Studio Explorer. The frontend now attempts `getTransaction({hash})` **first** and reports the direct GenLayer result in read-only diagnostics. A successful `FINALIZED / SUCCESS` response verifies the transaction status but not its automatically inferred Job ID; locate **GenVM Execution → Return Value** in Studio Explorer for a definitive ID. EVM `NewTransaction` logs are only a fallback and may be absent even if Studio confirms an accepted transaction.

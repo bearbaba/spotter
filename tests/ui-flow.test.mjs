@@ -9,7 +9,7 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false } = {}) {
+function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false } = {}) {
   const wallet = mixedCasePoster ? "0x" + "a".repeat(40) : "0x1111111111111111111111111111111111111111";
   const storedPoster = mixedCasePoster ? "0x" + "A".repeat(40) : wallet;
   const hash = "0x" + "a".repeat(64);
@@ -72,6 +72,15 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
     async waitForTransactionReceipt() {
       throw Error("No GenLayer event ID is available in this mock");
     },
+    ...(studioTxSuccess ? {
+      async getTransaction({ hash: txHash }) {
+        return {
+          hash: txHash, statusName: "FINALIZED", resultName: "SUCCESS",
+          sender: wallet, recipient: "0x730143dF831778569e15975Ef44dFDeCB668609b",
+          ...(studioReturn ? { returnValue: "7" } : {}),
+        };
+      },
+    } : {}),
   };
   const writeClient = {
     async writeContract({ functionName, args }) {
@@ -288,4 +297,30 @@ test("case-sensitive last_job_of failure never invents a Job ID or resends", asy
   await page.element("resumeBtn").onclick();
   assert.equal(page.writes, 1);
   assert.equal(page.storage.has("spotter.pending"), true);
+});
+
+test("canonical GenLayer hash reports FINALIZED SUCCESS without relying on EVM NewTransaction logs", async () => {
+  const page = makePage({ applyWrites: false, studioTxSuccess: true });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  assert.equal(page.writes, 1);
+  assert.match(page.element("msg").textContent, /GenLayer Studio confirms FINALIZED \/ SUCCESS/);
+  assert.match(page.element("msg").textContent, /Return Value/);
+  assert.equal(page.element("jid").value, "", "a successful transaction alone must not guess the Job ID");
+  assert.equal(page.storage.has("spotter.pending"), true, "keep pending until exact Job ID is verified");
+  await page.element("resumeBtn").onclick();
+  assert.equal(page.writes, 1, "Resume must never submit an additional transaction");
+  await page.element("diagnoseBtn").onclick();
+  assert.match(page.element("txDiagnostics").textContent, /Direct GenLayer lookup: CONFIRMED · FINALIZED · SUCCESS/);
+  assert.equal(page.writes, 1);
+});
+
+test("explicit Job return from exact GenLayer hash unlocks only the matching job", async () => {
+  const page = makePage({ studioTxSuccess: true, studioReturn: true });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  assert.equal(page.writes, 1);
+  assert.equal(page.element("jid").value, "7");
+  assert.equal(page.element("subBtn").disabled, false);
+  assert.equal(page.storage.has("spotter.pending"), false);
 });
