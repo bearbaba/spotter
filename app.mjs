@@ -46,6 +46,8 @@ function setStep(n) {
 function setStage(stage) {
   flowStage = stage;
   const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
+  $("pendingRecoveryActions").classList.toggle("hidden", !sessionStorage.getItem("spotter.pending"));
+  $("checkCompletedBtn").disabled = busy;
   $("openBtn").disabled = blocked || !account || stage !== 0;
   $("subBtn").disabled = blocked || !account || stage !== 1;
   $("judgeBtn").disabled = blocked || !account || stage !== 2;
@@ -562,6 +564,25 @@ $("judgeBtn").onclick = () => guarded(async () => {
   const result = await send("judge", [id]);
   if (!result.pending) await afterWrite("judge", id);
 });
+$("checkCompletedBtn").onclick = async () => {
+  const btn = $("checkCompletedBtn");
+  if (busy) return;
+  btn.textContent = "Checking finalized Job…";
+  btn.disabled = true;
+  const raw = sessionStorage.getItem("spotter.pending");
+  if (!raw) { note("No transaction needs recovery. Open Activity & history to continue an existing Job."); setStage(flowStage); return; }
+  let pending;
+  try { pending = JSON.parse(raw); }
+  catch { note("Saved transaction details are invalid. Use transaction diagnostics; no transaction was sent.", true); btn.disabled=false; btn.textContent="Check completed transaction ↻"; return; }
+  try {
+    const chain = await diagnosticRead("Wallet network", () =>
+      window.ethereum.request({method:"eth_chainId"}), 7000);
+    if (String(chain).toLowerCase() !== CHAIN_ID) throw Error("Switch to Studionet 61999 first.");
+    if (await reconcileTrackedExistingJob(pending)) return;
+    note("Could not yet match the saved transaction to a finalized on-chain Job. The original transaction is still protected. Open Transaction details for diagnostics.", "pending");
+  } catch (err) { note(errorText(err), true); }
+  finally { btn.textContent = "Check completed transaction ↻"; setStage(flowStage); }
+};
 $("resumeBtn").onclick = () => guarded(async () => {
   const stored = sessionStorage.getItem("spotter.pending");
   if (!stored) { note("No pending transaction in this tab. Paste the original Studio transaction hash in Recover transaction by hash below."); return; }
