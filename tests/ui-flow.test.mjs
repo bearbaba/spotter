@@ -415,7 +415,8 @@ test("a FINALIZED GenVM leader return automatically recovers the newly opened jo
 test("secondary history loads only when explicitly opened and never signs", async () => {
   const page = makePage({ existingJob: true });
   assert.equal(page.writes, 0);
-  assert.equal(page.element("jobsList").children.length, 0, "history does not preload on the main page");
+  assert.equal(page.element("jobsList").children.length, 1, "secondary section shows only a dormant empty placeholder before opening");
+  assert.match(page.element("jobsStatus").textContent, /^0 public job/);
   assert.equal(page.element("jobs").open, undefined, "secondary history starts collapsed");
   await page.element("openActivityBtn").onclick();
   assert.equal(page.element("jobs").open, true);
