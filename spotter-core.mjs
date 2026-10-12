@@ -43,7 +43,7 @@ export function jobIdFromReceipt(receipt) {
 export function receiptError(receipt) {
   if (!receipt || typeof receipt !== "object") return "";
   const status = String(receipt.statusName ?? receipt.status ?? "").toUpperCase();
-  const execution = String(receipt.txExecutionResultName ?? "").toUpperCase();
+  const execution = String(receipt.txExecutionResultName ?? receipt.resultName ?? receipt.result_name ?? "").toUpperCase();
   if (/FAILED|FAILURE|ERROR|REVERT|CANCEL/.test(status + " " + execution)) {
     return [status, execution].filter(Boolean).join(" / ");
   }
@@ -99,4 +99,32 @@ export function genLayerTxIdFromEthereumReceipt(receipt, consensusAddress) {
     if (txId) return txId;
   }
   return "";
+}
+
+/** Only accept a fallback if the finalized contract state independently proves the expected action.
+ * Do not treat an EVM receipt with missing NewTransaction logs as a successful GenLayer execution.
+ */
+export function independentlyVerifiedAction(pending, job, wallet) {
+  if (!pending || !job || typeof job !== "object" || !parseJobId(job.id)) return false;
+  const equals = (a,b) => typeof a === "string" && typeof b === "string" && a.toLowerCase() === b.toLowerCase();
+  if (!equals(pending.wallet, wallet)) return false;
+  if (pending.fn === "open_job") {
+    const previous = parseJobId(pending.previousJobId);
+    if (previous && BigInt(job.id) <= BigInt(previous)) return false;
+    return equals(job.poster, wallet) && job.question === pending.question && job.rubric === pending.rubric;
+  }
+  if (parseJobId(pending.jobId) !== parseJobId(job.id)) return false;
+  if (pending.fn === "submit_url") {
+    return equals(job.hunter, wallet) && job.url === pending.url &&
+      (job.status === "SUBMITTED" || settledStatus(job.status)) &&
+      (pending.baselineStatus === "OPEN" || pending.baselineUrl !== pending.url);
+  }
+  if (pending.fn === "judge") {
+    const roundBefore = Number(pending.baselineRound);
+    const roundAfter = Number(job.round_no);
+    return Number.isSafeInteger(roundBefore) && Number.isSafeInteger(roundAfter) &&
+      roundAfter > roundBefore &&
+      (settledStatus(job.status) || (job.status === "SUBMITTED" && job.fail_kind === "PARSE"));
+  }
+  return false;
 }
