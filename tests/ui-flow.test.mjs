@@ -39,6 +39,7 @@ function makePage({ applyWrites = true } = {}) {
       if (method === "eth_requestAccounts") return [wallet];
       if (method === "wallet_switchEthereumChain") return null;
       if (method === "eth_chainId") return "0xf22f";
+      if (method === "eth_getTransactionByHash") return { hash, from: wallet, to: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575" };
       if (method === "eth_getTransactionReceipt") return { status: "0x1", logs: [] };
       throw Error("Unexpected wallet RPC " + method);
     },
@@ -174,4 +175,27 @@ test("on-screen guidance follows the actual wallet and transaction status", asyn
   await stalled.element("openBtn").onclick();
   assert.match(stalled.element("nextStepDescription").textContent, /A transaction is still being tracked/);
   assert.equal(stalled.element("openBtn").disabled, true);
+});
+
+test("read-only diagnostics expose full transaction evidence without writing or clearing pending", async () => {
+  const page = makePage({ applyWrites: false });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  const countBefore = page.writes;
+  const storedBefore = page.storage.get("spotter.pending");
+  assert.equal(countBefore, 1);
+  await page.element("diagnoseBtn").onclick();
+  const report = page.element("txDiagnostics").textContent;
+  assert.match(report, /READ-ONLY DIAGNOSTICS/);
+  assert.match(report, /0x[a]{64}/);
+  assert.match(report, /Expected Studionet consensus address/);
+  assert.match(report, /Actual transaction destination/);
+  assert.match(report, /Wallet receipt status: 0x1/);
+  assert.match(report, /Event logs returned: 0/);
+  assert.match(report, /No matching NewTransaction event/);
+  assert.equal(page.writes, countBefore, "diagnosis must never trigger another signature");
+  assert.equal(page.storage.get("spotter.pending"), storedBefore, "diagnosis must never clear pending");
+  await page.element("copyHashBtn").onclick();
+  assert.match(page.element("txDiagnostics").textContent, /0x[a]{64}/);
+  assert.equal(page.writes, countBefore);
 });
