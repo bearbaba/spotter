@@ -101,6 +101,7 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
       return hash;
     },
   };
+  let backgroundTick = null;
   const context = {
     document,
     window: { ethereum, confirm: () => true },
@@ -123,9 +124,10 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
       return 0;
     },
     clearTimeout: () => {},
+    setInterval: (callback) => { backgroundTick = callback; return 1; },
   };
   vm.runInNewContext(source, context, { filename: "app.mjs" });
-  return { element, storage, get job(){return job;}, get writes(){return writes;} };
+  return { element, storage, async tick(){ if(backgroundTick) await backgroundTick(); await new Promise(resolve=>setImmediate(resolve)); }, get job(){return job;}, get writes(){return writes;} };
 }
 
 test("missing NewTransaction logs: recover Create / Submit / Verify from exact finalized state", async () => {
@@ -528,7 +530,7 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-preserve-evidence-url"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-auto-finality"/);
 });
 
 test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
@@ -557,7 +559,7 @@ test("proof result uses accessible mobile-safe layout without injecting contract
   assert.match(html,/\.proof-field-value\{/);
   assert.match(html,/\.proof-hash\{/);
   assert.match(html,/\.proof-json\{/);
-  assert.match(html,/preserve-evidence-url/);
+  assert.match(html,/auto-finality/);
 });
 
 test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
@@ -592,4 +594,22 @@ test("ambiguous old open_job cannot overwrite the active workflow", async () => 
   assert.equal(page.element("jid").value,"");
   assert.equal(page.element("subBtn").disabled,true);
   assert.equal(page.writes,0);
+});
+
+test("polling resumes finalized open_job automatically without manual Check or a new transaction", async()=>{
+  const page=makePage({existingJob:true});
+  await page.element("connectBtn").onclick();
+  page.element("url").value="https://example.org";
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"d".repeat(64),fn:"open_job",jobId:"",
+    wallet:"0x1111111111111111111111111111111111111111",
+    previousJobId:"6",question:"Historical result",rubric:"Exact match",
+  }));
+  const before=page.writes;
+  await page.tick();
+  assert.equal(page.writes,before,"polling is read-only");
+  assert.equal(page.storage.has("spotter.pending"),false);
+  assert.equal(page.element("jid").value,"7");
+  assert.equal(page.element("url").value,"https://example.org");
+  assert.equal(page.element("subBtn").disabled,false);
 });
