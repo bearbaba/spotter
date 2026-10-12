@@ -183,10 +183,11 @@ async function getEthereumReceipt(hash) {
   return null;
 }
 async function latestJobId(owner) {
-  try {
-    const raw=await readClient.readContract({address:CONTRACT,functionName:"last_job_of",args:[owner],transactionHashVariant:"latest-final"});
-    return parseJobId(raw);
-  } catch { return ""; }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(owner))) throw Error("Invalid wallet for latest-job lookup.");
+  const raw=await readClient.readContract({
+    address:CONTRACT,functionName:"last_job_of",args:[owner],transactionHashVariant:"latest-final",
+  });
+  return parseJobId(raw); // Genuine empty means the wallet has not previously opened a job.
 }
 async function captureBaseline(fn,args) {
   if(fn==="open_job")return {previousJobId:await latestJobId(account),question:args[0],rubric:args[1]};
@@ -254,6 +255,7 @@ async function send(fn,args) {
   if(!window.ethereum?.request)throw Error("Connect MetaMask first.");
   const chainId=await window.ethereum.request({method:"eth_chainId"});
   if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  // If the baseline RPC fails, stop BEFORE the wallet popup to avoid misattributing an older job.
   const baseline=await captureBaseline(fn,args);
   const raw=await writer().writeContract({address:CONTRACT,functionName:fn,args,value:0n}); // exactly one signed wallet write
   const hash=transactionHash(raw);
