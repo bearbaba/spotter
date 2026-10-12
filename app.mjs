@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
-  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt,
+  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction,
 } from "./spotter-core.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -15,6 +15,7 @@ const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO
 const writeButtons = ["openBtn", "subBtn", "judgeBtn"];
 let account = null;
 let busy = false;
+let flowStage = 0;
 
 $("caddr").textContent = CONTRACT;
 const EXAMPLES = {
@@ -23,29 +24,53 @@ const EXAMPLES = {
   DEAD: { q: "Does this page confirm the claim?", r: "DEAD if the page cannot be fetched.", url: "https://this-domain-should-not-resolve-genlayer-test.invalid" },
   PARSE: { q: "__PARSE_TEST__", r: "n/a", url: "https://example.org" },
 };
-function note(message, bad = false) {
-  $("msg").className = bad ? "msg bad" : "msg";
-  $("msg").textContent = message;
+function note(message, variant = "normal") {
+  const kind = variant === true ? "error" : (variant === "pending" ? "pending" : "normal");
+  $("msg").className = "notice" + (kind === "normal" ? "" : " " + kind);
+  $("msg").textContent = String(message);
 }
 function errorText(err) {
   const value = String(err?.shortMessage || err?.message || err);
-  if (/user rejected|user denied|rejected the request/i.test(value)) return "Wallet request rejected. No new transaction will be sent automatically.";
-  if (/wrong chain|0xf22f|chain mismatch/i.test(value)) return "Switch MetaMask to GenLayer Studionet (61999).";
-  if (/locked to hunter/i.test(value)) return "This pending URL belongs to the first hunter.";
-  return value.slice(0, 500);
+  if (/user rejected|user denied|rejected the request/i.test(value)) return "Wallet request rejected. No automatic retry will be attempted.";
+  if (/wrong chain|0xf22f|chain mismatch/i.test(value)) return "Switch MetaMask to GenLayer Studionet 61999.";
+  if (/locked to hunter/i.test(value)) return "This submitted source belongs to the first hunter.";
+  return value.slice(0, 450);
 }
 function setStep(n) {
-  ["s1", "s2", "s3", "s4", "s5"].forEach((id, i) => $(id).classList.toggle("on", i + 1 === n));
+  const index = n >= 5 ? 4 : Math.max(1, n);
+  ["s1", "s2", "s3", "s4"].forEach((id, i) => $(id).classList.toggle("active", i + 1 === index));
+}
+function setStage(stage) {
+  flowStage = stage;
+  const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
+  $("openBtn").disabled = blocked || !account;
+  $("subBtn").disabled = blocked || !account || stage !== 1;
+  $("judgeBtn").disabled = blocked || !account || stage !== 2;
+  const descriptions = {
+    0: "Connect a Studionet wallet and create a new job. All wallet writes require your approval.",
+    1: "Job created. Review the evidence URL, then submit it to the contract.",
+    2: "Evidence submitted. Run GenLayer verification to request an on-chain verdict.",
+    3: "Verification record is available. Read the proof or create a new job.",
+  };
+  $("nextStepDescription").textContent = blocked
+    ? "A previous transaction is unresolved. Open Transaction details → Resume previous transaction. Never submit it again."
+    : descriptions[stage] || descriptions[0];
+  setStep(stage === 0 ? (account ? 2 : 1) : stage + 2);
 }
 function syncWallet(address) {
+  const changed = account && address && account.toLowerCase() !== address.toLowerCase();
   account = address || null;
-  $("who").textContent = account || "not connected · reads work without a wallet";
+  $("who").textContent = account ? account.slice(0, 6) + "…" + account.slice(-4) : "Read-only";
+  $("who").title = account || "No wallet connected";
   $("disconnectBtn").hidden = !account;
-  setStep(account ? 2 : 1);
+  $("disconnectBtn").classList.toggle("hidden", !account);
+  $("connectBtn").classList.toggle("hidden", Boolean(account));
+  if (changed) { $("jid").value = ""; flowStage = 0; }
+  setStage(flowStage);
 }
 function setBusy(value) {
   busy = value;
-  for (const id of writeButtons) $(id).disabled = value;
+  setStage(flowStage);
 }
 async function guarded(task) {
   if (busy) { note("A transaction is already being prepared or checked. Please do not submit it again.", true); return; }
@@ -62,7 +87,8 @@ function loadExample(key) {
   note(key === "PARSE"
     ? "Loaded a historical PARSE example. This input does NOT guarantee a PARSE verdict in a new transaction."
     : "Loaded " + key + " example. Fresh AI results can vary.");
-  setStep(account ? 2 : 1);
+  $("jid").value = "";
+  setStage(0);
 }
 function requireJobId() {
   const id = parseJobId($("jid").value);
@@ -78,15 +104,43 @@ async function readJob(id) {
 function renderJob(job) {
   const output = $("out");
   output.replaceChildren();
+  output.classList.remove("empty");
   const status = String(job.status || "UNKNOWN").toUpperCase();
   const badge = document.createElement("span");
   badge.className = "tag " + (["HIT", "MISS", "DEAD", "OPEN", "SUBMITTED"].includes(status) ? status : "OPEN");
-  badge.textContent = status;
-  const detail = document.createElement("pre");
-  detail.textContent = JSON.stringify(job, null, 2);
-  output.append(badge, detail);
-  const suffix = job.fail_kind ? " / " + job.fail_kind : "";
-  note("On-chain state: " + status + suffix + (settledStatus(status) ? " (settled)" : " (not settled)"));
+  badge.textContent = status + (job.fail_kind ? " / " + job.fail_kind : "");
+  const heading = document.createElement("h4");
+  heading.textContent = "On-chain job #" + String(job.id || "?");
+  heading.style.margin = "8px 0 12px";
+  heading.style.fontSize = "16px";
+  output.append(badge, heading);
+  const fields = [
+    ["Claim", job.question], ["Evidence", job.url], ["Verdict", status],
+    ["Reason", job.justification], ["SHA-256", job.page_hash],
+  ];
+  for (const [label, value] of fields) {
+    if (value === undefined || value === null || value === "") continue;
+    const row = document.createElement("div");
+    row.className = "proof-row";
+    const name = document.createElement("span");
+    name.className = "proof-label";
+    name.textContent = label;
+    const text = document.createElement("span");
+    text.className = "proof-value";
+    text.textContent = String(value);
+    row.append(name, text);
+    output.append(row);
+  }
+  const details = document.createElement("details");
+  details.className = "proof-json";
+  const summary = document.createElement("summary");
+  summary.textContent = "View complete on-chain record";
+  const pre = document.createElement("pre");
+  pre.textContent = JSON.stringify(job, null, 2);
+  details.append(summary, pre);
+  output.append(details);
+  setStage(status === "OPEN" ? 1 : (status === "SUBMITTED" && job.fail_kind !== "PARSE" ? 2 : 3));
+  note("Contract state: " + status + (settledStatus(status) ? " · final verdict available" : " · not a final verdict"));
 }
 async function readCurrentJob() {
   const id = requireJobId();
