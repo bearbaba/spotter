@@ -3,9 +3,9 @@
 ## A. Fastest path: live, read-only (no wallet)
 
 1. Open https://bearbaba.github.io/spotter/
-2. Click **Read sample job #1 (no wallet)**.
+2. Click **Read live contract state** in the Sample verification card (no wallet).
 3. The app reads `get_job("1")` from the existing deployed contract using accepted chain state and displays the result as text. Look for the status, URL, page hash, and any justification.
-4. Enter Job ID `2`, click **5. Read**. Optionally enter `3` to inspect the historical PARSE failure.
+4. Enter Job ID `2`, click **Read proof**. Optionally enter `3` to inspect the historical PARSE failure.
 5. Cross-check in https://studio.genlayer.com/?import-contract=0x730143dF831778569e15975Ef44dFDeCB668609b by calling view `get_job` with string IDs `"1"`, `"2"`, `"3"`.
 
 If either RPC endpoint is unavailable, **do not** claim that the case has been verified.
@@ -31,11 +31,11 @@ Requirements: Node 20+, Python 3. Open http://localhost:8080 and follow Path A. 
 
 1. Use a test wallet with Studionet chain ID `61999` (`0xf22f`), RPC `https://studio.genlayer.com/api`. Do not use mainnet.
 2. Connect MetaMask and confirm chain 61999.
-3. Click **Example HIT** then **2. Open job**, explicitly approve the wallet prompt, wait until finalized.
-4. Observe Job ID returned by the transaction. If the app cannot decode it, open that transaction in Studio and paste the **actual** `open_job` return.
-5. Click **3. Submit URL**. After finalization confirm status `SUBMITTED`.
-6. Click **4. Judge**. After finalization click **5. Read** and inspect `status`, `page_hash`, `page_chars`, `fetch_ok`, `fail_kind` and `justification`. Fresh HIT/MISS/DEAD is not predetermined; compare against actual fetched evidence.
-7. If waiting times out **do not click the same write again**. Click **Resume latest transaction** (read-only). MetaMask initially provides an EVM hash; after its mined `NewTransaction` event, the app displays the *separate* GenLayer transaction ID with an Explorer link. Do not confuse the two identifiers.
+3. Click **HIT example** then **1 · Create job**, explicitly approve the wallet prompt, wait until finalized.
+4. The interface should fill the Job ID using the receipt return, or verify a matching new `last_job_of` value against pre-write ID, wallet, question and rubric. If this cannot be matched, check Studio and paste the exact ID manually.
+5. Click **2 · Submit evidence**. After finalization confirm status `SUBMITTED`.
+6. Click **3 · Run verification**. After finalization click **Read proof** and inspect `status`, `page_hash`, `page_chars`, `fetch_ok`, `fail_kind` and `justification`. Fresh HIT/MISS/DEAD is not predetermined; compare against actual fetched evidence.
+7. If waiting times out **do not click the same write again**. Open **Transaction details & troubleshooting** and click **Resume previous transaction** (read-only). MetaMask initially provides an EVM hash. If a mined `NewTransaction` event is present, the distinct GenLayer transaction ID appears with an Explorer link. When the event is missing, the app checks the actual finalized contract state for a strict match; if unverified it remains pending. For legacy records lacking a pre-write baseline, manually inspect chain state before using **Clear local tracking**, which never cancels an on-chain transaction.
 
 If contract deployment source, public URL, test GEN or RPC is not accessible, note the limitation instead of asserting a passing live smoke test.
 
@@ -43,7 +43,7 @@ If contract deployment source, public URL, test GEN or RPC is not accessible, no
 
 - The frontend uses **genlayer-js v0.18.10**, whose `writeContract` estimates EVM gas internally. It does not expose the newer `estimateTransactionFeesForWrite` or `waitForFinalization` helpers. The frontend does not automatically sign or retry writes.
 - Read-only views work without wallet authentication.
-- Job ID is the return from `open_job`; this avoids a race with concurrent jobs.
+- Job ID is obtained from the return when available, otherwise a cautious same-wallet `last_job_of` read compared with the recorded pre-write baseline and exact claim. Identical concurrent same-wallet jobs cannot be proven unique without the original receipt; use Studio for final attribution.
 - `judge` is not restricted to a single authority in the existing contract. Anyone able to call it can request evaluation of a submitted job.
 - The first hunter's URL stays locked while SUBMITTED; there is no monetary reward path.
 - `PARSE` is a nonterminal error state and should not be described as a fourth successful verdict.
