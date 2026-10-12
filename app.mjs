@@ -398,12 +398,32 @@ async function verifyFinalState(p,attempts=5) {
 // envelope is not always shaped like an EVM transfer; rejecting its recipient
 // must not strand a successful submit_url transaction on this browser tab.
 async function reconcileTrackedExistingJob(p) {
-  if (!p || !["submit_url", "judge"].includes(p.fn)) return false;
-  if (!transactionHash(p.hash) || !parseJobId(p.jobId)) return false;
+  if (!p || !["open_job", "submit_url", "judge"].includes(p.fn)) return false;
+  if (!transactionHash(p.hash)) return false;
+  if (p.fn !== "open_job" && !parseJobId(p.jobId)) return false;
   if (!account || String(p.wallet || "").toLowerCase() !== account.toLowerCase()) return false;
   let job;
+  let actualId = parseJobId(p.jobId);
   try {
-    job = await diagnosticRead("Finalized Job #" + p.jobId, () => readJob(p.jobId), 9000);
+    if (p.fn === "open_job") {
+      // Prefer the exact transaction's GenVM return to establish attribution.
+      let tx = null;
+      try {
+        tx = await diagnosticRead("Original GenLayer transaction", () =>
+          readClient.getTransaction({hash:p.hash}), 8000);
+      } catch { /* Final state below is a conservative fallback. */ }
+      const outcome = studioHashInspection(tx,p.hash,CONTRACT);
+      if (outcome.outcome === "failed" || outcome.outcome === "invalid") return false;
+      if (outcome.outcome === "confirmed") actualId = exactJobIdFromStudioTransaction(tx);
+      if (!actualId) {
+        // Only select a strictly newer Job matching the pre-write baseline.
+        // Never take an arbitrary history card or infer success from an EVM receipt.
+        actualId = await diagnosticRead("Latest finalized wallet Job",() =>
+          latestJobId(p.wallet),9000);
+      }
+      if (!actualId) return false;
+    }
+    job = await diagnosticRead("Finalized Job #" + actualId, () => readJob(actualId), 9000);
   } catch { return false; }
   if (!independentlyVerifiedAction(p, job, account)) return false;
   // The original action is already reflected in an accepted on-chain record.
@@ -414,18 +434,18 @@ async function reconcileTrackedExistingJob(p) {
   try { current = JSON.parse(stored); } catch { return false; }
   if (current.hash !== p.hash || current.fn !== p.fn || current.jobId !== p.jobId) return false;
   sessionStorage.removeItem("spotter.pending");
-  $("jid").value = p.jobId;
-  $("lookupId").value = p.jobId;
+  $("jid").value = actualId;
+  $("lookupId").value = actualId;
   $("q").value = String(job.question || "");
   $("r").value = String(job.rubric || "");
   $("url").value = String(job.url || p.url || "");
   const next = job.status === "OPEN" ? 1 : job.status === "SUBMITTED" ? 2 : 3;
   setStage(next);
   renderJob(job);
-  note(p.fn + " confirmed by matching finalized on-chain Job #" + p.jobId +
-    " (" + job.status + "). Next: " +
-    (next === 2 ? "select the highlighted Run verification button." :
-     next === 3 ? "read the final proof." : "review the active Job.") +
+  note("Job #" + actualId + " confirmed on GenLayer (" + job.status + "). " +
+    (next === 1 ? "Next step: Submit evidence." :
+     next === 2 ? "Next step: Run verification." :
+     next === 3 ? "Read the final proof." : "Review the active Job.") +
     " No additional transaction was sent.");
   return true;
 }
