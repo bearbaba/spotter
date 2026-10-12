@@ -76,6 +76,22 @@ test("SDK 0.18.x compatibility and safe one-shot wallet submissions", () => {
   assert.match(app, /sessionStorage\.setItem\("spotter\.pending"/);
 });
 
+test("Studio accepts consensus gateway envelopes, but rejects unrelated transaction destinations", async () => {
+  const { classifyStudioTransaction, studioHashInspection } = await import("../spotter-core.mjs");
+  const hash = "0x" + "a".repeat(64);
+  const owner = "0x1111111111111111111111111111111111111111";
+  const contract = "0x730143dF831778569e15975Ef44dFDeCB668609b";
+  const receipt = { hash, statusName:"FINALIZED", sender:owner,
+    recipient:"0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+    consensus_data:{leader_receipt:[{result:{status:"return",payload:{readable:"null"}}}]} };
+  assert.equal(studioHashInspection(receipt,hash,contract).outcome,"confirmed");
+  assert.equal(classifyStudioTransaction({...receipt,resultName:"SUCCESS"},hash,owner,contract).kind,"confirmed");
+  const unrelated = {...receipt,recipient:"0x2222222222222222222222222222222222222222"};
+  assert.equal(studioHashInspection(unrelated,hash,contract).outcome,"invalid");
+  assert.equal(classifyStudioTransaction(unrelated,hash,owner,contract).kind,"invalid");
+  assert.equal(classifyStudioTransaction({...receipt,sender:"0x3333333333333333333333333333333333333333"},hash,owner,contract).kind,"invalid");
+});
+
 test("safe fallback requires independently matching the right wallet, job and baseline", () => {
   const wallet = "0x1111111111111111111111111111111111111111";
   const attacker = "0x2222222222222222222222222222222222222222";
