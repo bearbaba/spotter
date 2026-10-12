@@ -102,5 +102,5 @@ export function createJobsBrowser({document, readJob, getAccount, isWriteBlocked
   $("myJobsBtn").onclick=()=>{mode="mine";render();};
   $("moreJobsBtn").onclick=()=>scan();
   $("refreshJobsBtn").onclick=()=>refresh();
-  return {scan,refresh,render,getJobs:()=>[...jobs.values()],getState:()=>({next,ended,loading,mode})};
+  return {scan,refresh,render,setFilter(nextMode){mode=nextMode==="mine"?"mine":"all";render();},getJobs:()=>[...jobs.values()],getState:()=>({next,ended,loading,mode})};
 }
