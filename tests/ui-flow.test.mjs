@@ -559,3 +559,35 @@ test("proof result uses accessible mobile-safe layout without injecting contract
   assert.match(html,/\.proof-json\{/);
   assert.match(html,/readable-receipts/);
 });
+
+test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
+  const page=makePage({existingJob:true});
+  await page.element("connectBtn").onclick();
+  const writesBefore=page.writes;
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"d".repeat(64),fn:"open_job",jobId:"",
+    wallet:"0x1111111111111111111111111111111111111111",
+    previousJobId:"6",question:"Historical result",rubric:"Exact match"
+  }));
+  await page.element("checkCompletedBtn").onclick();
+  assert.equal(page.writes,writesBefore);
+  assert.equal(page.storage.has("spotter.pending"),false);
+  assert.equal(page.element("jid").value,"7");
+  assert.equal(page.element("subBtn").disabled,false);
+  assert.equal(page.element("openBtn").disabled,true);
+  assert.match(page.element("msg").textContent,/Job #7 confirmed on GenLayer/);
+});
+test("ambiguous old open_job cannot overwrite the active workflow", async () => {
+  const page=makePage({existingJob:true});
+  await page.element("connectBtn").onclick();
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"d".repeat(64),fn:"open_job",jobId:"",
+    wallet:"0x1111111111111111111111111111111111111111",
+    previousJobId:"7",question:"Historical result",rubric:"Exact match"
+  }));
+  await page.element("checkCompletedBtn").onclick();
+  assert.equal(page.storage.has("spotter.pending"),true);
+  assert.equal(page.element("jid").value,"");
+  assert.equal(page.element("subBtn").disabled,true);
+  assert.equal(page.writes,0);
+});
