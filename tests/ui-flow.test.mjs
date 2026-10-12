@@ -487,7 +487,7 @@ test("accepted SUBMITTED Job auto-reconciles stale tracked submit without any se
   assert.equal(page.storage.has("spotter.pending"),false);
   assert.equal(page.element("jid").value,"7");
   assert.equal(page.element("judgeBtn").disabled,false);
-  assert.match(page.element("msg").textContent,/matching finalized on-chain Job #7/);
+  assert.match(page.element("msg").textContent,/Job #7 confirmed on GenLayer/);
 });
 test("unmatched pending URL stays locked and does not resend or unlock Judge", async () => {
   const page=makePage();
