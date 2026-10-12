@@ -46,6 +46,8 @@ If contract deployment source, public URL, test GEN or RPC is not accessible, no
 1. Open **Transaction details & troubleshooting** on the same browser tab that saved the pending transaction.
 2. Choose **Inspect transaction (read-only)**. This performs only RPC reads (`eth_chainId`, `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and contract views). It does not request a signature, change chain settings, or submit a transaction.
 3. Inspect the actual wallet transaction destination against the expected Studionet consensus address `0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575`, receipt status, event count and latest finalized Job ID. A mined EVM transaction does not alone prove the GenLayer action was accepted.
+   - If the receipt includes logs but no recognized `NewTransaction` event, the inspector shows each log's public emitter address and `topic[0]` rather than pretending there were no logs.
+   - The inspector separately reads historical **Job #1** from the deployed Spotter contract to distinguish a missing Studio editor entry from absent final on-chain data. An unavailable or empty read does not alone prove the contract was deleted.
 4. Use **Copy full tx hash** to send the complete hash for diagnosis (public transaction ID; **never provide a seed phrase, private key or signing request**). If the clipboard is unavailable, the page displays the full hash for manual copying.
 5. Leave the previous write tracked while its status is unknown. **Clear local tracking** does not cancel the transaction and should be used only after inspecting the chain state.
 
