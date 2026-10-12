@@ -72,7 +72,7 @@ test("automatically reads public contiguous job records, sorted newest first, no
   await cards(x.document)[0].children[3].children[0].onclick();
   assert.deepEqual(x.calls,[["read","6"]]);
 });
-test("My jobs filters owner/hunter and only allows poster/authorized hunter to continue",async()=>{
+test("My jobs filters ownership while public OPEN and SUBMITTED writes are permissionless",async()=>{
   const x=setup();
   await x.browser.scan();
   x.setAccount(x.owner);
@@ -89,7 +89,7 @@ test("My jobs filters owner/hunter and only allows poster/authorized hunter to c
   x.setAccount(x.other);
   assert.equal(cards(x.document).length,3,"hunter and poster are visible to their own wallet");
   const candidate=cards(x.document).find(c=>c.children[0].children[0].textContent==="Job #3");
-  assert.equal(candidate.children[3].children.length,1,"cannot resume somebody else's poster job");
+  assert.equal(candidate.children[3].children.length,2,"public judge action is permissionless with wallet approval");
 });
 test("scan is bounded and paginated for large contract history",async()=>{
   const owner="0x1111111111111111111111111111111111111111";
