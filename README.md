@@ -53,3 +53,10 @@ Open `http://localhost:8080/`. To preview the generated build, run `cd dist && p
 **Limitations:** Studionet is experimental. Validator web access and AI interpretation may vary. URL content can change and a page hash proves only the bytes observed during that evaluation, not enduring truth. Job discovery/indexing is not implemented. No escrow, bounty distribution, dispute market, wallet automation, or production mainnet security guarantees.
 
 For a reproducible acceptance decision, review the actual on-chain `get_job` result and a real wallet-signed transaction in a fresh session. CI validates syntax and frontend safety logic **offline**; it does not prove live GenVM consensus or MetaMask interoperability. The SDK version and wallet/GenLayer hash distinction are pinned and covered by regression tests.
+
+
+### Recovering an accepted Job from a wallet address
+
+The deployed `Spotter.py` contract stores `last_job` under the **exact string** returned by `str(gl.message.sender_address)`. Because this is a string-keyed map, a lowercase EVM wallet address can return an empty result when the stored string uses different checksum casing. The frontend first tries the connected address, then reads existing finalized Job records (bounded IDs 1–16) to obtain the **exact `poster` string as saved on-chain** and retries `last_job_of` with that value. It then verifies poster, question, rubric and the original pre-write baseline. This does not submit a replacement blockchain transaction.
+
+Two identical recent `open_job` actions from the same wallet are not uniquely attributable by contract state alone. Use the Studio transaction details and the real `open_job` return for indisputable attribution; never claim this heuristic proves which wallet transaction created which Job.
