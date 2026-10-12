@@ -34,7 +34,14 @@
   .tag{display:inline-flex;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
   .HIT{background:#10382c;color:#3dd68c}.MISS{background:#3a1418;color:#ff6b81}
   .DEAD{background:#3a320f;color:#f5c542}.OPEN,.SUBMITTED{background:#12343c;color:#7ff5ea}
-  pre{white-space:pre-wrap;color:#c7deda}
+  pre{white-space:pre-wrap;overflow-wrap:anywhere;color:#c7deda}
+  button:disabled{opacity:.48;cursor:wait}
+  a{color:#80f1e2}
+  #txDetail{font:12px/1.7 ui-monospace,monospace;overflow-wrap:anywhere;margin-top:12px}
+  .review-box{margin:20px 0;padding:18px;border:1px solid var(--line);border-radius:22px;background:rgba(46,230,214,.055)}
+  .review-box p{color:var(--mut);margin:6px 0 12px;font-size:14px}
+  .review-box h2{font-size:19px;margin:0}
+  .review-box button{margin-top:4px}
 </style>
 </head>
 <body>
@@ -43,7 +50,7 @@
     <div>
       <div class="brand">Studionet 61999</div>
       <h1>Spotter</h1>
-      <p class="lead">Job id comes from the open_job transaction return. The app does not call last_job_of.</p>
+      <p class="lead">Verify public web evidence through GenLayer. Read existing receipts without a wallet; sign only when you choose to create or judge a job.</p>
     </div>
     <div class="wallet">
       <div style="color:var(--mut);font-size:12px">Wallet</div>
@@ -62,7 +69,13 @@
     <div class="step" id="s4">4 Judge</div>
     <div class="step" id="s5">5 Read</div>
   </div>
-  <p class="hint" id="hint">Step 1: Connect MetaMask on Studionet 61999.</p>
+  <div class="review-box">
+    <h2>Start with verified public evidence</h2>
+    <p>No wallet required. Read historical Job #1 directly from the contract, including its stored verdict, URL, page hash and explanation. The smart contract's state is the evidence, not a screenshot or a promise of future results.</p>
+    <button type="button" id="sampleBtn">Read sample job #1 (no wallet) ↗</button>
+    <p>Live writes require a Studionet wallet and GEN test tokens. Verdicts from fresh AI consensus can vary. No private keys or real payments are requested here.</p>
+  </div>
+  <p class="hint" id="hint">Read a sample above, or connect MetaMask on Studionet 61999 to create a new job.</p>
   <div class="actions" style="margin:0 0 16px">
     <button class="chip" id="exHit">Example HIT</button>
     <button class="chip" id="exMiss">Example MISS</button>
@@ -81,8 +94,8 @@
     </section>
     <section class="panel">
       <h2>Close it</h2>
-      <label>Job id (open_job return)</label>
-      <input id="jid" value=""/>
+      <label for="jid">Job ID (numeric open_job return)</label>
+      <input id="jid" value="" inputmode="numeric" autocomplete="off" placeholder="e.g. 1"/>
       <label>URL</label>
       <input id="url" value="https://example.org"/>
       <div class="actions">
@@ -92,139 +105,11 @@
       </div>
     </section>
   </div>
-  <p class="msg" id="msg"></p>
+  <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  <div id="txDetail" aria-label="Last submitted transaction"></div>
+  <div class="actions"><button id="resumeBtn" type="button">Resume latest transaction (read-only)</button></div>
   <section class="panel" id="out" style="margin-top:18px"></section>
 </main>
-<script type="module">
-import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
-import { studionet } from "https://esm.sh/genlayer-js@0.18.0/chains?bundle";
-
-const $ = (id) => document.getElementById(id);
-const CONTRACT = "0x730143dF831778569e15975Ef44dFDeCB668609b";
-const RPC = "https://studio.genlayer.com/api";
-const ZERO = "0x0000000000000000000000000000000000000000";
-$("caddr").textContent = CONTRACT;
-const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO });
-let account = null;
-
-const EXAMPLES = {
-  HIT: { q: "Does example.org say the domain is for documentation examples?", r: "HIT if the live page says that.", url: "https://example.org" },
-  MISS: { q: "Is example.org the official United Nations homepage?", r: "MISS if the page is not the UN.", url: "https://example.org" },
-  DEAD: { q: "Does this page confirm the claim?", r: "DEAD if the page cannot be fetched.", url: "https://this-domain-should-not-resolve-genlayer-test.invalid" },
-  PARSE: { q: "__PARSE_TEST__", r: "n/a", url: "https://example.org" },
-};
-
-function note(text, bad) {
-  $("msg").className = bad ? "msg bad" : "msg";
-  $("msg").textContent = text;
-}
-function why(e) {
-  const raw = String(e && (e.shortMessage || e.message || e));
-  const t = raw.toLowerCase();
-  if (t.includes("connect")) return "Wallet is not connected.";
-  if (t.includes("rejected") || t.includes("denied")) return "Signature rejected.";
-  if (t.includes("0xf22f")) return "Switch MetaMask to Studionet 61999.";
-  if (t.includes("locked to hunter")) return "Pending URL is locked to the first hunter.";
-  return raw;
-}
-function setStep(n) {
-  ["s1","s2","s3","s4","s5"].forEach((id, i) => $(id).classList.toggle("on", i + 1 === n));
-}
-function loadExample(key) {
-  const ex = EXAMPLES[key];
-  $("q").value = ex.q;
-  $("r").value = ex.r;
-  $("url").value = ex.url;
-  note("Loaded " + key + ".");
-  setStep(account ? 2 : 1);
-}
-function parseId(v) {
-  if (v == null) return "";
-  const s = String(v).replace(/"/g, "").trim();
-  if (!s || s === "undefined" || s === "null") return "";
-  return s;
-}
-async function readJob(id) {
-  const raw = await readClient.readContract({
-    address: CONTRACT, functionName: "get_job", args: [String(id)], stateStatus: "accepted",
-  });
-  return typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {});
-}
-function writeClient() {
-  if (!account || !window.ethereum) throw new Error("Connect wallet first");
-  return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
-}
-
-$("connectBtn").onclick = async () => {
-  try {
-    if (!window.ethereum) throw new Error("No wallet");
-    account = (await window.ethereum.request({ method: "eth_requestAccounts" }))[0];
-    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xf22f" }] });
-    $("who").textContent = account;
-    $("disconnectBtn").hidden = false;
-    note("Connected " + account);
-    setStep(2);
-  } catch (e) { note(why(e), true); }
-};
-$("disconnectBtn").onclick = () => {
-  account = null;
-  $("who").textContent = "not connected";
-  $("disconnectBtn").hidden = true;
-  setStep(1);
-};
-$("exHit").onclick = () => loadExample("HIT");
-$("exMiss").onclick = () => loadExample("MISS");
-$("exDead").onclick = () => loadExample("DEAD");
-$("exParse").onclick = () => loadExample("PARSE");
-$("newHunt").onclick = () => loadExample("MISS");
-
-async function send(fn, args) {
-  if (!args.every((x) => String(x || "").trim())) throw new Error("Fill every field first");
-  const client = writeClient();
-  const write = { address: CONTRACT, functionName: fn, args };
-  let tx;
-  try {
-    const estimate = await client.estimateTransactionFeesForWrite(write);
-    tx = await client.writeContract({ ...write, fees: { distribution: estimate.distribution, feeValue: estimate.feeValue } });
-  } catch (first) {
-    tx = await client.writeContract(write);
-  }
-  note(fn + " sent " + tx);
-  return { tx, client };
-}
-
-async function idFromOpenTx(client, tx) {
-  const hash = typeof tx === "string" ? tx : (tx && (tx.hash || tx.id || tx));
-  for (const name of ["waitForFinalization", "waitForDecision", "waitForTransactionReceipt"]) {
-    if (typeof client[name] !== "function") continue;
-    try {
-      const done = await client[name]({ hash });
-      const id = parseId(done && (done.result ?? done.returnValue ?? done.value ?? done.output));
-      if (id) return id;
-    } catch (_) {}
-  }
-  return "";
-}
-
-$("openBtn").onclick = () => send("open_job", [$("q").value.trim(), $("r").value.trim()]).then(async ({ tx, client }) => {
-  const id = await idFromOpenTx(client, tx);
-  if (id) $("jid").value = id;
-  note(id
-    ? ("Job " + id + " from open_job return.")
-    : "Paste the open_job return value into Job id. The app will not call last_job_of.");
-  setStep(3);
-}).catch((e) => note(why(e), true));
-
-$("subBtn").onclick = () => send("submit_url", [$("jid").value.trim(), $("url").value.trim()]).then(() => setStep(4)).catch((e) => note(why(e), true));
-$("judgeBtn").onclick = () => send("judge", [$("jid").value.trim()]).then(() => setStep(5)).catch((e) => note(why(e), true));
-$("readBtn").onclick = async () => {
-  try {
-    const data = await readJob($("jid").value.trim());
-    $("out").innerHTML = `<span class="tag ${data.status || ""}">${data.status || "?"}</span><pre>${JSON.stringify(data, null, 2)}</pre>`;
-    note((data.status || "empty") + (data.fail_kind ? " / " + data.fail_kind : ""));
-  } catch (e) { note(why(e), true); }
-};
-setStep(1);
-</script>
+<script type="module" src="./app.mjs"></script>
 </body>
 </html>
