@@ -211,6 +211,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
             <div class="mini-actions">
               <button type="button" class="btn btn-small btn-primary" id="recoverHashBtn">Inspect transaction hash (read-only) ↗</button>
             </div>
+            <div id="recoveredJobActions" class="hidden" aria-live="polite">
+              <p id="recoveredJobHint" class="hint">Connect the original Job owner's wallet to continue safely.</p>
+              <div class="mini-actions">
+                <button id="continueRecoveredBtn" type="button" class="btn btn-primary btn-small" disabled>Continue with recovered Job ↗</button>
+              </div>
+            </div>
             <pre id="recoveryResult" class="mono diagnostics-output" role="status" aria-live="polite" hidden></pre>
             <p>For a transaction already tracked in this tab, use the read-only Resume option below. Never resend an unresolved write.</p>
             <div class="mini-actions">

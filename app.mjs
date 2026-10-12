@@ -16,6 +16,7 @@ const writeButtons = ["openBtn", "subBtn", "judgeBtn"];
 let account = null;
 let busy = false;
 let flowStage = 0;
+let recoveredJobCandidate = null; // Only set by an accepted exact-hash return and matching finalized Job read.
 
 $("caddr").textContent = CONTRACT;
 const EXAMPLES = {
@@ -43,7 +44,7 @@ function setStep(n) {
 function setStage(stage) {
   flowStage = stage;
   const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
-  $("openBtn").disabled = blocked || !account;
+  $("openBtn").disabled = blocked || !account || stage !== 0;
   $("subBtn").disabled = blocked || !account || stage !== 1;
   $("judgeBtn").disabled = blocked || !account || stage !== 2;
   const descriptions = {
@@ -61,6 +62,30 @@ function setStage(stage) {
         ? "Wallet connected to Studionet. Review your question, decision rule and URL, then select 1 · Create job."
         : descriptions[stage] || descriptions[0];
   setStep(stage === 0 ? (account ? 2 : 1) : stage + 2);
+  updateRecoveredControls();
+}
+function updateRecoveredControls() {
+  const surface = $("recoveredJobActions");
+  const button = $("continueRecoveredBtn");
+  if (!surface || !button) return;
+  const candidate = recoveredJobCandidate;
+  surface.classList.toggle("hidden", !candidate);
+  if (!candidate) { button.disabled = true; return; }
+  const isOwner = Boolean(account && typeof candidate.poster === "string" &&
+    account.toLowerCase() === candidate.poster.toLowerCase());
+  const sameHunter = Boolean(account && typeof candidate.hunter === "string" &&
+    account.toLowerCase() === candidate.hunter.toLowerCase());
+  const usable = candidate.status === "OPEN" ||
+    (candidate.status === "SUBMITTED" && sameHunter);
+  const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
+  button.disabled = blocked || !isOwner || !usable;
+  button.textContent = "Continue with Job #" + candidate.id + " ↗";
+  $("recoveredJobHint").textContent = blocked
+    ? "A previous transaction is still pending. Resolve it before continuing with this Job."
+    : !account ? "Connect the original Job owner's wallet to continue. Reading proof needs no wallet."
+    : !isOwner ? "Connected wallet is not this Job's poster. Change to the original owner's wallet."
+    : !usable ? "This Job is finalized or is assigned to another hunter. Read its proof instead."
+    : "Job #" + candidate.id + " is available. Continue only after confirming its on-chain state.";
 }
 function syncWallet(address) {
   const changed = account && address && account.toLowerCase() !== address.toLowerCase();
@@ -442,6 +467,8 @@ $("resumeBtn").onclick = () => guarded(async () => {
 $("recoverHashBtn").onclick = async () => {
   const result = $("recoveryResult");
   result.hidden = false;
+  recoveredJobCandidate = null;
+  updateRecoveredControls();
   const hash = transactionHash($("recoveryHash").value.trim());
   if (!hash) {
     result.textContent = "Enter a full 0x-prefixed 64-character Studio transaction hash. No transaction was sent.";
@@ -487,7 +514,17 @@ $("recoverHashBtn").onclick = async () => {
           lines.push("Found Job #" + jobId + " on-chain, status: " + String(parsed.status ?? "unknown"));
           if (!sender) lines.push("Sender metadata unavailable; exact wallet attribution is not verified.");
           $("lookupId").value = jobId;
-          renderJob(parsed); // Public proof only; never mutate the active write Job ID or stage.
+          renderJob(parsed); // Public proof only; signed workflow remains unchanged.
+          if (sender && String(parsed.poster ?? "").toLowerCase() !== sender.toLowerCase()) {
+            lines.push("Transaction sender and Job poster did not match; activation is unavailable.");
+          } else if (parsed.status === "OPEN" || parsed.status === "SUBMITTED") {
+            recoveredJobCandidate = {
+              id: jobId, hash, poster: String(parsed.poster ?? ""),
+              hunter: String(parsed.hunter ?? ""), status: parsed.status,
+            };
+            updateRecoveredControls();
+            lines.push("To continue, connect the original owner wallet and select Continue with Job #" + jobId + ".");
+          }
         }
       } catch (error) {
         lines.push("Job lookup failed: " + errorText(error));
@@ -504,6 +541,50 @@ $("recoverHashBtn").onclick = async () => {
   } finally {
     $("recoverHashBtn").disabled = false;
   }
+};
+
+// Adopting a recovered job never sends a blockchain transaction. User must click the next write step explicitly.
+$("continueRecoveredBtn").onclick = () => guarded(async () => {
+  const candidate = recoveredJobCandidate;
+  if (!candidate || !parseJobId(candidate.id)) throw Error("Recover an existing transaction by hash first.");
+  if (!account || account.toLowerCase() !== candidate.poster.toLowerCase()) {
+    throw Error("Connect the original Job poster wallet to continue this Job.");
+  }
+  if (sessionStorage.getItem("spotter.pending")) {
+    throw Error("Resolve the previous tracked transaction before continuing.");
+  }
+  const chainId = await window.ethereum?.request({ method: "eth_chainId" });
+  if (String(chainId).toLowerCase() !== CHAIN_ID) throw Error("Switch the wallet to Studionet 61999.");
+  const raw = await diagnosticRead("Recovered Job state", () => readClient.readContract({
+    address: CONTRACT, functionName: "get_job", args: [candidate.id],
+    transactionHashVariant: "latest-final",
+  }), 9000);
+  const job = parseJobResult(raw);
+  if (parseJobId(job.id) !== candidate.id ||
+      String(job.poster ?? "").toLowerCase() !== account.toLowerCase()) {
+    throw Error("Recovered Job no longer matches its stored owner and ID. No transaction was sent.");
+  }
+  if (job.status !== "OPEN" &&
+      !(job.status === "SUBMITTED" && String(job.hunter ?? "").toLowerCase() === account.toLowerCase())) {
+    throw Error("Job is not eligible for your next action. Read its current public proof instead.");
+  }
+  $("jid").value = candidate.id;
+  $("q").value = String(job.question || "");
+  $("r").value = String(job.rubric || "");
+  if (job.url) $("url").value = job.url;
+  $("lookupId").value = candidate.id;
+  recoveredJobCandidate = { ...candidate, status: job.status, hunter: String(job.hunter || "") };
+  setStage(job.status === "OPEN" ? 1 : 2);
+  renderJob(job);
+  note("Job #" + candidate.id + " restored as your active verification. " +
+    (job.status === "OPEN" ? "Review the source URL and select 2 · Submit evidence when ready." :
+    "Source is submitted. Select 3 · Run verification when ready.") +
+    " No transaction was sent by recovery.");
+});
+
+$("recoveryHash").oninput = () => {
+  recoveredJobCandidate = null;
+  updateRecoveredControls();
 };
 
 // Read-only RPC inspection. Show progress BEFORE each async request so a slow wallet cannot hide results.

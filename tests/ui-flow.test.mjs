@@ -350,6 +350,47 @@ test("return encoded in SDK leader receipt identifies a read-only proof without 
   assert.equal(page.element("subBtn").disabled, true);
   assert.equal(page.writes, 0);
 });
+test("recover Job #7 in a new tab and explicitly continue through Submit and Verify", async () => {
+  const page = makePage({ studioTxSuccess: true, studioLeaderReturn: true, existingJob: true });
+  const hash = "0x" + "a".repeat(64);
+  page.element("recoveryHash").value = hash;
+  await page.element("recoverHashBtn").onclick();
+  assert.equal(page.writes, 0, "recovery must be read-only");
+  assert.equal(page.element("jid").value, "", "recovery must not silently become a write action");
+  assert.equal(page.element("continueRecoveredBtn").disabled, true, "wallet must be connected");
+  await page.element("connectBtn").onclick();
+  assert.equal(page.element("continueRecoveredBtn").disabled, false);
+  await page.element("continueRecoveredBtn").onclick();
+  assert.equal(page.writes, 0, "adopting existing Job does not create a new Job");
+  assert.equal(page.element("jid").value, "7");
+  assert.equal(page.element("q").value, "Historical result");
+  assert.equal(page.element("r").value, "Exact match");
+  assert.equal(page.element("subBtn").disabled, false);
+  assert.equal(page.element("judgeBtn").disabled, true);
+  assert.equal(page.element("openBtn").disabled, true, "must not invite another create while a job is active");
+  await page.element("subBtn").onclick();
+  assert.equal(page.writes, 1, "only the explicitly approved submit_url is sent");
+  assert.equal(page.job.status, "SUBMITTED");
+  assert.equal(page.element("judgeBtn").disabled, false);
+  await page.element("judgeBtn").onclick();
+  assert.equal(page.writes, 2, "only the explicitly approved judge is sent");
+  assert.equal(page.job.status, "HIT");
+  assert.equal(page.element("jid").value, "7");
+});
+
+test("recovering a final proof must not enable a signed workflow", async () => {
+  const page = makePage({ studioTxSuccess: true, studioLeaderReturn: true, existingJob: true });
+  page.element("recoveryHash").value = "0x" + "a".repeat(64);
+  await page.element("recoverHashBtn").onclick();
+  await page.element("connectBtn").onclick();
+  assert.equal(page.element("continueRecoveredBtn").disabled, false);
+  page.element("recoveryHash").value = "0x" + "b".repeat(64);
+  page.element("recoveryHash").oninput();
+  assert.equal(page.element("continueRecoveredBtn").disabled, true, "changing hash invalidates previously verified job");
+  assert.equal(page.element("jid").value, "");
+  assert.equal(page.writes, 0);
+});
+
 test("invalid hash cannot trigger read or write", async () => {
   const page = makePage({ studioTxSuccess: true });
   page.element("recoveryHash").value = "not-a-hash";

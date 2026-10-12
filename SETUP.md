@@ -73,3 +73,9 @@ If there are multiple identical claims from the same wallet, use Studio to inspe
 ### Inspect an exact GenLayer transaction hash
 
 The saved wallet hash may itself be indexed as a GenLayer transaction in Studio Explorer. The frontend now attempts `getTransaction({hash})` **first** and reports the direct GenLayer result in read-only diagnostics. A successful `FINALIZED / SUCCESS` response verifies the transaction status but not its automatically inferred Job ID; locate **GenVM Execution → Return Value** in Studio Explorer for a definitive ID. EVM `NewTransaction` logs are only a fallback and may be absent even if Studio confirms an accepted transaction.
+
+### Continue a recovered Job (Studio-confirmed IDs)
+
+If an existing `open_job` transaction is FINALIZED and the `Return Value` explicitly identifies Job #5 or Job #6, use **Recover transaction by hash → Inspect transaction hash** to read it in any tab. After connecting the *original poster wallet*, select **Continue with Job #N**. The page rechecks the actual finalized Job owner and status, fills its question and rubric, and enables only the appropriate next wallet write (**Submit evidence** if OPEN, **Run verification** if SUBMITTED and your wallet is the recorded hunter).
+
+**Do not click Create job.** Recovery and Continue themselves are read-only and should not display a MetaMask signing prompt. Only subsequent separate user-approved Submit/Judge actions send writes. If the original wallet does not match the Job poster or a previous transaction is still pending in this tab, no write step is enabled.

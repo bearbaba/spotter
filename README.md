@@ -74,3 +74,11 @@ A previous `open_job` may be FINALIZED even if the original browser tab is gone.
 Open **Transaction details & troubleshooting → Recover transaction by hash** and paste the exact public 66-character transaction hash from GenLayer Studio Explorer. Choose **Inspect transaction hash (read-only)**; no wallet is required and no write is sent. The result displays the Studio transaction status, consensus, GenVM result (if reported), and **only an explicit Job return** from the SDK. A safely verified Job return opens the read-only proof; it never automatically authorizes Submit or Judge.
 
 For historical hashes `0xaa6cead7f9e18e900c1d74a91c4adfc54019dadb2299c4a6f1619d8aca0bbe06` and `0x2c998a84010127893291b9819e19105d94c65077d394ba0e4a1dab3d158d8bdd`, Studio previously showed FINALIZED / SUCCESS. To attribute exact Job IDs, inspect each Studio transaction's **GenVM Execution → Return Value** if the SDK response does not include the result. Do not generate more test transactions to compensate for a missing browser session.
+
+### Continue an existing OPEN job without creating a duplicate
+
+After pasting an existing accepted `open_job` hash and inspecting it read-only, Spotter displays **Continue with Job #N** if the transaction returned an explicit ID and the ID matches a finalized on-chain job. Connect the **same poster wallet** that originally opened it; the button remains disabled for an unrelated wallet, a settled job, or an unresolved local transaction.
+
+Click **Continue with Job #N**. This performs a *fresh finalized read* to verify ID, ownership and status, and restores the on-chain question and rubric into the form. **No write occurs** during recovery. For `OPEN` choose **2 · Submit evidence** and review the MetaMask prompt; when the accepted state becomes `SUBMITTED`, choose **3 · Run verification** and approve separately. If `SUBMITTED`, only the original hunter can resume through this UX. Public proof browsing still never changes the active job.
+
+The older successful `open_job` hashes `0xaa6cead7f9e18e900c1d74a91c4adfc54019dadb2299c4a6f1619d8aca0bbe06` and `0x2c998a84010127893291b9819e19105d94c65077d394ba0e4a1dab3d158d8bdd` returned Job IDs **5** and **6** respectively, each OPEN when reviewed. These examples are historical user-observed evidence, not new wallet writes or a promise that the chain will remain unchanged.
