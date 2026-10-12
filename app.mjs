@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
+import { createJobsBrowser } from "./jobs-browser.mjs";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
   parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction, classifyStudioTransaction, studioHashInspection, exactJobIdFromStudioTransaction,
@@ -16,6 +17,7 @@ const writeButtons = ["openBtn", "subBtn", "judgeBtn"];
 let account = null;
 let busy = false;
 let flowStage = 0;
+let jobsBrowser = null;
 let recoveredJobCandidate = null; // Only set by an accepted exact-hash return and matching finalized Job read.
 
 $("caddr").textContent = CONTRACT;
@@ -63,6 +65,7 @@ function setStage(stage) {
         : descriptions[stage] || descriptions[0];
   setStep(stage === 0 ? (account ? 2 : 1) : stage + 2);
   updateRecoveredControls();
+  jobsBrowser?.render();
 }
 function updateRecoveredControls() {
   const surface = $("recoveredJobActions");
@@ -71,23 +74,18 @@ function updateRecoveredControls() {
   const candidate = recoveredJobCandidate;
   surface.classList.toggle("hidden", !candidate);
   if (!candidate) { button.disabled = true; return; }
-  const isOwner = Boolean(account && typeof candidate.poster === "string" &&
-    account.toLowerCase() === candidate.poster.toLowerCase());
-  const sameHunter = Boolean(account && typeof candidate.hunter === "string" &&
-    account.toLowerCase() === candidate.hunter.toLowerCase());
-  const usable = candidate.status === "OPEN" ||
-    (candidate.status === "SUBMITTED" && sameHunter);
+  const usable = candidate.status === "OPEN" || candidate.status === "SUBMITTED";
   const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
-  button.disabled = blocked || !isOwner || !usable;
+  button.disabled = blocked || !account || !usable;
   button.textContent = "Continue with Job #" + candidate.id + " ↗";
   $("recoveredJobHint").textContent = blocked
     ? "A previous transaction is still pending. Resolve it before continuing with this Job."
-    : !account ? "Connect the original Job owner's wallet to continue. Reading proof needs no wallet."
-    : !isOwner ? "Connected wallet is not this Job's poster. Change to the original owner's wallet."
-    : !usable ? "This Job is finalized or is assigned to another hunter. Read its proof instead."
+    : !account ? "Connect a Studionet wallet to submit a source or run verification."
+    : !usable ? "This Job is finalized. Read its proof instead."
     : "Job #" + candidate.id + " is available. Continue only after confirming its on-chain state.";
 }
 function syncWallet(address) {
+  const wasAccount = account;
   const changed = account && address && account.toLowerCase() !== address.toLowerCase();
   account = address || null;
   $("who").textContent = account ? account.slice(0, 6) + "…" + account.slice(-4) : "Read-only";
@@ -97,6 +95,11 @@ function syncWallet(address) {
   $("connectBtn").classList.toggle("hidden", Boolean(account));
   if (changed) { $("jid").value = ""; flowStage = 0; }
   setStage(flowStage);
+  if (jobsBrowser) {
+    const changedAccount = String(wasAccount || "").toLowerCase() !== String(account || "").toLowerCase();
+    if (changedAccount) jobsBrowser.setFilter(account ? "mine" : "all");
+    else jobsBrowser.render();
+  }
 }
 function setBusy(value) {
   busy = value;
@@ -127,7 +130,7 @@ function requireJobId() {
 }
 async function readJob(id) {
   const raw = await readClient.readContract({
-    address: CONTRACT, functionName: "get_job", args: [id], transactionHashVariant: "latest-nonfinal",
+    address: CONTRACT, functionName: "get_job", args: [id], transactionHashVariant: "latest-final",
   });
   return parseJobResult(raw);
 }
@@ -179,6 +182,48 @@ async function readProofById(id) {
   renderJob(job);
   return job;
 }
+// Continue an existing finalized Job via the public explorer, with no new open_job.
+async function adoptExistingJob(rawId) {
+  const id=parseJobId(rawId);
+  if(!id)throw Error("Select an existing public Job.");
+  if(!account||!window.ethereum?.request)throw Error("Connect a Studionet wallet to join this public Job.");
+  if(sessionStorage.getItem("spotter.pending"))throw Error("A previous transaction is still unresolved. Inspect it first.");
+  const chain=await window.ethereum.request({method:"eth_chainId"});
+  if(String(chain).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  const raw=await diagnosticRead("Selected finalized Job",()=>readClient.readContract({
+    address:CONTRACT,functionName:"get_job",args:[id],transactionHashVariant:"latest-final",
+  }),9000);
+  const job=parseJobResult(raw);
+  if(parseJobId(job.id)!==id)throw Error("Job ID mismatch. No transaction was sent.");
+  if(job.status!=="OPEN"&&job.status!=="SUBMITTED")
+    throw Error("The Job is already finalized; only read-only proof lookup is permitted.");
+  $("jid").value=id; $("lookupId").value=id;
+  $("q").value=String(job.question||"");
+  $("r").value=String(job.rubric||"");
+  if(job.url) $("url").value=String(job.url);
+  setStage(job.status==="OPEN"?1:2);
+  renderJob(job);
+  note("Selected Job #"+id+". "+
+    (job.status==="OPEN"?"Submit one public URL as its first hunter with your own wallet approval.":
+      "Evidence already submitted. You may request a verification with wallet approval.")+
+    " No transaction was sent by selecting this Job.");
+  $("workspace").scrollIntoView?.({behavior:"smooth",block:"start"});
+}
+jobsBrowser=createJobsBrowser({
+  document,
+  getAccount:()=>account,
+  isWriteBlocked:()=>busy||Boolean(sessionStorage.getItem("spotter.pending")),
+  readJob:async id=>parseJobResult(await readClient.readContract({
+    address:CONTRACT,functionName:"get_job",args:[id],transactionHashVariant:"latest-final",
+  })),
+  readProof:async id=>{
+    try{await readProofById(id);$("proofs").scrollIntoView?.({behavior:"smooth",block:"start"});}
+    catch(e){note(errorText(e),true);}
+  },
+  continueJob:id=>guarded(()=>adoptExistingJob(id)),
+  notify:note,
+});
+
 function writer() {
   if (!account || !window.ethereum) throw new Error("Connect MetaMask before writing.");
   return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
@@ -284,34 +329,34 @@ async function waitOnChain(p) {
     try {
       direct = await diagnosticRead("GenLayer transaction", () =>
         readClient.getTransaction({ hash: p.hash }), 7500);
-    } catch { /* May be unsupported by this RPC; retain the existing fallback. */ }
-    const outcome = classifyStudioTransaction(direct, p.hash, p.wallet, CONTRACT);
-    if (outcome.kind === "confirmed") {
-      const exactId = parseJobId(direct?.returnValue ?? direct?.return_value);
-      if (p.fn === "open_job" && exactId) {
-        try {
-          const raw = await readClient.readContract({
-            address: CONTRACT, functionName: "get_job", args: [exactId],
-            transactionHashVariant: "latest-final",
-          });
-          if (independentlyVerifiedAction(p, parseJobResult(raw), p.wallet)) {
-            note("Confirmed GenLayer transaction and its exact Job #" + exactId + " return.");
-            return { statusName: outcome.status, returnValue: exactId, source: "direct-genlayer-tx" };
-          }
-        } catch { /* Keep the saved transaction if the returned ID cannot be verified. */ }
+    } catch { /* Direct RPC unavailable; only then fall back to EVM event receipt. */ }
+    const inspection = studioHashInspection(direct, p.hash, CONTRACT);
+    if (inspection.outcome === "confirmed") {
+      if (p.fn === "open_job") {
+        const exactId = exactJobIdFromStudioTransaction(direct);
+        if (exactId) {
+          try {
+            const raw = await readClient.readContract({
+              address: CONTRACT, functionName: "get_job", args: [exactId],
+              transactionHashVariant: "latest-final",
+            });
+            if (independentlyVerifiedAction(p, parseJobResult(raw), p.wallet)) {
+              note("GenLayer finalized open_job with verified on-chain Job #" + exactId + ".");
+              return { statusName: inspection.status, returnValue: exactId, source: "studio-exact-return" };
+            }
+          } catch { /* Remain pending if final chain state hasn't caught up. */ }
+        }
+        note("Studio has accepted this open_job, but its Job return cannot yet be safely paired with your original question. Recover it through Browse jobs or wait; never create another Job to compensate.", "pending");
+        return null;
       }
-      if (p.fn !== "open_job") {
-        const verified = await verifyFinalState(p, 2);
-        if (verified) return verified;
-      }
-      note("GenLayer Studio confirms " + outcome.status + " / SUCCESS for this transaction, but its exact Job ID is not exposed by this SDK response. Open this hash in Studio and copy GenVM Execution → Return Value. No new transaction is needed.", "pending");
+      const verified = await verifyFinalState(p, 2);
+      if (verified) return verified;
+      note("GenLayer confirms the transaction, but the finalized Job state is not yet matched. Refresh the public jobs or Resume later. Do not resend.", "pending");
       return null;
     }
-    if (outcome.kind === "failed" || outcome.kind === "invalid" ||
-        outcome.kind === "pending") {
-      note("GenLayer transaction lookup: " + (outcome.reason || outcome.status || outcome.kind) +
-        (outcome.execution ? " / " + outcome.execution : "") +
-        ". Keep the original hash; do not resend automatically.", "pending");
+    if (["failed", "invalid", "pending"].includes(inspection.outcome)) {
+      note("GenLayer lookup: " + (inspection.reason || inspection.status || inspection.outcome) +
+        " / " + inspection.execution + ". No automatic resubmission.", "pending");
       return null;
     }
   }
@@ -374,6 +419,7 @@ async function afterWrite(fn, id) {
   }
   renderJob(job);
   if (fn === "submit_url" && job.status === "SUBMITTED") setStage(2);
+  void jobsBrowser.refresh();
   if (fn === "judge") setStage(job.status === "SUBMITTED" ? 2 : 3);
 }
 $("connectBtn").onclick = async () => {
@@ -406,7 +452,12 @@ $("exHit").onclick = () => loadExample("HIT");
 $("exMiss").onclick = () => loadExample("MISS");
 $("exDead").onclick = () => loadExample("DEAD");
 $("exParse").onclick = () => loadExample("PARSE");
-$("newHunt").onclick = () => loadExample("MISS");
+$("newHunt").onclick = () => {
+  if (flowStage !== 0 && !window.confirm("Clear this form? The existing on-chain Job is not deleted.")) return;
+  $("q").value = ""; $("r").value = ""; $("url").value = "";
+  $("jid").value = ""; setStage(0);
+  note("Draft reset. Existing on-chain Jobs remain available above. No transaction was sent.");
+};
 $("sampleBtn").onclick = async () => {
   $("lookupId").value = "1";
   try { await readProofById("1"); }
@@ -429,6 +480,7 @@ $("openBtn").onclick = () => guarded(async () => {
   }
   $("jid").value = id;
   note("Job #" + id + " verified and ready for evidence.");
+  void jobsBrowser.refresh();
   setStage(1);
   setStep(3);
 });
@@ -547,9 +599,7 @@ $("recoverHashBtn").onclick = async () => {
 $("continueRecoveredBtn").onclick = () => guarded(async () => {
   const candidate = recoveredJobCandidate;
   if (!candidate || !parseJobId(candidate.id)) throw Error("Recover an existing transaction by hash first.");
-  if (!account || account.toLowerCase() !== candidate.poster.toLowerCase()) {
-    throw Error("Connect the original Job poster wallet to continue this Job.");
-  }
+  if (!account) throw Error("Connect a Studionet wallet to continue a public Job.");
   if (sessionStorage.getItem("spotter.pending")) {
     throw Error("Resolve the previous tracked transaction before continuing.");
   }
@@ -560,26 +610,17 @@ $("continueRecoveredBtn").onclick = () => guarded(async () => {
     transactionHashVariant: "latest-final",
   }), 9000);
   const job = parseJobResult(raw);
-  if (parseJobId(job.id) !== candidate.id ||
-      String(job.poster ?? "").toLowerCase() !== account.toLowerCase()) {
-    throw Error("Recovered Job no longer matches its stored owner and ID. No transaction was sent.");
+  if (parseJobId(job.id) !== candidate.id) {
+    throw Error("Recovered Job no longer matches its ID. No transaction was sent.");
   }
-  if (job.status !== "OPEN" &&
-      !(job.status === "SUBMITTED" && String(job.hunter ?? "").toLowerCase() === account.toLowerCase())) {
-    throw Error("Job is not eligible for your next action. Read its current public proof instead.");
+  if (job.status !== "OPEN" && job.status !== "SUBMITTED") {
+    throw Error("Job is finalized; no further write is permitted.");
   }
   $("jid").value = candidate.id;
   $("q").value = String(job.question || "");
   $("r").value = String(job.rubric || "");
-  if (job.url) $("url").value = job.url;
-  $("lookupId").value = candidate.id;
   recoveredJobCandidate = { ...candidate, status: job.status, hunter: String(job.hunter || "") };
-  setStage(job.status === "OPEN" ? 1 : 2);
-  renderJob(job);
-  note("Job #" + candidate.id + " restored as your active verification. " +
-    (job.status === "OPEN" ? "Review the source URL and select 2 · Submit evidence when ready." :
-    "Source is submitted. Select 3 · Run verification when ready.") +
-    " No transaction was sent by recovery.");
+  await adoptExistingJob(candidate.id);
 });
 
 $("recoveryHash").oninput = () => {
@@ -812,5 +853,16 @@ try {
     displayHash(stored.genlayerId || stored.hash, stored.fn || "transaction", stored.genlayerId ? "genlayer" : "evm");
     note("An earlier transaction is unresolved. Open Transaction details to resume or inspect it before any new write.", "pending");
   }
-} catch { /* ignore invalid browser storage */ }
+ } catch { /* ignore invalid browser storage */ }
 syncWallet(null);
+void jobsBrowser.scan();
+if(window.ethereum?.request){
+  void (async()=>{
+    try {
+      const authorized=await window.ethereum.request({method:"eth_accounts"});
+      if(!Array.isArray(authorized)||!authorized.length)return;
+      const chain=await window.ethereum.request({method:"eth_chainId"});
+      if(String(chain).toLowerCase()===CHAIN_ID)syncWallet(authorized[0]);
+    }catch{/* Browsing existing public jobs never requires the wallet. */}
+  })();
+}
