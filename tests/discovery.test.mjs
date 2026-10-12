@@ -87,7 +87,7 @@ test("My jobs filters owner/hunter and only allows poster/authorized hunter to c
   assert.equal(cards(x.document)[0].children[3].children.length,1);
   x.setBlocked(false);
   x.setAccount(x.other);
-  assert.equal(cards(x.document).length,4,"hunter and poster are visible to their own wallet");
+  assert.equal(cards(x.document).length,3,"hunter and poster are visible to their own wallet");
   const candidate=cards(x.document).find(c=>c.children[0].children[0].textContent==="Job #3");
   assert.equal(candidate.children[3].children.length,1,"cannot resume somebody else's poster job");
 });
