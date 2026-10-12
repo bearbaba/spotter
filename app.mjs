@@ -49,6 +49,37 @@ function setStage(stage) {
   $("openBtn").disabled = blocked || !account || stage !== 0;
   $("subBtn").disabled = blocked || !account || stage !== 1;
   $("judgeBtn").disabled = blocked || !account || stage !== 2;
+  // Only the NEXT valid write is bright. Other steps stay clearly locked.
+  const activeId = !blocked && account ? ["openBtn", "subBtn", "judgeBtn"][stage] : null;
+  const labels = {
+    openBtn: "1 · Create job ↗",
+    subBtn: "2 · Submit evidence ↗",
+    judgeBtn: "3 · Run verification ↗",
+  };
+  for (const id of writeButtons) {
+    const element = $(id);
+    element.dataset.current = String(id === activeId);
+    element.setAttribute("aria-busy", String(busy));
+    const step = writeButtons.indexOf(id);
+    if (busy) element.textContent = "Checking transaction…";
+    else element.textContent = labels[id];
+    element.title = blocked
+      ? "A transaction is still being verified. Do not submit again."
+      : !account ? "Connect a Studionet wallet to sign blockchain writes."
+      : step > stage ? "Complete the previous step first."
+      : step < stage ? "This step is already completed for the selected Job."
+      : "Next available action. MetaMask approval is required.";
+  }
+  const instructions = {
+    0: account ? "Review your claim and rubric, then press the highlighted Create job button. Already created a Job? Open Activity & history instead." :
+      "Connect a Studionet wallet first. You can read public proofs without connecting.",
+    1: "Job selected. Review the evidence URL, then press the highlighted Submit evidence button.",
+    2: "Source submitted. Press the highlighted Run verification button to request the on-chain verdict.",
+    3: "Verification complete. Read the on-chain proof, or reset the form for a new claim.",
+  };
+  $("actionGuide").textContent = busy ? "Checking the current transaction. No automatic resend." :
+    sessionStorage.getItem("spotter.pending") ? "Transaction tracked. Use read-only Resume below; do NOT resend." :
+    instructions[stage] || instructions[0];
   const descriptions = {
     0: "Connect a Studionet wallet and create a new job. All wallet writes require your approval.",
     1: "Job created. Review the evidence URL, then submit it to the contract.",
