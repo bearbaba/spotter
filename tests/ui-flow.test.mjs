@@ -170,7 +170,7 @@ test("historical proof lookup does not mutate live job ID or workflow state", as
   assert.equal(page.writes, 0, "reading sample must never submit a transaction");
   assert.equal(page.element("jid").value, "", "sample ID must not become active job");
   assert.equal(page.element("lookupId").value, "1");
-  assert.match(page.element("out").children.map(x => x.textContent || "").join(" "), /HIT/);
+  assert.match(page.element("out").children.map(x => x.textContent || "").join(" "), /Evidence supports this claim/);
   await page.element("connectBtn").onclick();
   assert.equal(page.element("subBtn").disabled, true, "public proof does not unlock Submit");
   assert.equal(page.element("judgeBtn").disabled, true, "public proof does not unlock Verify");
