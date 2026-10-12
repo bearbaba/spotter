@@ -530,3 +530,32 @@ test("explicit pending recovery control and cache-busted release script stay pre
   assert.match(html,/id="pendingRecoveryActions"/);
   assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-resume-unblock-v2"/);
 });
+
+test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
+  const page=makePage();
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  await page.element("subBtn").onclick();
+  await page.element("judgeBtn").onclick();
+  const output=page.element("out");
+  const fields=output.children.filter(x=>x.className==="proof-field");
+  assert.ok(fields.length>=4,"claim, URL, explanation and hash get separate rows");
+  assert.equal(fields[0].children[0].textContent,"Claim");
+  assert.equal(fields[1].children[0].textContent,"Evidence URL");
+  assert.equal(fields[2].children[0].textContent,"Validator explanation");
+  assert.equal(fields[3].children[0].textContent,"Page SHA-256");
+  assert.equal(fields[3].children[1].textContent,"a".repeat(64));
+  assert.equal(fields[3].children[2].textContent,"Copy hash");
+  const detail=output.children.at(-1);
+  assert.equal(detail.tagName,"details");
+  assert.equal(detail.children[0].textContent,"Technical details · complete on-chain JSON");
+  assert.equal(page.writes,3);
+});
+test("proof result uses accessible mobile-safe layout without injecting contract text as markup",()=>{
+  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+  assert.match(html,/\.proof-field-label\{/);
+  assert.match(html,/\.proof-field-value\{/);
+  assert.match(html,/\.proof-hash\{/);
+  assert.match(html,/\.proof-json\{/);
+  assert.match(html,/readable-receipts/);
+});
