@@ -11,7 +11,7 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ createJobsBrowser \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false, studioLeaderReturn = false, existingJob = false } = {}) {
+function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false, studioLeaderReturn = false, existingJob = false, missingNetwork = false } = {}) {
   const wallet = mixedCasePoster ? "0x" + "a".repeat(40) : "0x1111111111111111111111111111111111111111";
   const storedPoster = mixedCasePoster ? "0x" + "A".repeat(40) : wallet;
   const hash = "0x" + "a".repeat(64);
@@ -38,10 +38,14 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
     createElement: (name) => ({ ...element("created-" + name + "-" + Math.random()), children: [], append(...items){this.children.push(...items);} }),
   };
   let job = existingJob ? { id: "7", poster: storedPoster, status: "OPEN", question: "Historical result", rubric: "Exact match", url: "", round_no: 0 } : null, writes = 0;
+  let networkAdded = !missingNetwork;
+  let switchAttempts = 0;
+  let addRequests = 0;
   const ethereum = {
-    async request({ method }) {
+    async request({ method, params }) {
       if (method === "eth_requestAccounts") return [wallet];
-      if (method === "wallet_switchEthereumChain") return null;
+      if (method === "wallet_switchEthereumChain") { switchAttempts += 1; if (!networkAdded) throw Object.assign(new Error("Unknown chain"),{code:4902}); return null; }
+      if (method === "wallet_addEthereumChain") { assert.equal(params[0].chainId,"0xf22f"); assert.equal(params[0].rpcUrls[0],"https://studio.genlayer.com/api"); addRequests += 1; networkAdded = true; return null; }
       if (method === "eth_chainId") return "0xf22f";
       if (method === "eth_getTransactionByHash") {
         if (stallDiagnosticRpc) return new Promise(() => {});
@@ -127,7 +131,7 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
     setInterval: (callback) => { backgroundTick = callback; return 1; },
   };
   vm.runInNewContext(source, context, { filename: "app.mjs" });
-  return { element, storage, async tick(){ if(backgroundTick) await backgroundTick(); await new Promise(resolve=>setImmediate(resolve)); }, get job(){return job;}, get writes(){return writes;} };
+  return { element, storage, async tick(){ if(backgroundTick) await backgroundTick(); await new Promise(resolve=>setImmediate(resolve)); }, get job(){return job;}, get writes(){return writes;}, get addRequests(){return addRequests;}, get switchAttempts(){return switchAttempts;} };
 }
 
 test("missing NewTransaction logs: recover Create / Submit / Verify from exact finalized state", async () => {
@@ -612,4 +616,13 @@ test("polling resumes finalized open_job automatically without manual Check or a
   assert.equal(page.element("jid").value,"7");
   assert.equal(page.element("url").value,"https://example.org");
   assert.equal(page.element("subBtn").disabled,false);
+});
+
+test("new wallet can add official Studionet automatically without any contract write", async () => {
+  const page=makePage({missingNetwork:true});
+  await page.element("connectBtn").onclick();
+  assert.equal(page.addRequests,1);
+  assert.equal(page.switchAttempts,2);
+  assert.equal(page.element("openBtn").disabled,false);
+  assert.equal(page.writes,0);
 });
