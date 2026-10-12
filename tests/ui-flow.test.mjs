@@ -562,6 +562,7 @@ test("proof result uses accessible mobile-safe layout without injecting contract
 
 test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
   const page=makePage({existingJob:true});
+  page.element("url").value = "https://example.org";
   await page.element("connectBtn").onclick();
   const writesBefore=page.writes;
   page.storage.set("spotter.pending",JSON.stringify({
@@ -573,6 +574,7 @@ test("existing accepted open_job is restored to the primary Submit step without 
   assert.equal(page.writes,writesBefore);
   assert.equal(page.storage.has("spotter.pending"),false);
   assert.equal(page.element("jid").value,"7");
+  assert.equal(page.element("url").value,"https://example.org","an OPEN job must not erase the evidence URL draft");
   assert.equal(page.element("subBtn").disabled,false);
   assert.equal(page.element("openBtn").disabled,true);
   assert.match(page.element("msg").textContent,/Job #7 confirmed on GenLayer/);
