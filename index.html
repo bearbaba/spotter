@@ -72,6 +72,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .receipt.empty{color:#7c9a92;font-size:13px}.receipt pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,monospace;color:#badbd3;max-height:240px;overflow:auto;margin:12px 0 0}.receipt .tag{margin-bottom:6px}
 .details{margin-top:18px;border:1px solid #294344;border-radius:16px;background:#0b191a}.details summary{padding:14px 16px;cursor:pointer;font-size:13px;font-weight:700;color:#c1e1da}.details-content{padding:0 16px 16px;font-size:12px;color:var(--muted)}
 .mono{font:12px/1.6 ui-monospace,monospace;color:#a7d4cb;overflow-wrap:anywhere}
+.diagnostics-output{white-space:pre-wrap;overflow-wrap:anywhere;margin:15px 0 0;padding:14px;border:1px solid #31564f;background:#081c1b;border-radius:12px;max-height:460px;overflow:auto;user-select:text}
+.diagnostics-output[hidden]{display:none!important}
 .mini-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.mini-actions button{font-size:12px}
 .footer{margin-top:48px;padding:25px 0 38px;border-top:1px solid rgba(183,246,233,.11);display:flex;gap:16px;align-items:center;justify-content:space-between;color:var(--muted);font-size:12px}.footer a{color:#b1e9dc}.footer a:hover{color:white}
 .hidden{display:none!important}
@@ -159,7 +161,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
               <input id="jid" inputmode="numeric" pattern="[0-9]*" placeholder="Filled automatically when verified">
               <div class="field-help">Use only the exact ID shown in GenLayer Studio if automatic recovery is unavailable. Looking up public proofs does not change this ID.</div>
             </div>
-            <pre id="txDiagnostics" class="mono" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" role="status" aria-live="polite" hidden></pre>
           </div>
         </details>
         <div class="action-row">
@@ -209,6 +210,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
               <button type="button" class="btn btn-small btn-subtle" id="clearPendingBtn">Clear local tracking</button>
               <a class="btn btn-small btn-subtle" href="https://studio.genlayer.com/?import-contract=0x730143dF831778569e15975Ef44dFDeCB668609b" target="_blank" rel="noopener noreferrer">Open in Studio ↗</a>
             </div>
+            <pre id="txDiagnostics" class="mono diagnostics-output" role="status" aria-live="polite" hidden></pre>
           </div>
         </details>
       </section>

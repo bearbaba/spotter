@@ -9,7 +9,7 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true } = {}) {
+function makePage({ applyWrites = true, stallDiagnosticRpc = false } = {}) {
   const wallet = "0x1111111111111111111111111111111111111111";
   const hash = "0x" + "a".repeat(64);
   const elements = new Map();
@@ -39,7 +39,10 @@ function makePage({ applyWrites = true } = {}) {
       if (method === "eth_requestAccounts") return [wallet];
       if (method === "wallet_switchEthereumChain") return null;
       if (method === "eth_chainId") return "0xf22f";
-      if (method === "eth_getTransactionByHash") return { hash, from: wallet, to: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575" };
+      if (method === "eth_getTransactionByHash") {
+        if (stallDiagnosticRpc) return new Promise(() => {});
+        return { hash, from: wallet, to: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575" };
+      }
       if (method === "eth_getTransactionReceipt") return { status: "0x1", logs: [] };
       throw Error("Unexpected wallet RPC " + method);
     },
@@ -91,7 +94,14 @@ function makePage({ applyWrites = true } = {}) {
     studionet: { id: 61999 },
     ...core,
     console: { log() {}, warn() {}, error() {} },
-    setTimeout: (callback) => { callback(); return 0; },
+    setTimeout: (callback, ms = 0) => {
+      // Immediate successful wallet calls must resolve before the simulated deadline.
+      // Only the explicitly stalled RPC should then hit a synthetic asynchronous timeout.
+      if (ms < 6000) callback();
+      else if (stallDiagnosticRpc) setImmediate(callback);
+      return 0;
+    },
+    clearTimeout: () => {},
   };
   vm.runInNewContext(source, context, { filename: "app.mjs" });
   return { element, storage, get job(){return job;}, get writes(){return writes;} };
@@ -198,4 +208,34 @@ test("read-only diagnostics expose full transaction evidence without writing or 
   await page.element("copyHashBtn").onclick();
   assert.match(page.element("txDiagnostics").textContent, /0x[a]{64}/);
   assert.equal(page.writes, countBefore);
+});
+
+test("diagnostics are placed in the open troubleshooting section, not the unrelated advanced Job ID panel", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const advanced = html.indexOf('id="jobRecovery"');
+  const troubleshoot = html.indexOf('<summary>Transaction details &amp; troubleshooting</summary>');
+  const button = html.indexOf('id="diagnoseBtn"');
+  const result = html.indexOf('id="txDiagnostics"');
+  const sectionEnd = html.indexOf("</details>", troubleshoot);
+  assert.ok(advanced >= 0 && troubleshoot > advanced);
+  assert.ok(button > troubleshoot && result > button && result < sectionEnd,
+    "diagnostic result must be visible directly under the button in Transaction details");
+  assert.equal(html.split('id="txDiagnostics"').length, 2, "diagnostic output must have one unique ID");
+  assert.match(html, /\.diagnostics-output\[hidden\]/);
+});
+test("a hung transaction RPC gives visible diagnostics and bounded timeout without additional writes", async () => {
+  const page = makePage({ applyWrites: false, stallDiagnosticRpc: true });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  const countBefore = page.writes;
+  const pendingBefore = page.storage.get("spotter.pending");
+  await page.element("diagnoseBtn").onclick();
+  const report = page.element("txDiagnostics").textContent;
+  assert.match(report, /READ-ONLY DIAGNOSTICS/);
+  assert.match(report, /Transaction lookup error:.*timed out/);
+  assert.match(report, /Wallet receipt status: 0x1/);
+  assert.match(report, /Inspection finished/);
+  assert.equal(page.element("txDiagnostics").hidden, false);
+  assert.equal(page.writes, countBefore);
+  assert.equal(page.storage.get("spotter.pending"), pendingBefore);
 });
