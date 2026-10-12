@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import * as core from "../spotter-core.mjs";
+import { createJobsBrowser } from "../jobs-browser.mjs";
 
 const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ createClient \} from .*?;\n/m, "")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
+  .replace(/^import \{ createJobsBrowser \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
 function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false, studioLeaderReturn = false, existingJob = false } = {}) {
@@ -109,6 +111,7 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
     createClient: (config) => config.account === "0x0000000000000000000000000000000000000000"
       ? readClient : writeClient,
     studionet: { id: 61999 },
+    createJobsBrowser,
     ...core,
     console: { log() {}, warn() {}, error() {} },
     setTimeout: (callback, ms = 0) => {
@@ -397,4 +400,25 @@ test("invalid hash cannot trigger read or write", async () => {
   await page.element("recoverHashBtn").onclick();
   assert.match(page.element("recoveryResult").textContent, /Enter a full/);
   assert.equal(page.writes, 0);
+});
+
+test("a FINALIZED GenVM leader return automatically recovers the newly opened job", async () => {
+  const page = makePage({ studioTxSuccess: true, studioLeaderReturn: true });
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  assert.equal(page.writes, 1, "the only signed action was open_job");
+  assert.equal(page.element("jid").value, "7", "job ID comes from exact GenVM return");
+  assert.equal(page.element("subBtn").disabled, false);
+  assert.equal(page.storage.has("spotter.pending"), false);
+});
+
+test("public job explorer exists and never requires wallet signatures or transaction hashes", async () => {
+  const page = makePage({ existingJob: true });
+  assert.equal(page.writes, 0);
+  assert.ok(page.element("jobsList").children.length > 0);
+  await page.element("allJobsBtn").onclick();
+  await page.element("myJobsBtn").onclick();
+  assert.equal(page.writes, 0);
+  assert.equal(page.element("jid").value, "");
+  assert.equal(page.storage.has("spotter.pending"), false);
 });
