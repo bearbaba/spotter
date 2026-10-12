@@ -151,6 +151,16 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
           <button class="chip hidden" type="button" id="exParse">PARSE example</button>
         </div>
         <div class="workflow-note" id="nextStepDescription" aria-live="polite">Start by connecting your wallet, then create a verification job. You can explore finished jobs without connecting.</div>
+        <details class="details" id="jobRecovery">
+          <summary>Advanced · recover an existing Job ID</summary>
+          <div class="details-content">
+            <div class="field">
+              <label for="jid">Active Job ID from your open_job transaction</label>
+              <input id="jid" inputmode="numeric" pattern="[0-9]*" placeholder="Filled automatically when verified">
+              <div class="field-help">Use only the exact ID shown in GenLayer Studio if automatic recovery is unavailable. Looking up public proofs does not change this ID.</div>
+            </div>
+          </div>
+        </details>
         <div class="action-row">
           <button class="btn btn-primary" type="button" id="openBtn">1 · Create job ↗</button>
           <button class="btn" type="button" id="subBtn" disabled>2 · Submit evidence</button>
@@ -177,7 +187,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
         </div>
         <div class="eyebrow">LOOK UP ANY JOB</div>
         <div class="lookup">
-          <input id="jid" inputmode="numeric" pattern="[0-9]*" placeholder="Enter job ID · e.g. 1" aria-label="Job ID">
+          <input id="lookupId" inputmode="numeric" pattern="[0-9]*" placeholder="Enter public Job ID · e.g. 1" aria-label="Public proof lookup Job ID">
           <button class="btn" type="button" id="readBtn">Read proof</button>
         </div>
         <div id="out" class="receipt empty" aria-live="polite">No proof selected yet. Read the sample or enter a Job ID above.</div>
