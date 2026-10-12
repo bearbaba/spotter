@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
-  parseJobResult, publicUrl, settledStatus,
+  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, NEW_TRANSACTION_TOPIC,
 } from "../spotter-core.mjs";
 
 test("only decimal positive job IDs are accepted", () => {
@@ -46,15 +46,32 @@ test("reject local and secret-bearing web URLs before writes", () => {
     assert.throws(() => publicUrl(value));
   }
 });
-test("static web code does not use unsafe innerHTML or write retries", () => {
+test("extract GenLayer tx ID only from the verified consensus NewTransaction log", () => {
+  const consensus = "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575";
+  const genId = "0x" + "b".repeat(64);
+  const fake = "0x" + "c".repeat(64);
+  const real = { address: consensus.toLowerCase(), topics: [NEW_TRANSACTION_TOPIC, genId, "0x" + "0".repeat(64), "0x" + "0".repeat(64)] };
+  const distraction = { address: "0x" + "1".repeat(40), topics: [NEW_TRANSACTION_TOPIC, fake] };
+  assert.equal(NEW_TRANSACTION_TOPIC, "0xdab9102861c7483a187584d6371d88316f005af507982ccf95c110879f3ed5a5");
+  assert.equal(genLayerTxIdFromEthereumReceipt({ status: "0x1", logs: [distraction, real] }, consensus), genId);
+  assert.equal(genLayerTxIdFromEthereumReceipt({ status: "0x1", logs: [distraction] }, consensus), "");
+  assert.throws(() => genLayerTxIdFromEthereumReceipt({ status: "0x0", logs: [real] }, consensus), /reverted/);
+  assert.throws(() => genLayerTxIdFromEthereumReceipt({ status: "0x1", logs: [real] }, ""), /consensus/);
+});
+test("SDK 0.18.x compatibility and safe one-shot wallet submissions", () => {
   const app = readFileSync(new URL("../app.mjs", import.meta.url), "utf8");
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   assert.ok(!app.includes("innerHTML"));
   assert.ok(!app.includes("catch (first)"));
-  assert.ok(!html.includes("<script type=\"module\">"));
+  assert.ok(!html.includes('<script type="module">'));
   assert.match(html, /Read sample job #1/);
-  assert.match(app, /waitForFinalization/);
-  assert.match(app, /sessionStorage/);
-  assert.match(app, /estimateTransactionFeesForWrite/);
-  assert.match(app, /writeContract/);
+  assert.equal((app.match(/genlayer-js@0\.18\.10/g) || []).length, 2);
+  assert.equal((app.match(/client\.writeContract\(/g) || []).length, 1);
+  assert.ok(!app.includes("client.estimateTransactionFeesForWrite("));
+  assert.ok(!app.includes("readClient.waitForFinalization("));
+  assert.match(app, /readClient\.waitForTransactionReceipt\(/);
+  assert.match(app, /eth_getTransactionReceipt/);
+  assert.match(app, /genLayerTxIdFromEthereumReceipt/);
+  assert.match(app, /sessionStorage\.getItem\("spotter\.pending"\)/);
+  assert.match(app, /sessionStorage\.setItem\("spotter\.pending"/);
 });

@@ -37,7 +37,7 @@ Open `http://localhost:8080/`. To preview the generated build, run `cd dist && p
 4. Submit a public HTTP(S) URL, approve, wait; then click **Judge**, approve and wait.
 5. Press **Read** to display the chain's accepted job state. HIT/MISS/DEAD are the only terminal verdicts. A PARSE issue remains SUBMITTED, not settled.
 
-**Transaction safety:** One click makes at most one `writeContract` request; estimation failure prevents submission. After a hash exists, failed/slow finalization prompts **Resume latest transaction** (read-only), **never an automatic resend**. This is a client-side safeguard; users must still review each MetaMask prompt. The UI never asks for a seed phrase or private key. A read-only check never creates blockchain transactions.
+**Transaction safety:** One click makes at most one `writeContract` request. The pinned **genlayer-js v0.18.10** SDK estimates EVM gas internally; the app does not call unsupported v2 fee-estimation methods. A wallet write first yields an EVM hash. The UI decodes the distinct GenLayer ID from the Studionet consensus `NewTransaction` event, then checks `waitForTransactionReceipt({status: "ACCEPTED"})`. Pending requests remain locked until independently resolved; **Resume latest transaction** only reads, never resends. This is a client-side safeguard; users must still review each MetaMask prompt. The UI never asks for a seed phrase or private key. A read-only check never creates blockchain transactions.
 
 ## Implementation
 
@@ -50,4 +50,4 @@ Open `http://localhost:8080/`. To preview the generated build, run `cd dist && p
 
 **Limitations:** Studionet is experimental. Validator web access and AI interpretation may vary. URL content can change and a page hash proves only the bytes observed during that evaluation, not enduring truth. Job discovery/indexing is not implemented. No escrow, bounty distribution, dispute market, wallet automation, or production mainnet security guarantees.
 
-For a reproducible acceptance decision, review the actual on-chain `get_job` result and a real wallet-signed transaction in a fresh session. CI validates syntax and frontend safety logic **offline**; it does not prove live GenVM consensus or MetaMask interoperability.
+For a reproducible acceptance decision, review the actual on-chain `get_job` result and a real wallet-signed transaction in a fresh session. CI validates syntax and frontend safety logic **offline**; it does not prove live GenVM consensus or MetaMask interoperability. The SDK version and wallet/GenLayer hash distinction are pinned and covered by regression tests.

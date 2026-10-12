@@ -79,3 +79,24 @@ export function publicUrl(raw) {
 export function settledStatus(status) {
   return ["HIT", "MISS", "DEAD"].includes(String(status ?? "").toUpperCase());
 }
+
+/* Verified against genlayer-js v0.18.0 Studionet ABI: event NewTransaction(bytes32 indexed txId, address indexed recipient, address indexed activator). */
+export const NEW_TRANSACTION_TOPIC = "0xdab9102861c7483a187584d6371d88316f005af507982ccf95c110879f3ed5a5";
+
+export function genLayerTxIdFromEthereumReceipt(receipt, consensusAddress) {
+  if (!receipt || typeof receipt !== "object") return "";
+  const status = String(receipt.status ?? "").toLowerCase();
+  if (status === "0x0" || status === "0" || status === "reverted") {
+    throw new Error("Wallet transaction reverted before GenLayer accepted it.");
+  }
+  if (!consensusAddress || !/^0x[0-9a-fA-F]{40}$/.test(consensusAddress)) {
+    throw new Error("Missing trusted Studionet consensus contract address.");
+  }
+  for (const log of receipt.logs ?? []) {
+    if (String(log.address ?? "").toLowerCase() !== consensusAddress.toLowerCase()) continue;
+    if (String(log.topics?.[0] ?? "").toLowerCase() !== NEW_TRANSACTION_TOPIC) continue;
+    const txId = transactionHash(log.topics?.[1]);
+    if (txId) return txId;
+  }
+  return "";
+}
