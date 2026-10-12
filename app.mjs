@@ -362,11 +362,24 @@ $("resumeBtn").onclick = () => guarded(async () => {
     note("Transaction accepted. Enter the original Job ID and press Read to verify chain state.");
   }
 });
+$("clearPendingBtn").onclick = () => {
+  const stored = sessionStorage.getItem("spotter.pending");
+  if (!stored) { note("No locally tracked transaction to clear."); return; }
+  const approved = window.confirm(
+    "Only clear local tracking after inspecting the wallet transaction and the job's on-chain state. " +
+    "This does not cancel an existing transaction. An unresolved write might already have succeeded. Continue?"
+  );
+  if (!approved) return;
+  sessionStorage.removeItem("spotter.pending");
+  flowStage = 0;
+  setStage(0);
+  note("Local tracking cleared. This DID NOT cancel any blockchain transaction. Check the previous transaction before signing again.", "pending");
+};
 try {
   const stored = JSON.parse(sessionStorage.getItem("spotter.pending") || "null");
   if (stored?.hash && transactionHash(stored.hash)) {
     displayHash(stored.genlayerId || stored.hash, stored.fn || "transaction", stored.genlayerId ? "genlayer" : "evm");
-    note("A transaction was previously submitted in this tab. Use Resume latest transaction before taking another action.");
+    note("An earlier transaction is unresolved. Open Transaction details to resume or inspect it before any new write.", "pending");
   }
 } catch { /* ignore invalid browser storage */ }
 syncWallet(null);
