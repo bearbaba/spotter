@@ -469,3 +469,39 @@ test("rendered primary buttons have visible press, hover, focus and progress ind
   assert.match(html, /\.btn\[aria-busy="true"\]/);
   assert.match(html, /id="actionGuide"/);
 });
+
+test("accepted SUBMITTED Job auto-reconciles stale tracked submit without any second wallet write", async () => {
+  const page=makePage();
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  await page.element("subBtn").onclick();
+  assert.equal(page.job.status,"SUBMITTED");
+  const before=page.writes;
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"b".repeat(64),fn:"submit_url",jobId:"7",
+    wallet:"0x1111111111111111111111111111111111111111",
+    url:"https://example.org",baselineStatus:"OPEN",baselineUrl:""
+  }));
+  await page.element("resumeBtn").onclick();
+  assert.equal(page.writes,before);
+  assert.equal(page.storage.has("spotter.pending"),false);
+  assert.equal(page.element("jid").value,"7");
+  assert.equal(page.element("judgeBtn").disabled,false);
+  assert.match(page.element("msg").textContent,/matching finalized on-chain Job #7/);
+});
+test("unmatched pending URL stays locked and does not resend or unlock Judge", async () => {
+  const page=makePage();
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  await page.element("subBtn").onclick();
+  const before=page.writes;
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"b".repeat(64),fn:"submit_url",jobId:"7",
+    wallet:"0x1111111111111111111111111111111111111111",
+    url:"https://other.example.org",baselineStatus:"OPEN",baselineUrl:""
+  }));
+  await page.element("resumeBtn").onclick();
+  assert.equal(page.writes,before);
+  assert.equal(page.storage.has("spotter.pending"),true);
+  assert.equal(page.element("judgeBtn").disabled,true);
+});

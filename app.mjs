@@ -347,10 +347,46 @@ async function verifyFinalState(p,attempts=5) {
   }
   return null;
 }
+// Prefer a strict final-state match for a known existing Job. The Studio
+// envelope is not always shaped like an EVM transfer; rejecting its recipient
+// must not strand a successful submit_url transaction on this browser tab.
+async function reconcileTrackedExistingJob(p) {
+  if (!p || !["submit_url", "judge"].includes(p.fn)) return false;
+  if (!transactionHash(p.hash) || !parseJobId(p.jobId)) return false;
+  if (!account || String(p.wallet || "").toLowerCase() !== account.toLowerCase()) return false;
+  let job;
+  try {
+    job = await diagnosticRead("Finalized Job #" + p.jobId, () => readJob(p.jobId), 9000);
+  } catch { return false; }
+  if (!independentlyVerifiedAction(p, job, account)) return false;
+  // The original action is already reflected in an accepted on-chain record.
+  // Clearing only the matching saved transaction is not a blockchain write.
+  const stored = sessionStorage.getItem("spotter.pending");
+  if (!stored) return false;
+  let current;
+  try { current = JSON.parse(stored); } catch { return false; }
+  if (current.hash !== p.hash || current.fn !== p.fn || current.jobId !== p.jobId) return false;
+  sessionStorage.removeItem("spotter.pending");
+  $("jid").value = p.jobId;
+  $("lookupId").value = p.jobId;
+  $("q").value = String(job.question || "");
+  $("r").value = String(job.rubric || "");
+  $("url").value = String(job.url || p.url || "");
+  const next = job.status === "OPEN" ? 1 : job.status === "SUBMITTED" ? 2 : 3;
+  setStage(next);
+  renderJob(job);
+  note(p.fn + " confirmed by matching finalized on-chain Job #" + p.jobId +
+    " (" + job.status + "). Next: " +
+    (next === 2 ? "select the highlighted Run verification button." :
+     next === 3 ? "read the final proof." : "review the active Job.") +
+    " No additional transaction was sent.");
+  return true;
+}
 async function waitOnChain(p) {
   if(!window.ethereum?.request)throw Error("Connect a wallet provider to inspect the pending transaction.");
   const chainId=await window.ethereum.request({method:"eth_chainId"});
   if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  if (await reconcileTrackedExistingJob(p)) return { statusName: "FINALIZED", returnValue: p.jobId, observedContractState: true, alreadyReconciled: true };
   let genId=p.genlayerId;
   // On GenLayer Studio, the hash returned to the wallet can ALREADY be
   // the canonical GenLayer transaction hash. Always read that exact ID first.
@@ -439,7 +475,7 @@ async function send(fn,args) {
   sessionStorage.setItem("spotter.pending",JSON.stringify(pending));
   displayHash(hash,fn);
   const receipt=await waitOnChain(pending);
-  if(receipt)sessionStorage.removeItem("spotter.pending");
+  if(receipt && !receipt.alreadyReconciled)sessionStorage.removeItem("spotter.pending");
   return {hash,receipt,pending:!receipt};
 }
 async function afterWrite(fn, id) {
@@ -534,6 +570,7 @@ $("resumeBtn").onclick = () => guarded(async () => {
   displayHash(pending.genlayerId || pending.hash, pending.fn, pending.genlayerId ? "genlayer" : "evm");
   const receipt = await waitOnChain(pending);
   if (!receipt) return;
+  if (receipt.alreadyReconciled) return;
   sessionStorage.removeItem("spotter.pending");
   if (pending.fn === "open_job") {
     const id = jobIdFromReceipt(receipt);
@@ -886,6 +923,16 @@ try {
   }
  } catch { /* ignore invalid browser storage */ }
 // History is secondary. Load only when a visitor chooses Activity & history.
+// Recover on reload without asking the user to understand transaction hashes.
+async function restoreTrackedJobOnLoad() {
+  const raw = sessionStorage.getItem("spotter.pending");
+  if (!raw) return;
+  let p;
+  try { p = JSON.parse(raw); } catch { return; }
+  if (!account || String(p.wallet || "").toLowerCase() !== account.toLowerCase()) return;
+  if (await reconcileTrackedExistingJob(p)) return;
+  setStage(flowStage); // Keep unresolved writes blocked, never silently re-send.
+}
 $("jobs").ontoggle = () => {
   if ($("jobs").open) void jobsBrowser.scan();
 };
@@ -901,7 +948,7 @@ if(window.ethereum?.request){
       const authorized=await window.ethereum.request({method:"eth_accounts"});
       if(!Array.isArray(authorized)||!authorized.length)return;
       const chain=await window.ethereum.request({method:"eth_chainId"});
-      if(String(chain).toLowerCase()===CHAIN_ID)syncWallet(authorized[0]);
+      if(String(chain).toLowerCase()===CHAIN_ID){ syncWallet(authorized[0]); await restoreTrackedJobOnLoad(); }
     }catch{/* Browsing existing public jobs never requires the wallet. */}
   })();
 }
