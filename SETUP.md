@@ -39,6 +39,18 @@ Requirements: Node 20+, Python 3. Open http://localhost:8080 and follow Path A. 
 
 If contract deployment source, public URL, test GEN or RPC is not accessible, note the limitation instead of asserting a passing live smoke test.
 
+## D. Diagnose an existing unresolved wallet transaction (read-only)
+
+**Never send the same action again merely because the UI is waiting.**
+
+1. Open **Transaction details & troubleshooting** on the same browser tab that saved the pending transaction.
+2. Choose **Inspect transaction (read-only)**. This performs only RPC reads (`eth_chainId`, `eth_getTransactionByHash`, `eth_getTransactionReceipt`, and contract views). It does not request a signature, change chain settings, or submit a transaction.
+3. Inspect the actual wallet transaction destination against the expected Studionet consensus address `0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575`, receipt status, event count and latest finalized Job ID. A mined EVM transaction does not alone prove the GenLayer action was accepted.
+4. Use **Copy full tx hash** to send the complete hash for diagnosis (public transaction ID; **never provide a seed phrase, private key or signing request**). If the clipboard is unavailable, the page displays the full hash for manual copying.
+5. Leave the previous write tracked while its status is unknown. **Clear local tracking** does not cancel the transaction and should be used only after inspecting the chain state.
+
+If an older browser tab was closed, find the full transaction hash in MetaMask Activity. The on-page diagnostic cannot recover unsaved data from a different browser session.
+
 ## Security/interpretation notes
 
 - The frontend uses **genlayer-js v0.18.10**, whose `writeContract` estimates EVM gas internally. It does not expose the newer `estimateTransactionFeesForWrite` or `waitForFinalization` helpers. The frontend does not automatically sign or retry writes.
