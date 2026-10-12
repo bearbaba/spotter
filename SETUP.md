@@ -88,6 +88,6 @@ The saved wallet hash may itself be indexed as a GenLayer transaction in Studio 
 
 ### Continue a recovered Job (Studio-confirmed IDs)
 
-If an existing `open_job` transaction is FINALIZED and the `Return Value` explicitly identifies Job #5 or Job #6, use **Recover transaction by hash → Inspect transaction hash** to read it in any tab. After connecting the *original poster wallet*, select **Continue with Job #N**. The page rechecks the actual finalized Job owner and status, fills its question and rubric, and enables only the appropriate next wallet write (**Submit evidence** if OPEN, **Run verification** if SUBMITTED and your wallet is the recorded hunter).
+If an existing `open_job` transaction is FINALIZED and the `Return Value` explicitly identifies Job #5 or Job #6, use **Recover transaction by hash → Inspect transaction hash** to read it in any tab. After connecting a Studionet wallet, select **Continue with Job #N**. The page rechecks the actual finalized Job ID and status, fills its question and rubric, and enables only the appropriate separately approved write (**Submit evidence** for OPEN or **Run verification** for SUBMITTED, which is permissionless under the deployed contract).
 
 **Do not click Create job.** Recovery and Continue themselves are read-only and should not display a MetaMask signing prompt. Only subsequent separate user-approved Submit/Judge actions send writes. If the original wallet does not match the Job poster or a previous transaction is still pending in this tab, no write step is enabled.
