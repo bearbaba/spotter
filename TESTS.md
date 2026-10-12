@@ -1,28 +1,41 @@
-# Spotter focused tests
+# Spotter verification matrix
 
-Contract: 0x730143dF831778569e15975Ef44dFDeCB668609b
-Job id = open_job return value only. Do not call last_job_of.
+## Automated tests (CI and local)
 
-## T1 Concurrent opens
-open_job A → return Na. open_job B → return Nb.
-Nb != Na. get_job(Na).question is A. get_job(Nb).question is B.
+Run `npm run verify` (Node 20+) and `python3 -m py_compile Spotter.py` (Python 3).
 
-## T2 Ids above 20
-Open until return is 21 or higher. get_job of that id is nonempty. No 1–20 scan.
+The GitHub Actions `Verify Spotter` workflow runs a dependency-free static bundle build, JavaScript unit tests and Python syntax parsing on pushes and pull requests. No wallet, RPC, or blockchain writes are performed.
 
-## T3 Competing submit
-Clerk submit_url(J, https://example.org).
-Other wallet submit_url(J, https://docs.genlayer.com) reverts
-pending url locked to hunter.
+| Test | Verification |
+| --- | --- |
+| Valid Job ID parsing | Accept positive decimal IDs; reject tx hashes, HTML and invalid values |
+| Return decoding | Extract only expected result fields, not unrelated numeric receipt data |
+| Wallet safety | Validate tx hashes and finalization failure responses |
+| Web source input | Reject malformed, secret-bearing, and common local-network URLs |
+| Read state | Parse accepted state safely; distinguish final and nonfinal verdicts |
+| DOM safety | No `innerHTML` interpolation of contract results |
+| Submission safety | No fallback call that silently writes again after a rejected write |
+| Packaging | `npm run build` emits `dist/index.html`, `dist/app.mjs`, `dist/spotter-core.mjs` |
+| Python | Contract parses; this is **not** a GenVM execution test |
 
-## T4 Changed page content (on-chain)
-Job 1 https://example.org → HIT
-page_hash 13f5e50297bde87abbf51cd1cd43678109b1a72a52c1cefa3b56844464e4f25c
-Job 2 https://docs.genlayer.com/understand-genlayer-protocol/what-is-genlayer → HIT
-page_hash 9910555ca131ba1af5cbd1a6fc66c1f33d7534682fb54df4e7e1da6ca7f7d1bf
-H1 != H2.
+## Historical on-chain evidence (requires independent live reading)
 
-## T5 Reproducible PARSE (on-chain)
-Job 3 question __PARSE_TEST__ rubric n/a url https://example.org
-→ status SUBMITTED, fail_kind PARSE
-justification reproducible malformed-consensus fixture
+Existing contract: `0x730143dF831778569e15975Ef44dFDeCB668609b`, Studionet 61999.
+
+- Job 1: reported HIT on `https://example.org`, digest `13f5e50297bde87abbf51cd1cd43678109b1a72a52c1cefa3b56844464e4f25c`.
+- Job 2: reported HIT on a GenLayer documentation URL, digest `9910555ca131ba1af5cbd1a6fc66c1f33d7534682fb54df4e7e1da6ca7f7d1bf`.
+- Job 3: previously reported SUBMITTED / PARSE. This is not a deterministic fixture for new calls.
+
+These are prior reported samples, **not automated passes in CI**. Reviewer must query the contract and capture current explorer receipts.
+
+## Manual adversarial tests (NOT claimed complete)
+
+1. **Concurrent opens:** open two jobs from different wallets, verify each returned ID maps to the original question; don't use `last_job_of`.
+2. **Competing hunters:** first hunter submits a URL; a different sender attempting to overwrite while SUBMITTED should revert.
+3. **Interrupted transaction:** submit once, reload, then use read-only Resume instead of clicking Submit again.
+4. **Account/network switching:** switch MetaMask account or chain and check the page resets the connected context.
+5. **Tampered page:** return HTML-looking text from chain; display must remain inert text rather than executing HTML.
+6. **Consensus error:** when a judge transaction produces malformed result, record SUBMITTED / PARSE as nonterminal, and investigate independently.
+7. **Mobile:** no horizontal overflow or inaccessible buttons at typical mobile viewport widths.
+
+Do not present any of these as live-verified without a transaction link and actual output.
