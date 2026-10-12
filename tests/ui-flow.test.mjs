@@ -547,7 +547,7 @@ test("proof receipt renders spaced structured fields and hides technical JSON un
   assert.equal(fields[3].children[1].textContent,"a".repeat(64));
   assert.equal(fields[3].children[2].textContent,"Copy hash");
   const detail=output.children.at(-1);
-  assert.equal(detail.tagName,"details");
+  assert.equal(detail.className,"proof-json");
   assert.equal(detail.children[0].textContent,"Technical details · complete on-chain JSON");
   assert.equal(page.writes,3);
 });
