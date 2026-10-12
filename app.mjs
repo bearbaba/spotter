@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { createJobsBrowser } from "./jobs-browser.mjs";
+import { createJobsBrowser } from "./jobs-browser.mjs?v=spotter-activity-20261012";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
   parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction, classifyStudioTransaction, studioHashInspection, exactJobIdFromStudioTransaction,
@@ -854,8 +854,16 @@ try {
     note("An earlier transaction is unresolved. Open Transaction details to resume or inspect it before any new write.", "pending");
   }
  } catch { /* ignore invalid browser storage */ }
+// History is secondary. Load only when a visitor chooses Activity & history.
+$("jobs").ontoggle = () => {
+  if ($("jobs").open) void jobsBrowser.scan();
+};
+$("openActivityBtn").onclick = async () => {
+  $("jobs").open = true;
+  await jobsBrowser.scan();
+  $("jobs").scrollIntoView?.({ behavior: "smooth", block: "start" });
+};
 syncWallet(null);
-void jobsBrowser.scan();
 if(window.ethereum?.request){
   void (async()=>{
     try {

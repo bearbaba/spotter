@@ -37,6 +37,7 @@ function setup(options={}) {
   ];
   const browser=createJobsBrowser({
     document,
+    readTimeoutMs: options.readTimeoutMs ?? 8000,
     getAccount:()=>account,
     isWriteBlocked:()=>blocked,
     async readJob(id) {
@@ -44,6 +45,7 @@ function setup(options={}) {
       try {
         await Promise.resolve();
         if(Number(id)===failAt)throw Error("RPC temporarily unavailable");
+        if(Number(id)===options.stallAt)return await new Promise(()=>{});
         return jobs.find(j=>j.id===id)||{};
       } finally {inFlight--; }
     },
@@ -123,4 +125,13 @@ test("untrusted job question uses textContent and never HTML injection",async()=
   await x.browser.scan();
   assert.equal(cards(x.document)[0].children[1].textContent,bad);
   assert.equal(cards(x.document)[0].children[1].children.length,0);
+});
+
+test("stalled public RPC does not leave Explore verifications loading indefinitely",async()=>{
+  const x=setup({stallAt:2,readTimeoutMs:20});
+  await x.browser.scan();
+  assert.equal(x.browser.getState().loading,false);
+  assert.equal(x.browser.getState().ended,false,"timeout is not treated as end of on-chain history");
+  assert.equal(x.document.getElementById("refreshJobsBtn").disabled,false);
+  assert.match(x.document.getElementById("jobsStatus").textContent,/Timed out reading Job #2/);
 });

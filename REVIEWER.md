@@ -8,10 +8,10 @@
 
 ## Reviewer quick-start: prove it works without a wallet
 
-1. Open the website and find **Explore verifications**. Existing accepted Job records are discovered from the public deployed contract automatically — no wallet, Job ID or transaction hash to enter.
-2. Inspect any Job card's actual contract status: **OPEN**, **SUBMITTED**, **HIT**, **MISS**, or **DEAD**. Click **Read proof** to see the current finalized Job data.
+1. Open the website. The main focus is **Verify a public claim**: claim + rubric + public URL → Create → Submit → Verify. No historical activity is promoted in the homepage hero.
+2. To browse old jobs, select **Find and continue your work** in the workspace. This opens **Activity & history** below the primary workflow. It lazily loads finalized on-chain records without a wallet, ID or hash, and shows retryable RPC failures.
 3. For a stable historical reference, choose **Sample verification** (Job #1). The prior live HIT case was `https://example.org` with SHA-256 `13f5e50297bde87abbf51cd1cd43678109b1a72a52c1cefa3b56844464e4f25c`. Confirm it again via the actual contract read; historical values are not assertions about future web contents.
-4. Optionally connect a Studionet MetaMask wallet. **My jobs** automatically lists jobs whose recorded poster or hunter matches that wallet. Use **All jobs** to participate in others' public OPEN/SUBMITTED work. Selecting a Job only reads finalized state and does not request a signature.
+4. Optionally connect a Studionet MetaMask wallet. In the secondary history panel, **My jobs** lists jobs whose recorded poster or hunter matches that wallet. Use **All jobs** to participate in others' public OPEN/SUBMITTED work. Selecting a Job only reads finalized state and does not request a signature.
 5. An eligible **OPEN** Job can accept an HTTP(S) URL by an authorized wallet transaction (`submit_url`). A **SUBMITTED** Job can be evaluated via a separate wallet-approved `judge` call. On-chain outcomes are HIT/MISS/DEAD; malformed consensus parsing remains SUBMITTED / PARSE, not falsely labeled final.
 
 The site is read-only until someone deliberately approves a write in MetaMask. It never requests private keys or seed phrases, and has no payments, escrow, reward or bounty distribution.

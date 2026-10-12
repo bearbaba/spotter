@@ -1,7 +1,7 @@
 // Public Spotter job discovery for the existing Studionet deployment.
 // The v1 contract has no enumeration method; open_job creates contiguous numeric IDs.
 // This read-only browser scans bounded pages without signatures, hashes or wallets.
-export function createJobsBrowser({document, readJob, getAccount, isWriteBlocked, readProof, continueJob, notify}) {
+export function createJobsBrowser({document, readJob, getAccount, isWriteBlocked, readProof, continueJob, notify, readTimeoutMs = 8000}) {
   const $ = id => document.getElementById(id);
   const PAGE = 12, CAP = 480;
   const jobs = new Map();
@@ -78,10 +78,19 @@ export function createJobsBrowser({document, readJob, getAccount, isWriteBlocked
     for(let start=next;start<=end&&!ended&&!error;start+=3){
       const ids=Array.from({length:Math.min(3,end-start+1)},(_,i)=>start+i);
       const results=await Promise.all(ids.map(async id=>{
+        let timer;
         try {
-          const job=await readJob(String(id));
+          // Protect the entire list from one stalled public RPC.
+          // The read can time out, but the UI always unblocks with a retry option.
+          const job=await Promise.race([
+            Promise.resolve().then(()=>readJob(String(id))),
+            new Promise((_,reject)=>{
+              timer=setTimeout(()=>reject(new Error("Timed out reading Job #"+id)),readTimeoutMs);
+            }),
+          ]);
           return job&&String(job.id)===String(id)?{id,job}:{id,missing:true};
         }catch(e){return {id,error:String(e?.message||e).slice(0,250)};}
+        finally { clearTimeout(timer); }
       }));
       for(const entry of results){
         if(entry.error){error=entry.error;break;}

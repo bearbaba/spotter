@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#081315">
 <title>Spotter — Verifiable Web Evidence</title>
-<meta name="description" content="Spotter turns claims and public sources into GenLayer-powered verification receipts. Explore public evidence without a wallet.">
+<meta name="description" content="Spotter turns public claims and evidence URLs into verifiable GenLayer on-chain receipts. Create, submit and verify with an easy four-step flow.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -79,7 +79,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .hidden{display:none!important}
 @media(max-width:960px){.hero{grid-template-columns:1fr;gap:22px;padding:52px 0 40px}.hero-side{max-width:none}.workspace{grid-template-columns:1fr}.section-head{align-items:start}.step{padding:12px}}
 @media(max-width:620px){.shell{padding:0 15px}.topbar{padding:14px 0}.brand-icon{width:35px;height:35px}.brand-main{font-size:19px}.brand-sub{font-size:9px}.network{display:none}.wallet-address{display:none}.hero{padding:41px 0 30px}.hero h1{font-size:43px}.hero p{font-size:15px}.hero-actions .btn{flex:1}.hero-side{padding:22px}.stepbar{grid-template-columns:repeat(2,minmax(0,1fr))}.section-head{display:block}.section-head p{margin-top:9px}.panel{padding:19px;border-radius:18px}.panel h3{font-size:21px}.action-row .btn{min-width:0}.footer{display:block}.footer nav{margin-top:12px;display:flex;gap:16px;flex-wrap:wrap}}
-.jobs-panel{margin:4px 0 42px;padding:26px;border:1px solid #28534b;background:linear-gradient(145deg,#0d2423,#09191b);border-radius:22px}
+.jobs-panel{margin:34px 0 16px;padding:0;border:1px solid var(--edge);background:#0b191b;border-radius:16px}
+.activity-summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 23px;color:#d6f0e9;font-size:14px}
+.activity-summary::-webkit-details-marker{display:none}.activity-summary strong{display:block;font:700 15px/1.4 "Space Grotesk",sans-serif}
+.activity-summary-note{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:4px}
+.activity-chevron{font-size:21px;color:var(--muted);transition:transform .2s}
+.jobs-panel[open] .activity-chevron{transform:rotate(180deg)}
+.activity-body{padding:0 23px 23px;border-top:1px solid var(--edge)}
+.resume-hint{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin:-9px 0 19px}
+.resume-link{border:0;background:none;color:var(--teal);font-size:12px;font-weight:700;padding:3px;text-decoration:underline;text-underline-offset:3px}
+.resume-link:hover{color:#bcffee}
+
 .jobs-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:17px 0 14px}
 .jobs-toolbar .btn[aria-pressed="true"]{background:#1c5145;border-color:#63d7bc;color:#dffff4}
 .jobs-help{font-size:12px;color:var(--muted);margin:0 0 14px}
@@ -93,7 +103,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .job-empty{grid-column:1/-1;padding:22px;border:1px dashed #3b6058;border-radius:13px;color:#b1cfc7;font-size:13px}
 .jobs-foot{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:15px}
 .jobs-foot p{font-size:12px;color:#a2c1b7;margin:0}
-@media(max-width:760px){.jobs-grid{grid-template-columns:1fr}.jobs-panel{padding:18px}.jobs-toolbar .btn{flex:1;min-width:105px}}
+@media(max-width:760px){.jobs-grid{grid-template-columns:1fr}.activity-summary{padding:15px}.activity-body{padding:0 15px 15px}.jobs-toolbar .btn{flex:1;min-width:105px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -120,7 +130,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <h1>Don't just trust it.<br><em>Verify the source.</em></h1>
       <p>Ask a question. Point to a public webpage. GenLayer validators evaluate the evidence and record an on-chain verdict you can inspect.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#jobs">Explore active jobs ↗</a>
+        <a class="btn btn-primary" href="#workspace">Start verification ↗</a>
         <a class="btn btn-subtle" href="#proofs">Explore public proofs</a>
       </div>
     </div>
@@ -133,27 +143,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </section>
 
   
-  <section class="jobs-panel" id="jobs" aria-labelledby="jobsTitle">
-    <div class="section-head">
-      <div><div class="eyebrow">LIVE CONTRACT STATE · NO WALLET REQUIRED</div><h2 id="jobsTitle">Explore verifications</h2></div>
-      <p>Real jobs, automatically discovered on Studionet</p>
-    </div>
-    <p class="jobs-help">Browse existing public jobs without a wallet. Connect your wallet to see your own work and continue an unfinished verification. No Job ID or transaction hash required.</p>
-    <div class="jobs-toolbar">
-      <button type="button" class="btn btn-small" id="allJobsBtn" aria-pressed="true">All jobs</button>
-      <button type="button" class="btn btn-small btn-subtle" id="myJobsBtn" aria-pressed="false">My jobs</button>
-      <button type="button" class="btn btn-small btn-subtle" id="refreshJobsBtn">Refresh ↻</button>
-    </div>
-    <div id="jobsStatus" class="jobs-help" role="status" aria-live="polite">Loading public jobs from the contract…</div>
-    <div id="jobsList" class="jobs-grid" aria-live="polite"></div>
-    <div class="jobs-foot">
-      <p id="jobsCoverage">Checking finalized on-chain records…</p>
-      <button type="button" class="btn btn-small btn-subtle" id="moreJobsBtn" hidden>Load more jobs ↓</button>
-    </div>
-  </section>
-
 <main id="workspace">
-    <div class="section-head"><div><div class="eyebrow">YOUR WORKSPACE</div><h2>Verify a public claim</h2></div><p>Browse existing jobs or create a new one · wallet approval only for writes</p></div>
+    <div class="section-head"><div><div class="eyebrow">YOUR WORKSPACE</div><h2>Verify a public claim</h2></div><p>Wallet approval only for blockchain writes</p></div>
+    <div class="resume-hint"><span>Already started a verification?</span><button id="openActivityBtn" class="resume-link" type="button">Find and continue your work ↗</button></div>
     <div class="stepbar" aria-label="Verification workflow" id="workflowSteps">
       <div class="step active" id="s1"><span class="step-num">01</span><span>Define your claim</span></div>
       <div class="step" id="s2"><span class="step-num">02</span><span>Open a job</span></div>
@@ -268,11 +260,29 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     </div>
   </main>
 
+  <details class="jobs-panel" id="jobs">
+    <summary class="activity-summary"><span><strong>Activity &amp; history</strong><span class="activity-summary-note">Find your previous jobs or browse public verifications</span></span><span class="activity-chevron" aria-hidden="true">⌄</span></summary>
+    <div class="activity-body">
+    <p class="jobs-help">Browse existing public jobs without a wallet. Connect your wallet to see your own work and continue an unfinished verification. No Job ID or transaction hash required.</p>
+    <div class="jobs-toolbar">
+      <button type="button" class="btn btn-small" id="allJobsBtn" aria-pressed="true">All jobs</button>
+      <button type="button" class="btn btn-small btn-subtle" id="myJobsBtn" aria-pressed="false">My jobs</button>
+      <button type="button" class="btn btn-small btn-subtle" id="refreshJobsBtn">Refresh ↻</button>
+    </div>
+    <div id="jobsStatus" class="jobs-help" role="status" aria-live="polite">Open activity to load finalized public jobs.</div>
+    <div id="jobsList" class="jobs-grid" aria-live="polite"></div>
+    <div class="jobs-foot">
+      <p id="jobsCoverage">History is read-only until you explicitly choose a write.</p>
+      <button type="button" class="btn btn-small btn-subtle" id="moreJobsBtn" hidden>Load more jobs ↓</button>
+    </div>
+    </div>
+  </details>
+
   <footer class="footer">
     <span>Spotter is experimental software on GenLayer Studionet. AI verdicts are not guarantees of truth. No real funds or escrow.</span>
     <nav><a href="https://github.com/bearbaba/spotter" target="_blank" rel="noopener noreferrer">GitHub ↗</a> · <a href="https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b" target="_blank" rel="noopener noreferrer">Contract ↗</a></nav>
   </footer>
 </div>
-<script type="module" src="./app.mjs"></script>
+<script type="module" src="./app.mjs?v=spotter-20261012-job-discovery-refresh"></script>
 </body>
 </html>
