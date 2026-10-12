@@ -8,7 +8,7 @@ const entry = readFileSync(resolve(root, "app.mjs"), "utf8");
 if (!entry.includes('from "./jobs-browser.mjs"')) throw new Error("Missing deployed Job explorer module import");
 const files = ["index.html", "app.mjs", "spotter-core.mjs", "jobs-browser.mjs"];
 for (const file of files) {
-  if (!html.includes('src="./app.mjs"') && file === "index.html") {
+  if (file === "index.html" && !/src="\.\/app\.mjs\?v=[a-z0-9-]+"/i.test(html)) {
     throw new Error("Missing application module");
   }
 }
