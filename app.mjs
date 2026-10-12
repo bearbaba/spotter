@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
-  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction,
+  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction, classifyStudioTransaction,
 } from "./spotter-core.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -251,6 +251,45 @@ async function waitOnChain(p) {
   const chainId=await window.ethereum.request({method:"eth_chainId"});
   if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
   let genId=p.genlayerId;
+  // On GenLayer Studio, the hash returned to the wallet can ALREADY be
+  // the canonical GenLayer transaction hash. Always read that exact ID first.
+  // This is read-only and avoids false negatives from EVM receipt event parsing.
+  if (!genId && typeof readClient.getTransaction === "function") {
+    let direct = null;
+    try {
+      direct = await diagnosticRead("GenLayer transaction", () =>
+        readClient.getTransaction({ hash: p.hash }), 7500);
+    } catch { /* May be unsupported by this RPC; retain the existing fallback. */ }
+    const outcome = classifyStudioTransaction(direct, p.hash, p.wallet, CONTRACT);
+    if (outcome.kind === "confirmed") {
+      const exactId = parseJobId(direct?.returnValue ?? direct?.return_value);
+      if (p.fn === "open_job" && exactId) {
+        try {
+          const raw = await readClient.readContract({
+            address: CONTRACT, functionName: "get_job", args: [exactId],
+            transactionHashVariant: "latest-final",
+          });
+          if (independentlyVerifiedAction(p, parseJobResult(raw), p.wallet)) {
+            note("Confirmed GenLayer transaction and its exact Job #" + exactId + " return.");
+            return { statusName: outcome.status, returnValue: exactId, source: "direct-genlayer-tx" };
+          }
+        } catch { /* Keep the saved transaction if the returned ID cannot be verified. */ }
+      }
+      if (p.fn !== "open_job") {
+        const verified = await verifyFinalState(p, 2);
+        if (verified) return verified;
+      }
+      note("GenLayer Studio confirms " + outcome.status + " / SUCCESS for this transaction, but its exact Job ID is not exposed by this SDK response. Open this hash in Studio and copy GenVM Execution → Return Value. No new transaction is needed.", "pending");
+      return null;
+    }
+    if (outcome.kind === "failed" || outcome.kind === "invalid" ||
+        outcome.kind === "pending") {
+      note("GenLayer transaction lookup: " + (outcome.reason || outcome.status || outcome.kind) +
+        (outcome.execution ? " / " + outcome.execution : "") +
+        ". Keep the original hash; do not resend automatically.", "pending");
+      return null;
+    }
+  }
   if(!genId){
     note("Checking wallet receipt without sending another transaction…","pending");
     let evm;
@@ -464,6 +503,30 @@ $("diagnoseBtn").onclick = async () => {
     }
     const expected = readClient.chain.consensusMainContract.address;
     show("Expected Studionet consensus address: " + expected);
+
+    show("Querying GenLayer transaction by the saved hash…");
+    if (typeof readClient.getTransaction === "function") {
+      try {
+        const direct = await diagnosticRead("GenLayer transaction lookup", () =>
+          readClient.getTransaction({ hash: pending.hash }));
+        const outcome = classifyStudioTransaction(direct, pending.hash, pending.wallet, CONTRACT);
+        show("Direct GenLayer lookup: " + outcome.kind.toUpperCase() +
+          (outcome.status ? " · " + outcome.status : "") +
+          (outcome.execution ? " · " + outcome.execution : ""));
+        if (outcome.reason) show("Direct lookup warning: " + outcome.reason);
+        if (outcome.kind === "confirmed") {
+          show("This hash is an accepted GenLayer transaction. Do not create it again.");
+          if (pending.fn === "open_job") {
+            const value = parseJobId(direct?.returnValue ?? direct?.return_value);
+            show("Exact Job ID from direct SDK response: " + (value || "not exposed; inspect Studio GenVM Return Value"));
+          }
+        }
+      } catch (error) {
+        show("Direct GenLayer lookup unavailable: " + errorText(error));
+      }
+    } else {
+      show("Direct GenLayer transaction lookup is unavailable in this SDK runtime.");
+    }
 
     show("Reading wallet transaction destination…");
     let walletTx = null;
