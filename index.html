@@ -159,6 +159,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
               <input id="jid" inputmode="numeric" pattern="[0-9]*" placeholder="Filled automatically when verified">
               <div class="field-help">Use only the exact ID shown in GenLayer Studio if automatic recovery is unavailable. Looking up public proofs does not change this ID.</div>
             </div>
+            <pre id="txDiagnostics" class="mono" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" role="status" aria-live="polite" hidden></pre>
           </div>
         </details>
         <div class="action-row">
@@ -203,6 +204,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
             <p>If an earlier wallet transaction is unresolved, use read-only Resume. Do not send the same action again.</p>
             <div class="mini-actions">
               <button type="button" class="btn btn-small" id="resumeBtn">Resume previous transaction</button>
+              <button type="button" class="btn btn-small btn-subtle" id="diagnoseBtn">Inspect transaction (read-only)</button>
+              <button type="button" class="btn btn-small btn-subtle" id="copyHashBtn">Copy full tx hash</button>
               <button type="button" class="btn btn-small btn-subtle" id="clearPendingBtn">Clear local tracking</button>
               <a class="btn btn-small btn-subtle" href="https://studio.genlayer.com/?import-contract=0x730143dF831778569e15975Ef44dFDeCB668609b" target="_blank" rel="noopener noreferrer">Open in Studio ↗</a>
             </div>
