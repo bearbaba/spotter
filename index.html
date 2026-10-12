@@ -82,7 +82,24 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .notice.error{color:#ffd1cb;border-color:#69473d;background:#2d1d1c}.notice.pending{color:#ffe1b5;border-color:#6b5439;background:#2f281b}
 .lookup{margin-top:18px;display:flex;gap:8px}.lookup input{min-width:0;flex:1;border:1px solid #34504c;border-radius:11px;background:#071717;color:white;padding:11px 12px}
 .receipt{margin-top:15px;border:1px solid #2e5049;background:#081918;border-radius:13px;padding:16px;min-height:75px}
-.receipt.empty{color:#7c9a92;font-size:13px}.receipt pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,monospace;color:#badbd3;max-height:240px;overflow:auto;margin:12px 0 0}.receipt .tag{margin-bottom:6px}
+.receipt.empty{color:#7c9a92;font-size:13px}
+.proof-result{padding:22px;min-width:0;overflow:hidden}
+.proof-header{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:14px}
+.proof-eyebrow{color:#74efd5;font-size:10px;letter-spacing:.12em;font-weight:800}
+.proof-title{margin:5px 0 0;font-size:19px;line-height:1.35;color:#eafff8}
+.proof-summary{margin:0 0 20px;padding:13px 15px;background:#13362f;border:1px solid #2c6655;border-radius:10px;color:#c7ffe7;font-size:14px;line-height:1.55;font-weight:650}
+.proof-field{padding:14px 0;border-top:1px solid #26433f;min-width:0}
+.proof-field-label{font-size:11px;font-weight:750;letter-spacing:.04em;color:#95bdb1;margin-bottom:7px}
+.proof-field-value{font-size:14px;line-height:1.65;color:#f1fff9;overflow-wrap:anywhere;word-break:normal;user-select:text}
+.proof-field-value a{color:#86f5dd;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.proof-hash{font:12px/1.65 ui-monospace,monospace;word-break:break-all}
+.proof-copy{margin-top:10px}
+.proof-json{margin-top:17px;border:1px solid #2e5148;border-radius:10px;overflow:hidden}
+.proof-json summary{cursor:pointer;padding:12px 14px;font-size:12px;color:#b6d9cd;font-weight:650;list-style-position:inside}
+.proof-json[open] summary{border-bottom:1px solid #2e5148}
+.proof-json pre{padding:13px;max-height:220px;overflow:auto;margin:0!important}
+@media(max-width:760px){.proof-result{padding:15px}.proof-header{flex-wrap:wrap}.proof-title{font-size:17px}.proof-field-value{font-size:13px}}
+.receipt pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,monospace;color:#badbd3;max-height:240px;overflow:auto;margin:12px 0 0}.receipt .tag{margin-bottom:6px}
 .details{margin-top:18px;border:1px solid #294344;border-radius:16px;background:#0b191a}.details summary{padding:14px 16px;cursor:pointer;font-size:13px;font-weight:700;color:#c1e1da}.details-content{padding:0 16px 16px;font-size:12px;color:var(--muted)}
 .mono{font:12px/1.6 ui-monospace,monospace;color:#a7d4cb;overflow-wrap:anywhere}
 .diagnostics-output{white-space:pre-wrap;overflow-wrap:anywhere;margin:15px 0 0;padding:14px;border:1px solid #31564f;background:#081c1b;border-radius:12px;max-height:460px;overflow:auto;user-select:text}
@@ -298,6 +315,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <nav><a href="https://github.com/bearbaba/spotter" target="_blank" rel="noopener noreferrer">GitHub ↗</a> · <a href="https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b" target="_blank" rel="noopener noreferrer">Contract ↗</a></nav>
   </footer>
 </div>
-<script type="module" src="./app.mjs?v=spotter-20261012-resume-unblock-v2"></script>
+<script type="module" src="./app.mjs?v=spotter-20261012-readable-receipts"></script>
 </body>
 </html>
