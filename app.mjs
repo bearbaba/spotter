@@ -175,82 +175,95 @@ function displayHash(hash, fn, kind = "evm") {
 }
 
 async function getEthereumReceipt(hash) {
-  for (let i = 0; i < 16; i++) {
-    const receipt = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [hash] });
-    if (receipt) return receipt;
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+  for (let i=0;i<16;i++) {
+    const receipt=await window.ethereum.request({method:"eth_getTransactionReceipt",params:[hash]});
+    if(receipt)return receipt;
+    await new Promise(resolve=>setTimeout(resolve,2500));
   }
   return null;
 }
-
-async function waitOnChain(pending) {
-  const { hash, fn } = pending;
-  if (!window.ethereum?.request) throw new Error("Connect MetaMask on Studionet to resume.");
-  const chainId = await window.ethereum.request({ method: "eth_chainId" });
-  if (String(chainId).toLowerCase() !== CHAIN_ID) throw new Error("Switch to Studionet 61999 to track this transaction.");
-  let txId = pending.genlayerId;
-  if (!txId) {
-    note(fn + " sent. Waiting for MetaMask transaction receipt. Do not send again.");
-    const evmReceipt = await getEthereumReceipt(hash);
-    if (!evmReceipt) {
-      note("Wallet transaction not confirmed yet: " + hash + ". Use Resume later, not the write button.");
-      return null;
-    }
-    try {
-      txId = genLayerTxIdFromEthereumReceipt(evmReceipt, readClient.chain.consensusMainContract.address);
-    } catch (err) {
-      if (/reverted/i.test(String(err))) sessionStorage.removeItem("spotter.pending");
-      throw err;
-    }
-    if (!txId) {
-      note("Wallet transaction mined without a NewTransaction event. Inspect wallet hash " + hash + " before attempting another write.", true);
-      return null;
-    }
-    pending.genlayerId = txId;
-    sessionStorage.setItem("spotter.pending", JSON.stringify(pending));
-  }
-  displayHash(txId, fn, "genlayer");
-  let receipt;
+async function latestJobId(owner) {
   try {
-    // genlayer-js 0.18.x uses waitForTransactionReceipt, not waitForFinalization.
-    receipt = await readClient.waitForTransactionReceipt({ hash: txId, status: "ACCEPTED", interval: 3000, retries: 24 });
-  } catch (err) {
-    note("GenLayer tx " + txId + " is still pending or cannot be read: " + errorText(err) + ". Resume; never resend.", true);
-    return null;
+    const raw=await readClient.readContract({address:CONTRACT,functionName:"last_job_of",args:[owner],transactionHashVariant:"latest-final"});
+    return parseJobId(raw);
+  } catch { return ""; }
+}
+async function captureBaseline(fn,args) {
+  if(fn==="open_job")return {previousJobId:await latestJobId(account),question:args[0],rubric:args[1]};
+  const job=await readJob(args[0]);
+  if(!job.id)throw Error("Job not readable. No transaction has been sent.");
+  if(fn==="submit_url" && job.status!=="OPEN" && !(job.status==="SUBMITTED"&&String(job.hunter).toLowerCase()===account.toLowerCase()&&job.url!==args[1]))throw Error("This job cannot accept the submitted URL.");
+  if(fn==="judge" && job.status!=="SUBMITTED")throw Error("Only submitted jobs can be verified.");
+  return {baselineStatus:job.status,baselineUrl:job.url,baselineRound:job.round_no};
+}
+async function verifyFinalState(p,attempts=5) {
+  for(let i=0;i<attempts;i++){
+    try{
+      const id=p.fn==="open_job"?await latestJobId(p.wallet):parseJobId(p.jobId);
+      if(id){
+        const raw=await readClient.readContract({address:CONTRACT,functionName:"get_job",args:[id],transactionHashVariant:"latest-final"});
+        const job=parseJobResult(raw);
+        if(independentlyVerifiedAction(p,job,p.wallet))return {statusName:"FINALIZED",returnValue:id,observedContractState:true,job};
+      }
+    }catch{/* Wait for finalized state; never send another write. */}
+    if(i+1<attempts)await new Promise(resolve=>setTimeout(resolve,3000));
   }
-  const failure = receiptError(receipt);
-  if (failure) {
-    sessionStorage.removeItem("spotter.pending");
-    throw new Error("GenLayer transaction failed: " + failure);
+  return null;
+}
+async function waitOnChain(p) {
+  if(!window.ethereum?.request)throw Error("Connect a wallet provider to inspect the pending transaction.");
+  const chainId=await window.ethereum.request({method:"eth_chainId"});
+  if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  let genId=p.genlayerId;
+  if(!genId){
+    note("Checking wallet receipt without sending another transaction…","pending");
+    let evm;
+    try{evm=await getEthereumReceipt(p.hash)}catch(err){note("Receipt temporarily unavailable. Resume later: "+errorText(err),"pending");return null}
+    if(!evm){note("Wallet transaction not mined yet. Use Resume later; do not resend.","pending");return null}
+    try{genId=genLayerTxIdFromEthereumReceipt(evm,readClient.chain.consensusMainContract.address)}
+    catch(err){if(/reverted/i.test(String(err)))sessionStorage.removeItem("spotter.pending");throw err}
+    if(!genId){
+      note("Wallet transaction mined, but event log is missing. Checking finalized contract state…","pending");
+      const verified=await verifyFinalState(p);
+      if(verified){note("Confirmed by matching finalized on-chain state. No duplicate transaction sent.");return verified}
+      note("No matching finalized state yet. Keep the transaction hash and use Resume later; never resend.","pending");
+      return null;
+    }
+    p.genlayerId=genId;
+    sessionStorage.setItem("spotter.pending",JSON.stringify(p));
   }
-  const status = String(receipt?.statusName ?? receipt?.status_name ?? "").toUpperCase();
-  if (status !== "ACCEPTED" && status !== "FINALIZED") {
-    note("GenLayer transaction is " + (status || "pending") + ". Resume after it reaches ACCEPTED.");
+  displayHash(genId,p.fn,"genlayer");
+  let receipt;
+  try{receipt=await readClient.waitForTransactionReceipt({hash:genId,status:"ACCEPTED",interval:3000,retries:24})}
+  catch(err){note("Consensus unconfirmed: "+errorText(err)+". Resume later.","pending");return null}
+  const failure=receiptError(receipt);
+  if(failure){sessionStorage.removeItem("spotter.pending");throw Error("GenLayer execution failed: "+failure)}
+  const status=String(receipt?.statusName??receipt?.status_name??"").toUpperCase();
+  if(!["ACCEPTED","FINALIZED"].includes(status)){note("Consensus status: "+(status||"pending")+". Resume later.","pending");return null}
+  if(p.fn==="open_job"&&!jobIdFromReceipt(receipt)){
+    const verified=await verifyFinalState(p,3);
+    if(verified)return {...receipt,...verified};
+    note("Consensus accepted, but Job ID could not be uniquely verified. Check Studio before clearing local tracking.","pending");
     return null;
   }
   return receipt;
 }
-
-async function send(fn, args) {
-  if (args.some((arg) => typeof arg !== "string" || !arg.trim())) throw new Error("Fill in all required fields.");
-  if (sessionStorage.getItem("spotter.pending")) {
-    throw new Error("Another transaction is still being tracked. Use Resume latest transaction first; no automatic resends.");
-  }
-  if (!window.ethereum?.request) throw new Error("Connect MetaMask first.");
-  const chainId = await window.ethereum.request({ method: "eth_chainId" });
-  if (String(chainId).toLowerCase() !== CHAIN_ID) throw new Error("Switch to Studionet 61999 first.");
-  const client = writer();
-  // Actual SDK 0.18.10 API, which estimates EVM gas internally.
-  // Exactly one wallet submission. NEVER retry writeContract on any error.
-  const raw = await client.writeContract({ address: CONTRACT, functionName: fn, args, value: 0n });
-  const hash = transactionHash(raw);
-  if (!hash) throw new Error("Unknown wallet transaction hash. Inspect MetaMask before trying again; never auto-retry.");
-  const pending = { hash, fn, genlayerId: "", jobId: fn === "open_job" ? "" : args[0], time: Date.now() };
-  sessionStorage.setItem("spotter.pending", JSON.stringify(pending));
-  displayHash(hash, fn);
-  const receipt = await waitOnChain(pending);
-  if (receipt) sessionStorage.removeItem("spotter.pending");
-  return { hash, receipt, pending: !receipt };
+async function send(fn,args) {
+  if(args.some(arg=>typeof arg!=="string"||!arg.trim()))throw Error("Fill all required fields.");
+  if(sessionStorage.getItem("spotter.pending"))throw Error("A prior transaction is unresolved. Use read-only Resume; do not resend.");
+  if(!window.ethereum?.request)throw Error("Connect MetaMask first.");
+  const chainId=await window.ethereum.request({method:"eth_chainId"});
+  if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  const baseline=await captureBaseline(fn,args);
+  const raw=await writer().writeContract({address:CONTRACT,functionName:fn,args,value:0n}); // exactly one signed wallet write
+  const hash=transactionHash(raw);
+  if(!hash)throw Error("Unknown transaction hash. Check MetaMask before any retry.");
+  const pending={hash,fn,genlayerId:"",wallet:account,time:Date.now(),jobId:fn==="open_job"?"":args[0],url:fn==="submit_url"?args[1]:"",...baseline};
+  sessionStorage.setItem("spotter.pending",JSON.stringify(pending));
+  displayHash(hash,fn);
+  const receipt=await waitOnChain(pending);
+  if(receipt)sessionStorage.removeItem("spotter.pending");
+  return {hash,receipt,pending:!receipt};
 }
 async function afterWrite(fn, id) {
   const job = await readJob(id);
@@ -259,8 +272,8 @@ async function afterWrite(fn, id) {
     return;
   }
   renderJob(job);
-  if (fn === "submit_url" && job.status === "SUBMITTED") setStep(4);
-  if (fn === "judge") setStep(5);
+  if (fn === "submit_url" && job.status === "SUBMITTED") setStage(2);
+  if (fn === "judge") setStage(job.status === "SUBMITTED" ? 2 : 3);
 }
 $("connectBtn").onclick = async () => {
   try {
@@ -314,7 +327,8 @@ $("openBtn").onclick = () => guarded(async () => {
     return;
   }
   $("jid").value = id;
-  note("Job " + id + " returned by finalized open_job.");
+  note("Job #" + id + " verified and ready for evidence.");
+  setStage(1);
   setStep(3);
 });
 $("subBtn").onclick = () => guarded(async () => {
@@ -339,8 +353,8 @@ $("resumeBtn").onclick = () => guarded(async () => {
   sessionStorage.removeItem("spotter.pending");
   if (pending.fn === "open_job") {
     const id = jobIdFromReceipt(receipt);
-    if (id) { $("jid").value = id; setStep(3); note("Recovered accepted job " + id + "."); }
-    else note("open_job accepted. SDK v0.18.x does not expose its return value here; retrieve the real Job ID in GenLayer Studio. Never guess.");
+    if (id) { $("jid").value = id; setStage(1); note("Recovered accepted job #" + id + "."); }
+    else note("Could not safely recover the Job ID. Inspect Studio before taking another action.", "pending");
   } else if (parseJobId(pending.jobId)) {
     $("jid").value = pending.jobId;
     await afterWrite(pending.fn, pending.jobId);
