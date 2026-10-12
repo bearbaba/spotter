@@ -25,7 +25,20 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .wallet-box{display:flex;align-items:center;gap:8px}.wallet-address{color:var(--muted);font:12px/1.3 ui-monospace,monospace;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn{border:1px solid #315052;color:var(--text);background:#122729;border-radius:12px;padding:11px 17px;font-weight:700;transition:background .15s,border-color .15s,transform .15s;text-align:center}
 .btn:hover:not(:disabled){background:#1d3837;border-color:#5a9287;transform:translateY(-1px)}.btn-primary{border-color:var(--teal);background:var(--teal);color:#0a2421}.btn-primary:hover:not(:disabled){background:#a4ffe7;border-color:#a4ffe7;color:#0a2421}
-.btn-subtle{background:transparent}.btn-small{padding:8px 12px;font-size:12px}.eyebrow{font:700 11px/1.3 "DM Sans",sans-serif;color:var(--teal);letter-spacing:.19em;text-transform:uppercase}
+.btn-subtle{background:transparent}.btn-small{padding:8px 12px;font-size:12px}
+.btn:active:not(:disabled),.chip:active:not(:disabled){transform:scale(.97);filter:brightness(1.16)}
+.btn:focus-visible,.chip:focus-visible{outline:3px solid #c9ffec;outline-offset:3px;box-shadow:0 0 0 6px rgba(116,239,213,.14)}
+.action-row .btn[data-current="true"]{background:linear-gradient(125deg,#80ffe1,#49ddc0);border:2px solid #b7ffe9;color:#032923;box-shadow:0 0 0 3px rgba(116,239,213,.14),0 8px 26px rgba(38,222,181,.2);font-weight:800}
+.action-row .btn[data-current="true"]:hover:not(:disabled){background:#c2ffed;box-shadow:0 0 0 4px rgba(116,239,213,.2),0 9px 33px rgba(38,222,181,.28)}
+.action-row .btn:disabled:not([data-current="true"]){opacity:.55;background:#17282a;border-color:#345051;color:#adc4bf}
+.action-row .btn[aria-busy="true"]{background:#e3fff5!important;color:#043c34!important;cursor:progress!important}
+.action-row .btn[aria-busy="true"]:before{content:"";display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spotter-spin .7s linear infinite;margin-right:8px;vertical-align:-2px}
+@keyframes spotter-spin{to{transform:rotate(360deg)}}
+.action-guide{margin:14px 0 0;padding:11px 13px;border:1px solid #335c51;border-radius:10px;background:#102a27;color:#bceede;font-size:12px}
+.action-guide strong{color:#91f9dc}
+.job-card-actions .btn-primary,.mini-actions .btn-primary{background:#74efd5;color:#07382d;border:1px solid #b0ffec;box-shadow:0 0 0 2px rgba(116,239,213,.09)}
+.job-card-actions .btn-primary:hover:not(:disabled),.mini-actions .btn-primary:hover:not(:disabled){background:#c1ffec;color:#07382d}
+.eyebrow{font:700 11px/1.3 "DM Sans",sans-serif;color:var(--teal);letter-spacing:.19em;text-transform:uppercase}
 .hero{padding:74px 0 55px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(290px,.6fr);align-items:center;gap:64px}
 .hero h1,.headline{font-family:"Space Grotesk",sans-serif;font-weight:600;letter-spacing:-.06em}
 .hero h1{font-size:clamp(42px,5.5vw,70px);line-height:1.1;margin:17px 0 23px;max-width:850px}
@@ -195,6 +208,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
           <button class="btn" type="button" id="subBtn" disabled>2 · Submit evidence</button>
           <button class="btn" type="button" id="judgeBtn" disabled>3 · Run verification</button>
         </div>
+        <div class="action-guide" role="status" aria-live="polite" id="actionGuide"><strong>Next action:</strong> Enter your claim and rubric, then select the highlighted Create job button. Already have a job? Open Activity &amp; history to continue.</div>
         <p class="hint">You control every signature in MetaMask. Read-only actions never send transactions.</p>
       </section>
 
@@ -283,6 +297,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <nav><a href="https://github.com/bearbaba/spotter" target="_blank" rel="noopener noreferrer">GitHub ↗</a> · <a href="https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b" target="_blank" rel="noopener noreferrer">Contract ↗</a></nav>
   </footer>
 </div>
-<script type="module" src="./app.mjs?v=spotter-20261012-job-discovery-refresh"></script>
+<script type="module" src="./app.mjs?v=spotter-20261012-action-feedback"></script>
 </body>
 </html>
