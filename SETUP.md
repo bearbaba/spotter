@@ -1,14 +1,14 @@
 # Spotter — reviewer setup and evidence
 
-## A. Fastest path: self-discovering public verification (no wallet)
+## A. Fastest reviewer path: main verification and optional history
 
 1. Open https://bearbaba.github.io/spotter/ — do not connect a wallet.
-2. Wait for **Explore verifications** to read the existing contract's finalized Jobs automatically. Check visible newest-first Job cards, IDs, owner and OPEN/SUBMITTED/HIT/MISS/DEAD status. Refresh and Load more are read-only.
-3. Choose **Read proof** on any Job. Confirm that it displays the live contract's status, original claim, public URL (when submitted), reason and SHA-256 (when evaluated).
-4. Optionally use the historical Sample verification Job #1. Review may be completed without knowing any Job ID or Studio hash beforehand.
+2. The primary screen is **Verify a public claim**, including the claim, rubric, public URL, and Create/Submit/Verify steps. To see historical records, click **Find and continue your work** to open secondary **Activity & history**, which only then loads finalized Job cards.
+3. Choose **Read proof** on any job in the optional activity list, or use the public sample Job #1. Confirm the live contract's status, claim, URL, reason and SHA-256 (when evaluated).
+4. Read-only proof inspection needs no wallet, Job ID memorization, or transaction hash. The optional history section loads only when requested and shows retryable errors for slow public RPC reads.
 5. Independently cross-check a shown Job's ID using the Studio contract `get_job` view on the same Studionet address.
 
-**Wallet continuation from existing contract state:** Connect a wallet (wallet permission but no blockchain transaction), choose **My jobs** for your own activity or **All jobs** to participate permissionlessly. On an OPEN Job select **Submit a source**; on a SUBMITTED Job select **Run verification**. The interface rereads the finalized Job and loads the question/rubric without a new `open_job`. Anyone may judge according to the deployed contract, but only the first hunter may replace an already-SUBMITTED URL. Check any write carefully in MetaMask.
+**Wallet continuation from existing contract state:** Open **Activity & history** (not the homepage hero). Connect a wallet, choose **My jobs** for your own activity or **All jobs** to participate permissionlessly. On an OPEN Job select **Submit a source**; on a SUBMITTED Job select **Run verification**. The interface rereads the finalized Job and loads the question/rubric without a new `open_job`. Anyone may judge according to the deployed contract, but only the first hunter may replace an already-SUBMITTED URL. Check any write carefully in MetaMask.
 
 **Known already-finalized transactions:** `0xaa6cead7f9e18e900c1d74a91c4adfc54019dadb2299c4a6f1619d8aca0bbe06` returned OPEN Job #5 and `0x2c998a84010127893291b9819e19105d94c65077d394ba0e4a1dab3d158d8bdd` returned OPEN Job #6 when inspected. These are transaction outcomes; they are not completed HIT/MISS/DEAD verdicts. Browsing these jobs requires no hash paste.
 
