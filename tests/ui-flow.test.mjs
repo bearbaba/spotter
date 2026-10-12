@@ -9,7 +9,7 @@ const source = readFileSync(new URL("../app.mjs", import.meta.url), "utf8")
   .replace(/^import \{ studionet \} from .*?;\n/m, "")
   .replace(/^import \{[\s\S]*?\} from "\.\/spotter-core\.mjs";\n/m, "");
 
-function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false } = {}) {
+function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownLog = false, mixedCasePoster = false, studioTxSuccess = false, studioReturn = false, studioLeaderReturn = false } = {}) {
   const wallet = mixedCasePoster ? "0x" + "a".repeat(40) : "0x1111111111111111111111111111111111111111";
   const storedPoster = mixedCasePoster ? "0x" + "A".repeat(40) : wallet;
   const hash = "0x" + "a".repeat(64);
@@ -78,6 +78,7 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false, withUnknownL
           hash: txHash, statusName: "FINALIZED", resultName: "SUCCESS",
           sender: wallet, recipient: "0x730143dF831778569e15975Ef44dFDeCB668609b",
           ...(studioReturn ? { returnValue: "7" } : {}),
+          ...(studioLeaderReturn ? {resultName: "AGREE", consensus_data: {leader_receipt: [{result: {status: "return", payload: {readable: "'7'"}}}]}} : {}),
         };
       },
     } : {}),
@@ -323,4 +324,36 @@ test("explicit Job return from exact GenLayer hash unlocks only the matching job
   assert.equal(page.element("jid").value, "7");
   assert.equal(page.element("subBtn").disabled, false);
   assert.equal(page.storage.has("spotter.pending"), false);
+});
+
+test("recover existing hash without wallet or sessionStorage", async () => {
+  const page = makePage({ studioTxSuccess: true, studioReturn: false });
+  page.element("recoveryHash").value = "0x" + "a".repeat(64);
+  assert.equal(page.storage.has("spotter.pending"), false);
+  assert.equal(page.element("jid").value, "");
+  await page.element("recoverHashBtn").onclick();
+  assert.equal(page.writes, 0);
+  assert.equal(page.storage.has("spotter.pending"), false);
+  assert.match(page.element("recoveryResult").textContent, /Status: FINALIZED/);
+  assert.match(page.element("recoveryResult").textContent, /Explicit open_job return ID: NOT EXPOSED BY SDK/);
+  assert.match(page.element("recoveryResult").textContent, /GenVM Execution/);
+  assert.equal(page.element("jid").value, "");
+});
+test("return encoded in SDK leader receipt identifies a read-only proof without auto-unlocking wallet writes", async () => {
+  const page = makePage({ studioTxSuccess: true, studioLeaderReturn: true });
+  page.element("recoveryHash").value = "0x" + "a".repeat(64);
+  await page.element("recoverHashBtn").onclick();
+  assert.match(page.element("recoveryResult").textContent, /Explicit open_job return ID: 7/);
+  assert.equal(page.element("lookupId").value, "7");
+  assert.equal(page.element("jid").value, "");
+  assert.equal(page.element("openBtn").disabled, true, "no wallet connected");
+  assert.equal(page.element("subBtn").disabled, true);
+  assert.equal(page.writes, 0);
+});
+test("invalid hash cannot trigger read or write", async () => {
+  const page = makePage({ studioTxSuccess: true });
+  page.element("recoveryHash").value = "not-a-hash";
+  await page.element("recoverHashBtn").onclick();
+  assert.match(page.element("recoveryResult").textContent, /Enter a full/);
+  assert.equal(page.writes, 0);
 });
