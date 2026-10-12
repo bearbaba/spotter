@@ -95,7 +95,10 @@ function makePage({ applyWrites = true, stallDiagnosticRpc = false } = {}) {
     ...core,
     console: { log() {}, warn() {}, error() {} },
     setTimeout: (callback, ms = 0) => {
-      if (ms < 6000 || stallDiagnosticRpc) callback();
+      // Immediate successful wallet calls must resolve before the simulated deadline.
+      // Only the explicitly stalled RPC should then hit a synthetic asynchronous timeout.
+      if (ms < 6000) callback();
+      else if (stallDiagnosticRpc) setImmediate(callback);
       return 0;
     },
     clearTimeout: () => {},
