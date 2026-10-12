@@ -14,7 +14,9 @@ The GitHub Actions `Verify Spotter` workflow runs a dependency-free static bundl
 | Web source input | Reject malformed, secret-bearing, and common local-network URLs |
 | Read state | Parse accepted state safely; distinguish final and nonfinal verdicts |
 | DOM safety | No `innerHTML` interpolation of contract results |
-| Submission safety | No fallback call that silently writes again after a rejected write |
+| Submission safety | One wallet write per action, no fallback resend; persistent pending record blocks duplicate clicks |
+| Missing event recovery | Strict wallet, job ID, source, round, and pre-write state matching; wrong-wallet and stale receipt regression checks |
+| Responsive UI | Core selectors, user-readable proof, mobile layout and accessible status announcements |
 | Packaging | `npm run build` emits `dist/index.html`, `dist/app.mjs`, `dist/spotter-core.mjs` |
 | Python | Contract parses; this is **not** a GenVM execution test |
 
@@ -30,7 +32,7 @@ These are prior reported samples, **not automated passes in CI**. Reviewer must 
 
 ## Manual adversarial tests (NOT claimed complete)
 
-1. **Concurrent opens:** open two jobs from different wallets, verify each returned ID maps to the original question; don't use `last_job_of`.
+1. **Concurrent opens:** open two jobs from different wallets, verify each returned ID maps to the original question; if falling back to `last_job_of`, require exact wallet/claim and a pre-write baseline; identical concurrent claims remain an ambiguous edge case.
 2. **Competing hunters:** first hunter submits a URL; a different sender attempting to overwrite while SUBMITTED should revert.
 3. **Interrupted transaction:** submit once, reload, then use read-only Resume instead of clicking Submit again.
 4. **Account/network switching:** switch MetaMask account or chain and check the page resets the connected context.

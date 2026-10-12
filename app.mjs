@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
-  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt,
+  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction,
 } from "./spotter-core.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -15,6 +15,7 @@ const readClient = createClient({ chain: studionet, endpoint: RPC, account: ZERO
 const writeButtons = ["openBtn", "subBtn", "judgeBtn"];
 let account = null;
 let busy = false;
+let flowStage = 0;
 
 $("caddr").textContent = CONTRACT;
 const EXAMPLES = {
@@ -23,29 +24,53 @@ const EXAMPLES = {
   DEAD: { q: "Does this page confirm the claim?", r: "DEAD if the page cannot be fetched.", url: "https://this-domain-should-not-resolve-genlayer-test.invalid" },
   PARSE: { q: "__PARSE_TEST__", r: "n/a", url: "https://example.org" },
 };
-function note(message, bad = false) {
-  $("msg").className = bad ? "msg bad" : "msg";
-  $("msg").textContent = message;
+function note(message, variant = "normal") {
+  const kind = variant === true ? "error" : (variant === "pending" ? "pending" : "normal");
+  $("msg").className = "notice" + (kind === "normal" ? "" : " " + kind);
+  $("msg").textContent = String(message);
 }
 function errorText(err) {
   const value = String(err?.shortMessage || err?.message || err);
-  if (/user rejected|user denied|rejected the request/i.test(value)) return "Wallet request rejected. No new transaction will be sent automatically.";
-  if (/wrong chain|0xf22f|chain mismatch/i.test(value)) return "Switch MetaMask to GenLayer Studionet (61999).";
-  if (/locked to hunter/i.test(value)) return "This pending URL belongs to the first hunter.";
-  return value.slice(0, 500);
+  if (/user rejected|user denied|rejected the request/i.test(value)) return "Wallet request rejected. No automatic retry will be attempted.";
+  if (/wrong chain|0xf22f|chain mismatch/i.test(value)) return "Switch MetaMask to GenLayer Studionet 61999.";
+  if (/locked to hunter/i.test(value)) return "This submitted source belongs to the first hunter.";
+  return value.slice(0, 450);
 }
 function setStep(n) {
-  ["s1", "s2", "s3", "s4", "s5"].forEach((id, i) => $(id).classList.toggle("on", i + 1 === n));
+  const index = n >= 5 ? 4 : Math.max(1, n);
+  ["s1", "s2", "s3", "s4"].forEach((id, i) => $(id).classList.toggle("active", i + 1 === index));
+}
+function setStage(stage) {
+  flowStage = stage;
+  const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
+  $("openBtn").disabled = blocked || !account;
+  $("subBtn").disabled = blocked || !account || stage !== 1;
+  $("judgeBtn").disabled = blocked || !account || stage !== 2;
+  const descriptions = {
+    0: "Connect a Studionet wallet and create a new job. All wallet writes require your approval.",
+    1: "Job created. Review the evidence URL, then submit it to the contract.",
+    2: "Evidence submitted. Run GenLayer verification to request an on-chain verdict.",
+    3: "Verification record is available. Read the proof or create a new job.",
+  };
+  $("nextStepDescription").textContent = blocked
+    ? "A previous transaction is unresolved. Open Transaction details → Resume previous transaction. Never submit it again."
+    : descriptions[stage] || descriptions[0];
+  setStep(stage === 0 ? (account ? 2 : 1) : stage + 2);
 }
 function syncWallet(address) {
+  const changed = account && address && account.toLowerCase() !== address.toLowerCase();
   account = address || null;
-  $("who").textContent = account || "not connected · reads work without a wallet";
+  $("who").textContent = account ? account.slice(0, 6) + "…" + account.slice(-4) : "Read-only";
+  $("who").title = account || "No wallet connected";
   $("disconnectBtn").hidden = !account;
-  setStep(account ? 2 : 1);
+  $("disconnectBtn").classList.toggle("hidden", !account);
+  $("connectBtn").classList.toggle("hidden", Boolean(account));
+  if (changed) { $("jid").value = ""; flowStage = 0; }
+  setStage(flowStage);
 }
 function setBusy(value) {
   busy = value;
-  for (const id of writeButtons) $(id).disabled = value;
+  setStage(flowStage);
 }
 async function guarded(task) {
   if (busy) { note("A transaction is already being prepared or checked. Please do not submit it again.", true); return; }
@@ -62,7 +87,8 @@ function loadExample(key) {
   note(key === "PARSE"
     ? "Loaded a historical PARSE example. This input does NOT guarantee a PARSE verdict in a new transaction."
     : "Loaded " + key + " example. Fresh AI results can vary.");
-  setStep(account ? 2 : 1);
+  $("jid").value = "";
+  setStage(0);
 }
 function requireJobId() {
   const id = parseJobId($("jid").value);
@@ -78,15 +104,43 @@ async function readJob(id) {
 function renderJob(job) {
   const output = $("out");
   output.replaceChildren();
+  output.classList.remove("empty");
   const status = String(job.status || "UNKNOWN").toUpperCase();
   const badge = document.createElement("span");
   badge.className = "tag " + (["HIT", "MISS", "DEAD", "OPEN", "SUBMITTED"].includes(status) ? status : "OPEN");
-  badge.textContent = status;
-  const detail = document.createElement("pre");
-  detail.textContent = JSON.stringify(job, null, 2);
-  output.append(badge, detail);
-  const suffix = job.fail_kind ? " / " + job.fail_kind : "";
-  note("On-chain state: " + status + suffix + (settledStatus(status) ? " (settled)" : " (not settled)"));
+  badge.textContent = status + (job.fail_kind ? " / " + job.fail_kind : "");
+  const heading = document.createElement("h4");
+  heading.textContent = "On-chain job #" + String(job.id || "?");
+  heading.style.margin = "8px 0 12px";
+  heading.style.fontSize = "16px";
+  output.append(badge, heading);
+  const fields = [
+    ["Claim", job.question], ["Evidence", job.url], ["Verdict", status],
+    ["Reason", job.justification], ["SHA-256", job.page_hash],
+  ];
+  for (const [label, value] of fields) {
+    if (value === undefined || value === null || value === "") continue;
+    const row = document.createElement("div");
+    row.className = "proof-row";
+    const name = document.createElement("span");
+    name.className = "proof-label";
+    name.textContent = label;
+    const text = document.createElement("span");
+    text.className = "proof-value";
+    text.textContent = String(value);
+    row.append(name, text);
+    output.append(row);
+  }
+  const details = document.createElement("details");
+  details.className = "proof-json";
+  const summary = document.createElement("summary");
+  summary.textContent = "View complete on-chain record";
+  const pre = document.createElement("pre");
+  pre.textContent = JSON.stringify(job, null, 2);
+  details.append(summary, pre);
+  output.append(details);
+  setStage(status === "OPEN" ? 1 : (status === "SUBMITTED" && job.fail_kind !== "PARSE" ? 2 : 3));
+  note("Contract state: " + status + (settledStatus(status) ? " · final verdict available" : " · not a final verdict"));
 }
 async function readCurrentJob() {
   const id = requireJobId();
@@ -121,82 +175,97 @@ function displayHash(hash, fn, kind = "evm") {
 }
 
 async function getEthereumReceipt(hash) {
-  for (let i = 0; i < 16; i++) {
-    const receipt = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [hash] });
-    if (receipt) return receipt;
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+  for (let i=0;i<16;i++) {
+    const receipt=await window.ethereum.request({method:"eth_getTransactionReceipt",params:[hash]});
+    if(receipt)return receipt;
+    await new Promise(resolve=>setTimeout(resolve,2500));
   }
   return null;
 }
-
-async function waitOnChain(pending) {
-  const { hash, fn } = pending;
-  if (!window.ethereum?.request) throw new Error("Connect MetaMask on Studionet to resume.");
-  const chainId = await window.ethereum.request({ method: "eth_chainId" });
-  if (String(chainId).toLowerCase() !== CHAIN_ID) throw new Error("Switch to Studionet 61999 to track this transaction.");
-  let txId = pending.genlayerId;
-  if (!txId) {
-    note(fn + " sent. Waiting for MetaMask transaction receipt. Do not send again.");
-    const evmReceipt = await getEthereumReceipt(hash);
-    if (!evmReceipt) {
-      note("Wallet transaction not confirmed yet: " + hash + ". Use Resume later, not the write button.");
-      return null;
-    }
-    try {
-      txId = genLayerTxIdFromEthereumReceipt(evmReceipt, readClient.chain.consensusMainContract.address);
-    } catch (err) {
-      if (/reverted/i.test(String(err))) sessionStorage.removeItem("spotter.pending");
-      throw err;
-    }
-    if (!txId) {
-      note("Wallet transaction mined without a NewTransaction event. Inspect wallet hash " + hash + " before attempting another write.", true);
-      return null;
-    }
-    pending.genlayerId = txId;
-    sessionStorage.setItem("spotter.pending", JSON.stringify(pending));
+async function latestJobId(owner) {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(String(owner))) throw Error("Invalid wallet for latest-job lookup.");
+  const raw=await readClient.readContract({
+    address:CONTRACT,functionName:"last_job_of",args:[owner],transactionHashVariant:"latest-final",
+  });
+  return parseJobId(raw); // Genuine empty means the wallet has not previously opened a job.
+}
+async function captureBaseline(fn,args) {
+  if(fn==="open_job")return {previousJobId:await latestJobId(account),question:args[0],rubric:args[1]};
+  const job=await readJob(args[0]);
+  if(!job.id)throw Error("Job not readable. No transaction has been sent.");
+  if(fn==="submit_url" && job.status!=="OPEN" && !(job.status==="SUBMITTED"&&String(job.hunter).toLowerCase()===account.toLowerCase()&&job.url!==args[1]))throw Error("This job cannot accept the submitted URL.");
+  if(fn==="judge" && job.status!=="SUBMITTED")throw Error("Only submitted jobs can be verified.");
+  return {baselineStatus:job.status,baselineUrl:job.url,baselineRound:job.round_no};
+}
+async function verifyFinalState(p,attempts=5) {
+  for(let i=0;i<attempts;i++){
+    try{
+      const id=p.fn==="open_job"?await latestJobId(p.wallet):parseJobId(p.jobId);
+      if(id){
+        const raw=await readClient.readContract({address:CONTRACT,functionName:"get_job",args:[id],transactionHashVariant:"latest-final"});
+        const job=parseJobResult(raw);
+        if(independentlyVerifiedAction(p,job,p.wallet))return {statusName:"FINALIZED",returnValue:id,observedContractState:true,job};
+      }
+    }catch{/* Wait for finalized state; never send another write. */}
+    if(i+1<attempts)await new Promise(resolve=>setTimeout(resolve,3000));
   }
-  displayHash(txId, fn, "genlayer");
+  return null;
+}
+async function waitOnChain(p) {
+  if(!window.ethereum?.request)throw Error("Connect a wallet provider to inspect the pending transaction.");
+  const chainId=await window.ethereum.request({method:"eth_chainId"});
+  if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  let genId=p.genlayerId;
+  if(!genId){
+    note("Checking wallet receipt without sending another transaction…","pending");
+    let evm;
+    try{evm=await getEthereumReceipt(p.hash)}catch(err){note("Receipt temporarily unavailable. Resume later: "+errorText(err),"pending");return null}
+    if(!evm){note("Wallet transaction not mined yet. Use Resume later; do not resend.","pending");return null}
+    try{genId=genLayerTxIdFromEthereumReceipt(evm,readClient.chain.consensusMainContract.address)}
+    catch(err){if(/reverted/i.test(String(err)))sessionStorage.removeItem("spotter.pending");throw err}
+    if(!genId){
+      note("Wallet transaction mined, but event log is missing. Checking finalized contract state…","pending");
+      const verified=await verifyFinalState(p);
+      if(verified){note("Confirmed by matching finalized on-chain state. No duplicate transaction sent.");return verified}
+      note("No matching finalized state yet. Keep the transaction hash and use Resume later; never resend.","pending");
+      return null;
+    }
+    p.genlayerId=genId;
+    sessionStorage.setItem("spotter.pending",JSON.stringify(p));
+  }
+  displayHash(genId,p.fn,"genlayer");
   let receipt;
-  try {
-    // genlayer-js 0.18.x uses waitForTransactionReceipt, not waitForFinalization.
-    receipt = await readClient.waitForTransactionReceipt({ hash: txId, status: "ACCEPTED", interval: 3000, retries: 24 });
-  } catch (err) {
-    note("GenLayer tx " + txId + " is still pending or cannot be read: " + errorText(err) + ". Resume; never resend.", true);
-    return null;
-  }
-  const failure = receiptError(receipt);
-  if (failure) {
-    sessionStorage.removeItem("spotter.pending");
-    throw new Error("GenLayer transaction failed: " + failure);
-  }
-  const status = String(receipt?.statusName ?? receipt?.status_name ?? "").toUpperCase();
-  if (status !== "ACCEPTED" && status !== "FINALIZED") {
-    note("GenLayer transaction is " + (status || "pending") + ". Resume after it reaches ACCEPTED.");
+  try{receipt=await readClient.waitForTransactionReceipt({hash:genId,status:"ACCEPTED",interval:3000,retries:24})}
+  catch(err){note("Consensus unconfirmed: "+errorText(err)+". Resume later.","pending");return null}
+  const failure=receiptError(receipt);
+  if(failure){sessionStorage.removeItem("spotter.pending");throw Error("GenLayer execution failed: "+failure)}
+  const status=String(receipt?.statusName??receipt?.status_name??"").toUpperCase();
+  if(!["ACCEPTED","FINALIZED"].includes(status)){note("Consensus status: "+(status||"pending")+". Resume later.","pending");return null}
+  if(p.fn==="open_job"&&!jobIdFromReceipt(receipt)){
+    const verified=await verifyFinalState(p,3);
+    if(verified)return {...receipt,...verified};
+    note("Consensus accepted, but Job ID could not be uniquely verified. Check Studio before clearing local tracking.","pending");
     return null;
   }
   return receipt;
 }
-
-async function send(fn, args) {
-  if (args.some((arg) => typeof arg !== "string" || !arg.trim())) throw new Error("Fill in all required fields.");
-  if (sessionStorage.getItem("spotter.pending")) {
-    throw new Error("Another transaction is still being tracked. Use Resume latest transaction first; no automatic resends.");
-  }
-  if (!window.ethereum?.request) throw new Error("Connect MetaMask first.");
-  const chainId = await window.ethereum.request({ method: "eth_chainId" });
-  if (String(chainId).toLowerCase() !== CHAIN_ID) throw new Error("Switch to Studionet 61999 first.");
-  const client = writer();
-  // Actual SDK 0.18.10 API, which estimates EVM gas internally.
-  // Exactly one wallet submission. NEVER retry writeContract on any error.
-  const raw = await client.writeContract({ address: CONTRACT, functionName: fn, args, value: 0n });
-  const hash = transactionHash(raw);
-  if (!hash) throw new Error("Unknown wallet transaction hash. Inspect MetaMask before trying again; never auto-retry.");
-  const pending = { hash, fn, genlayerId: "", jobId: fn === "open_job" ? "" : args[0], time: Date.now() };
-  sessionStorage.setItem("spotter.pending", JSON.stringify(pending));
-  displayHash(hash, fn);
-  const receipt = await waitOnChain(pending);
-  if (receipt) sessionStorage.removeItem("spotter.pending");
-  return { hash, receipt, pending: !receipt };
+async function send(fn,args) {
+  if(args.some(arg=>typeof arg!=="string"||!arg.trim()))throw Error("Fill all required fields.");
+  if(sessionStorage.getItem("spotter.pending"))throw Error("A prior transaction is unresolved. Use read-only Resume; do not resend.");
+  if(!window.ethereum?.request)throw Error("Connect MetaMask first.");
+  const chainId=await window.ethereum.request({method:"eth_chainId"});
+  if(String(chainId).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
+  // If the baseline RPC fails, stop BEFORE the wallet popup to avoid misattributing an older job.
+  const baseline=await captureBaseline(fn,args);
+  const raw=await writer().writeContract({address:CONTRACT,functionName:fn,args,value:0n}); // exactly one signed wallet write
+  const hash=transactionHash(raw);
+  if(!hash)throw Error("Unknown transaction hash. Check MetaMask before any retry.");
+  const pending={hash,fn,genlayerId:"",wallet:account,time:Date.now(),jobId:fn==="open_job"?"":args[0],url:fn==="submit_url"?args[1]:"",...baseline};
+  sessionStorage.setItem("spotter.pending",JSON.stringify(pending));
+  displayHash(hash,fn);
+  const receipt=await waitOnChain(pending);
+  if(receipt)sessionStorage.removeItem("spotter.pending");
+  return {hash,receipt,pending:!receipt};
 }
 async function afterWrite(fn, id) {
   const job = await readJob(id);
@@ -205,8 +274,8 @@ async function afterWrite(fn, id) {
     return;
   }
   renderJob(job);
-  if (fn === "submit_url" && job.status === "SUBMITTED") setStep(4);
-  if (fn === "judge") setStep(5);
+  if (fn === "submit_url" && job.status === "SUBMITTED") setStage(2);
+  if (fn === "judge") setStage(job.status === "SUBMITTED" ? 2 : 3);
 }
 $("connectBtn").onclick = async () => {
   try {
@@ -260,7 +329,8 @@ $("openBtn").onclick = () => guarded(async () => {
     return;
   }
   $("jid").value = id;
-  note("Job " + id + " returned by finalized open_job.");
+  note("Job #" + id + " verified and ready for evidence.");
+  setStage(1);
   setStep(3);
 });
 $("subBtn").onclick = () => guarded(async () => {
@@ -285,8 +355,8 @@ $("resumeBtn").onclick = () => guarded(async () => {
   sessionStorage.removeItem("spotter.pending");
   if (pending.fn === "open_job") {
     const id = jobIdFromReceipt(receipt);
-    if (id) { $("jid").value = id; setStep(3); note("Recovered accepted job " + id + "."); }
-    else note("open_job accepted. SDK v0.18.x does not expose its return value here; retrieve the real Job ID in GenLayer Studio. Never guess.");
+    if (id) { $("jid").value = id; setStage(1); note("Recovered accepted job #" + id + "."); }
+    else note("Could not safely recover the Job ID. Inspect Studio before taking another action.", "pending");
   } else if (parseJobId(pending.jobId)) {
     $("jid").value = pending.jobId;
     await afterWrite(pending.fn, pending.jobId);
@@ -294,11 +364,24 @@ $("resumeBtn").onclick = () => guarded(async () => {
     note("Transaction accepted. Enter the original Job ID and press Read to verify chain state.");
   }
 });
+$("clearPendingBtn").onclick = () => {
+  const stored = sessionStorage.getItem("spotter.pending");
+  if (!stored) { note("No locally tracked transaction to clear."); return; }
+  const approved = window.confirm(
+    "Only clear local tracking after inspecting the wallet transaction and the job's on-chain state. " +
+    "This does not cancel an existing transaction. An unresolved write might already have succeeded. Continue?"
+  );
+  if (!approved) return;
+  sessionStorage.removeItem("spotter.pending");
+  flowStage = 0;
+  setStage(0);
+  note("Local tracking cleared. This DID NOT cancel any blockchain transaction. Check the previous transaction before signing again.", "pending");
+};
 try {
   const stored = JSON.parse(sessionStorage.getItem("spotter.pending") || "null");
   if (stored?.hash && transactionHash(stored.hash)) {
     displayHash(stored.genlayerId || stored.hash, stored.fn || "transaction", stored.genlayerId ? "genlayer" : "evm");
-    note("A transaction was previously submitted in this tab. Use Resume latest transaction before taking another action.");
+    note("An earlier transaction is unresolved. Open Transaction details to resume or inspect it before any new write.", "pending");
   }
 } catch { /* ignore invalid browser storage */ }
 syncWallet(null);

@@ -2,13 +2,13 @@
 
 **GenLayer Studionet 61999** · [Live GitHub Pages](https://bearbaba.github.io/spotter/) · [Contract in Studio](https://studio.genlayer.com/?import-contract=0x730143dF831778569e15975Ef44dFDeCB668609b) · [Explorer](https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b)
 
-Spotter lets a poster define a question and a decision rubric. A hunter submits a live public URL; GenLayer's validators fetch and evaluate it. The on-chain record exposes a **HIT**, **MISS**, or **DEAD** verdict, an explanation, and fetch metadata such as the returned page hash. **This is an experimental AI-assisted evaluation, not a guarantee of factual truth or immutable historical webpage content.** There is no bounty or payment system in Spotter v1.
+Spotter lets a poster define a question and a decision rubric. A hunter submits a live public URL; GenLayer's validators fetch and evaluate it. The on-chain record exposes a **HIT**, **MISS**, or **DEAD** verdict, an explanation, and fetch metadata such as the returned page hash. **This is an experimental AI-assisted evaluation, not a guarantee of factual truth or immutable historical webpage content.** There is no bounty or payment system in the current Spotter contract.
 
 ## Verify without signing anything (recommended reviewer path)
 
-1. Open **https://bearbaba.github.io/spotter/** and choose **Read sample job #1 (no wallet)**.
+1. Open **https://bearbaba.github.io/spotter/** and choose **Read live contract state** in the Sample verification card (no wallet).
 2. The application must read `get_job("1")` on Studionet, display the on-chain status, URL and stored `page_hash`.
-3. You can also paste Job IDs **2** and **3** and press **Read**, or view them directly through the Studio contract. Historical expected snapshots (verify on the chain, do not trust this list alone):
+3. You can also paste Job IDs **2** and **3** and press **Read proof**, or view them directly through the Studio contract. Historical expected snapshots (verify on the chain, do not trust this list alone):
    - Job 1: HIT, `https://example.org`, `13f5e50297bde87abbf51cd1cd43678109b1a72a52c1cefa3b56844464e4f25c`
    - Job 2: HIT on docs.genlayer.com, `9910555ca131ba1af5cbd1a6fc66c1f33d7534682fb54df4e7e1da6ca7f7d1bf`
    - Job 3: historical SUBMITTED / PARSE case. **The question `__PARSE_TEST__` is NOT a deterministic fixture in the deployed Python contract.** Do not expect a new transaction to reproduce PARSE.
@@ -32,12 +32,12 @@ Open `http://localhost:8080/`. To preview the generated build, run `cd dist && p
 ## Live interactive flow (requires MetaMask and test tokens)
 
 1. Connect a wallet on **Studionet chain 61999**. The wallet requests explicit approval for each state-changing transaction.
-2. Select Example HIT or write a question and decision rubric; click **Open job** and approve the wallet prompt.
-3. Wait for transaction finalization. The Job ID must come from the `open_job` return. If the SDK cannot decode it, use the transaction in Studio to obtain that exact ID. **Never guess the ID or use a latest-job account shortcut under concurrency.**
-4. Submit a public HTTP(S) URL, approve, wait; then click **Judge**, approve and wait.
-5. Press **Read** to display the chain's accepted job state. HIT/MISS/DEAD are the only terminal verdicts. A PARSE issue remains SUBMITTED, not settled.
+2. Select Example HIT or write a question and decision rubric; click **1 · Create job** and approve the wallet prompt.
+3. Wait for transaction finalization. The Job ID is taken from the receipt return when available. If it is unavailable, the frontend attempts a cautious fallback: read `last_job_of` on the same wallet and independently verify that the new ID is beyond the pre-write baseline and that the poster, question and rubric match. This is not a cryptographic binding to the original transaction, so simultaneous same-wallet writes with identical claims remain ambiguous; confirm in Studio if necessary.
+4. Submit a public HTTP(S) URL, approve, wait; then click **3 · Run verification**, approve and wait.
+5. Press **Read proof** to display the chain's accepted job state. HIT/MISS/DEAD are the only terminal verdicts. A PARSE issue remains SUBMITTED, not settled.
 
-**Transaction safety:** One click makes at most one `writeContract` request. The pinned **genlayer-js v0.18.10** SDK estimates EVM gas internally; the app does not call unsupported v2 fee-estimation methods. A wallet write first yields an EVM hash. The UI decodes the distinct GenLayer ID from the Studionet consensus `NewTransaction` event, then checks `waitForTransactionReceipt({status: "ACCEPTED"})`. Pending requests remain locked until independently resolved; **Resume latest transaction** only reads, never resends. This is a client-side safeguard; users must still review each MetaMask prompt. The UI never asks for a seed phrase or private key. A read-only check never creates blockchain transactions.
+**Transaction safety:** One click makes at most one `writeContract` request. The pinned **genlayer-js v0.18.10** SDK estimates EVM gas internally; the app does not call unsupported v2 fee-estimation methods. A wallet write first yields an EVM hash. The UI decodes the distinct GenLayer ID from the Studionet consensus `NewTransaction` event, then checks `waitForTransactionReceipt({status: "ACCEPTED"})`. If an EVM receipt omits NewTransaction logs, Spotter checks finalized contract state against the pre-write baseline and exact expected action. It must not claim success on an unmatched state. Pending requests remain locked; **Resume previous transaction** only reads, never resends. **Clear local tracking** asks for explicit confirmation and does not cancel an on-chain transaction. This is a client-side safeguard; users must still review each MetaMask prompt. The UI never asks for a seed phrase or private key. A read-only check never creates blockchain transactions.
 
 ## Implementation
 
