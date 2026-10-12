@@ -1,8 +1,8 @@
-import { createClient } from "https://esm.sh/genlayer-js@0.18.0?bundle";
-import { studionet } from "https://esm.sh/genlayer-js@0.18.0/chains?bundle";
+import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
+import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
-  parseJobResult, publicUrl, settledStatus,
+  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt,
 } from "./spotter-core.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -71,7 +71,7 @@ function requireJobId() {
 }
 async function readJob(id) {
   const raw = await readClient.readContract({
-    address: CONTRACT, functionName: "get_job", args: [id], stateStatus: "accepted",
+    address: CONTRACT, functionName: "get_job", args: [id], transactionHashVariant: "latest-nonfinal",
   });
   return parseJobResult(raw);
 }
@@ -99,55 +99,102 @@ function writer() {
   if (!account || !window.ethereum) throw new Error("Connect MetaMask before writing.");
   return createClient({ chain: studionet, endpoint: RPC, account, provider: window.ethereum });
 }
-function displayHash(hash, fn) {
+function displayHash(hash, fn, kind = "evm") {
   const detail = $("txDetail");
   detail.replaceChildren();
   if (!hash) return;
   const label = document.createElement("span");
-  label.textContent = fn + " · ";
-  const link = document.createElement("a");
-  link.href = EXPLORER + hash;
-  link.textContent = hash.slice(0, 12) + "… ↗";
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  detail.append(label, link);
+  label.textContent = fn + " · " + (kind === "genlayer" ? "GenLayer tx: " : "MetaMask tx: ");
+  detail.append(label);
+  if (kind === "genlayer") {
+    const link = document.createElement("a");
+    link.href = EXPLORER + hash;
+    link.textContent = hash.slice(0, 14) + "… ↗";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    detail.append(link);
+  } else {
+    const code = document.createElement("code");
+    code.textContent = hash.slice(0, 14) + "…";
+    detail.append(code);
+  }
 }
-async function waitOnChain(hash, fn) {
-  note(fn + " submitted: " + hash + ". Waiting for finalized execution. Do not submit it again.");
+
+async function getEthereumReceipt(hash) {
+  for (let i = 0; i < 16; i++) {
+    const receipt = await window.ethereum.request({ method: "eth_getTransactionReceipt", params: [hash] });
+    if (receipt) return receipt;
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+  }
+  return null;
+}
+
+async function waitOnChain(pending) {
+  const { hash, fn } = pending;
+  if (!window.ethereum?.request) throw new Error("Connect MetaMask on Studionet to resume.");
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  if (String(chainId).toLowerCase() !== CHAIN_ID) throw new Error("Switch to Studionet 61999 to track this transaction.");
+  let txId = pending.genlayerId;
+  if (!txId) {
+    note(fn + " sent. Waiting for MetaMask transaction receipt. Do not send again.");
+    const evmReceipt = await getEthereumReceipt(hash);
+    if (!evmReceipt) {
+      note("Wallet transaction not confirmed yet: " + hash + ". Use Resume later, not the write button.");
+      return null;
+    }
+    try {
+      txId = genLayerTxIdFromEthereumReceipt(evmReceipt, readClient.chain.consensusMainContract.address);
+    } catch (err) {
+      if (/reverted/i.test(String(err))) sessionStorage.removeItem("spotter.pending");
+      throw err;
+    }
+    if (!txId) {
+      note("Wallet transaction mined without a NewTransaction event. Inspect wallet hash " + hash + " before attempting another write.", true);
+      return null;
+    }
+    pending.genlayerId = txId;
+    sessionStorage.setItem("spotter.pending", JSON.stringify(pending));
+  }
+  displayHash(txId, fn, "genlayer");
   let receipt;
   try {
-    receipt = await readClient.waitForFinalization({ hash });
+    // genlayer-js 0.18.x uses waitForTransactionReceipt, not waitForFinalization.
+    receipt = await readClient.waitForTransactionReceipt({ hash: txId, status: "ACCEPTED", interval: 3000, retries: 24 });
   } catch (err) {
-    note(fn + " was submitted as " + hash + ". Finalization is not confirmed here. Use Resume latest transaction; do NOT resend.");
+    note("GenLayer tx " + txId + " is still pending or cannot be read: " + errorText(err) + ". Resume; never resend.", true);
     return null;
   }
   const failure = receiptError(receipt);
-  if (failure) throw new Error("Transaction " + hash + " finalized with an error: " + failure);
+  if (failure) {
+    sessionStorage.removeItem("spotter.pending");
+    throw new Error("GenLayer transaction failed: " + failure);
+  }
+  const status = String(receipt?.statusName ?? receipt?.status_name ?? "").toUpperCase();
+  if (status !== "ACCEPTED" && status !== "FINALIZED") {
+    note("GenLayer transaction is " + (status || "pending") + ". Resume after it reaches ACCEPTED.");
+    return null;
+  }
   return receipt;
 }
+
 async function send(fn, args) {
   if (args.some((arg) => typeof arg !== "string" || !arg.trim())) throw new Error("Fill in all required fields.");
+  if (sessionStorage.getItem("spotter.pending")) {
+    throw new Error("Another transaction is still being tracked. Use Resume latest transaction first; no automatic resends.");
+  }
+  if (!window.ethereum?.request) throw new Error("Connect MetaMask first.");
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  if (String(chainId).toLowerCase() !== CHAIN_ID) throw new Error("Switch to Studionet 61999 first.");
   const client = writer();
-  const write = { address: CONTRACT, functionName: fn, args };
-  // Estimation failure is not a reason to send an unpriced or duplicate transaction.
-  let estimate;
-  try {
-    estimate = await client.estimateTransactionFeesForWrite(write);
-  } catch (err) {
-    throw new Error("Fee estimation failed; NO transaction was sent. " + errorText(err));
-  }
-  if (!estimate?.distribution || estimate.feeValue === undefined) {
-    throw new Error("Missing fee estimate. NO transaction was sent.");
-  }
-  // A single explicit wallet-approved write. NEVER retry a failed writeContract call.
-  const raw = await client.writeContract({
-    ...write, fees: { distribution: estimate.distribution, feeValue: estimate.feeValue },
-  });
+  // Actual SDK 0.18.10 API, which estimates EVM gas internally.
+  // Exactly one wallet submission. NEVER retry writeContract on any error.
+  const raw = await client.writeContract({ address: CONTRACT, functionName: fn, args, value: 0n });
   const hash = transactionHash(raw);
-  if (!hash) throw new Error("Wallet returned an unknown transaction identifier. Check your wallet before trying again.");
-  sessionStorage.setItem("spotter.pending", JSON.stringify({ hash, fn, time: Date.now() }));
+  if (!hash) throw new Error("Unknown wallet transaction hash. Inspect MetaMask before trying again; never auto-retry.");
+  const pending = { hash, fn, genlayerId: "", jobId: fn === "open_job" ? "" : args[0], time: Date.now() };
+  sessionStorage.setItem("spotter.pending", JSON.stringify(pending));
   displayHash(hash, fn);
-  const receipt = await waitOnChain(hash, fn);
+  const receipt = await waitOnChain(pending);
   if (receipt) sessionStorage.removeItem("spotter.pending");
   return { hash, receipt, pending: !receipt };
 }
@@ -230,26 +277,27 @@ $("judgeBtn").onclick = () => guarded(async () => {
 $("resumeBtn").onclick = () => guarded(async () => {
   const stored = sessionStorage.getItem("spotter.pending");
   if (!stored) { note("No pending transaction in this browser tab."); return; }
-  const { hash, fn } = JSON.parse(stored);
-  if (!transactionHash(hash)) throw new Error("Invalid saved transaction hash.");
-  displayHash(hash, fn);
-  const receipt = await waitOnChain(hash, fn);
+  const pending = JSON.parse(stored);
+  if (!transactionHash(pending.hash)) throw new Error("Invalid saved wallet transaction hash.");
+  displayHash(pending.genlayerId || pending.hash, pending.fn, pending.genlayerId ? "genlayer" : "evm");
+  const receipt = await waitOnChain(pending);
   if (!receipt) return;
   sessionStorage.removeItem("spotter.pending");
-  if (fn === "open_job") {
+  if (pending.fn === "open_job") {
     const id = jobIdFromReceipt(receipt);
-    if (id) { $("jid").value = id; setStep(3); note("Recovered finalized job " + id + "."); }
-    else note("Finalized; use Studio to recover the open_job return value.");
-  } else if (parseJobId($("jid").value)) {
-    await afterWrite(fn, requireJobId());
+    if (id) { $("jid").value = id; setStep(3); note("Recovered accepted job " + id + "."); }
+    else note("open_job accepted. SDK v0.18.x does not expose its return value here; retrieve the real Job ID in GenLayer Studio. Never guess.");
+  } else if (parseJobId(pending.jobId)) {
+    $("jid").value = pending.jobId;
+    await afterWrite(pending.fn, pending.jobId);
   } else {
-    note("Finalized. Enter the original Job ID and press Read to confirm state.");
+    note("Transaction accepted. Enter the original Job ID and press Read to verify chain state.");
   }
 });
 try {
   const stored = JSON.parse(sessionStorage.getItem("spotter.pending") || "null");
   if (stored?.hash && transactionHash(stored.hash)) {
-    displayHash(stored.hash, stored.fn || "transaction");
+    displayHash(stored.genlayerId || stored.hash, stored.fn || "transaction", stored.genlayerId ? "genlayer" : "evm");
     note("A transaction was previously submitted in this tab. Use Resume latest transaction before taking another action.");
   }
 } catch { /* ignore invalid browser storage */ }
