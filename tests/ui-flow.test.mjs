@@ -530,7 +530,7 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-auto-finality"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-auto-finality-label"/);
 });
 
 test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
