@@ -85,6 +85,7 @@ function updateRecoveredControls() {
     : "Job #" + candidate.id + " is available. Continue only after confirming its on-chain state.";
 }
 function syncWallet(address) {
+  const wasAccount = account;
   const changed = account && address && account.toLowerCase() !== address.toLowerCase();
   account = address || null;
   $("who").textContent = account ? account.slice(0, 6) + "…" + account.slice(-4) : "Read-only";
@@ -94,7 +95,11 @@ function syncWallet(address) {
   $("connectBtn").classList.toggle("hidden", Boolean(account));
   if (changed) { $("jid").value = ""; flowStage = 0; }
   setStage(flowStage);
-  jobsBrowser?.render();
+  if (jobsBrowser) {
+    const changedAccount = String(wasAccount || "").toLowerCase() !== String(account || "").toLowerCase();
+    if (changedAccount) jobsBrowser.setFilter(account ? "mine" : "all");
+    else jobsBrowser.render();
+  }
 }
 function setBusy(value) {
   busy = value;
