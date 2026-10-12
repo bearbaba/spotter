@@ -202,7 +202,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
             <div>Studionet contract:</div>
             <div class="mono" id="caddr"></div>
             <div id="txDetail" class="mono" aria-label="Latest transaction"></div>
-            <p>If an earlier wallet transaction is unresolved, use read-only Resume. Do not send the same action again.</p>
+            <p>Lost the original browser tab? Recover a confirmed Studio transaction using its full public hash. No wallet or signature required to inspect it.</p>
+            <div class="field">
+              <label for="recoveryHash">Recover transaction by hash</label>
+              <input id="recoveryHash" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="0x… (64 hex characters)" aria-describedby="recoveryHint">
+              <div class="field-help" id="recoveryHint">Paste an existing GenLayer Studio transaction hash. This will NOT create another job.</div>
+            </div>
+            <div class="mini-actions">
+              <button type="button" class="btn btn-small btn-primary" id="recoverHashBtn">Inspect transaction hash (read-only) ↗</button>
+            </div>
+            <pre id="recoveryResult" class="mono diagnostics-output" role="status" aria-live="polite" hidden></pre>
+            <p>For a transaction already tracked in this tab, use the read-only Resume option below. Never resend an unresolved write.</p>
             <div class="mini-actions">
               <button type="button" class="btn btn-small" id="resumeBtn">Resume previous transaction</button>
               <button type="button" class="btn btn-small btn-subtle" id="diagnoseBtn">Inspect transaction (read-only)</button>

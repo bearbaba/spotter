@@ -66,3 +66,11 @@ Two identical recent `open_job` actions from the same wallet are not uniquely at
 On GenLayer Studio the hash returned by MetaMask can already appear as the **GenLayer transaction hash** in Studio Explorer. Do not require a separate EVM `NewTransaction` event to recognize it. On **Resume previous transaction**, Spotter first calls the SDK's read-only `getTransaction({ hash: savedHash })`. Only if that direct lookup is unavailable does it fall back to the EVM log lookup and cautious contract-state comparison.
 
 A directly confirmed `FINALIZED / SUCCESS` transaction is **not** automatically assigned a Job ID. Spotter accepts only a distinct returned Job ID that matches the stored question, rubric, poster and pre-write baseline. If the SDK does not expose the output, open the exact hash in Studio Explorer and inspect **GenVM Execution → Return Value**. Do not create another Job or clear the old pending record just to bypass the missing return.
+
+### Recover a finalized Studio transaction in a new browser tab
+
+A previous `open_job` may be FINALIZED even if the original browser tab is gone. The former `sessionStorage` record is tab-scoped; **No pending transaction in this browser tab** is not evidence of chain failure.
+
+Open **Transaction details & troubleshooting → Recover transaction by hash** and paste the exact public 66-character transaction hash from GenLayer Studio Explorer. Choose **Inspect transaction hash (read-only)**; no wallet is required and no write is sent. The result displays the Studio transaction status, consensus, GenVM result (if reported), and **only an explicit Job return** from the SDK. A safely verified Job return opens the read-only proof; it never automatically authorizes Submit or Judge.
+
+For historical hashes `0xaa6cead7f9e18e900c1d74a91c4adfc54019dadb2299c4a6f1619d8aca0bbe06` and `0x2c998a84010127893291b9819e19105d94c65077d394ba0e4a1dab3d158d8bdd`, Studio previously showed FINALIZED / SUCCESS. To attribute exact Job IDs, inspect each Studio transaction's **GenVM Execution → Return Value** if the SDK response does not include the result. Do not generate more test transactions to compensate for a missing browser session.

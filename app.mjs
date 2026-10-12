@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import {
   parseJobId, transactionHash, jobIdFromReceipt, receiptError,
-  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction, classifyStudioTransaction,
+  parseJobResult, publicUrl, settledStatus, genLayerTxIdFromEthereumReceipt, independentlyVerifiedAction, classifyStudioTransaction, studioHashInspection, exactJobIdFromStudioTransaction,
 } from "./spotter-core.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -420,7 +420,7 @@ $("judgeBtn").onclick = () => guarded(async () => {
 });
 $("resumeBtn").onclick = () => guarded(async () => {
   const stored = sessionStorage.getItem("spotter.pending");
-  if (!stored) { note("No pending transaction in this browser tab."); return; }
+  if (!stored) { note("No pending transaction in this tab. Paste the original Studio transaction hash in Recover transaction by hash below."); return; }
   const pending = JSON.parse(stored);
   if (!transactionHash(pending.hash)) throw new Error("Invalid saved wallet transaction hash.");
   displayHash(pending.genlayerId || pending.hash, pending.fn, pending.genlayerId ? "genlayer" : "evm");
@@ -438,6 +438,74 @@ $("resumeBtn").onclick = () => guarded(async () => {
     note("Transaction accepted. Enter the original Job ID and press Read to verify chain state.");
   }
 });
+// This recovery never reads/writes sessionStorage and works in any tab, without MetaMask.
+$("recoverHashBtn").onclick = async () => {
+  const result = $("recoveryResult");
+  result.hidden = false;
+  const hash = transactionHash($("recoveryHash").value.trim());
+  if (!hash) {
+    result.textContent = "Enter a full 0x-prefixed 64-character Studio transaction hash. No transaction was sent.";
+    return;
+  }
+  result.textContent = "READ-ONLY HASH RECOVERY\nHash: " + hash + "\nReading GenLayer Studio transaction…";
+  $("recoverHashBtn").disabled = true;
+  try {
+    if (typeof readClient.getTransaction !== "function") {
+      result.textContent = "This SDK runtime cannot read Studio transactions directly. Use the Studio Explorer transaction link.";
+      return;
+    }
+    const tx = await diagnosticRead("Studio transaction lookup", () =>
+      readClient.getTransaction({ hash }), 9000);
+    const inspection = studioHashInspection(tx, hash, CONTRACT);
+    const lines = [
+      "READ-ONLY HASH RECOVERY · NO WALLET SIGNATURE",
+      "Transaction: " + hash,
+      "Status: " + inspection.status,
+      "Consensus: " + inspection.consensus,
+      "GenVM execution: " + inspection.execution,
+      "Interpretation: " + inspection.outcome,
+    ];
+    if (inspection.reason) lines.push("Warning: " + inspection.reason);
+    if (inspection.outcome === "invalid") {
+      lines.push("Cannot trust this RPC result for the supplied hash and contract.");
+      result.textContent = lines.join("\n");
+      return;
+    }
+    const jobId = inspection.outcome === "confirmed" ? exactJobIdFromStudioTransaction(tx) : "";
+    lines.push("Explicit open_job return ID: " + (jobId || "NOT EXPOSED BY SDK"));
+    if (jobId) {
+      try {
+        const job = await diagnosticRead("Job #" + jobId + " read", () =>
+          readClient.readContract({ address: CONTRACT, functionName: "get_job", args: [jobId],
+            transactionHashVariant: "latest-final" }), 9000);
+        const parsed = parseJobResult(job);
+        const sender = String(tx?.sender ?? tx?.from_address ?? tx?.from ?? "");
+        if (parseJobId(parsed.id) !== jobId ||
+          (sender && String(parsed.poster ?? "").toLowerCase() !== sender.toLowerCase())) {
+          lines.push("Returned Job ID could not be verified against the on-chain record.");
+        } else {
+          lines.push("Found Job #" + jobId + " on-chain, status: " + String(parsed.status ?? "unknown"));
+          if (!sender) lines.push("Sender metadata unavailable; exact wallet attribution is not verified.");
+          $("lookupId").value = jobId;
+          renderJob(parsed); // Public proof only; never mutate the active write Job ID or stage.
+        }
+      } catch (error) {
+        lines.push("Job lookup failed: " + errorText(error));
+      }
+    } else {
+      lines.push("Use Studio Explorer → GenVM Execution → Return Value to identify the exact Job ID.");
+      lines.push("Do not infer an ID from transaction ordering or send another open_job.");
+    }
+    lines.push("Inspection finished. This lookup did NOT sign or submit a transaction.");
+    result.textContent = lines.join("\n");
+  } catch (error) {
+    result.textContent += "\nUnable to read this Studio transaction: " + errorText(error) +
+      "\nOpen the same hash in Studio Explorer. No wallet transaction was sent.";
+  } finally {
+    $("recoverHashBtn").disabled = false;
+  }
+};
+
 // Read-only RPC inspection. Show progress BEFORE each async request so a slow wallet cannot hide results.
 async function diagnosticRead(label, request, timeoutMs = 7500) {
   let timer;

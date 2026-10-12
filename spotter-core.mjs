@@ -156,3 +156,50 @@ export function classifyStudioTransaction(tx, expectedHash, owner, contract) {
   if (status) return { kind: "pending", status, execution };
   return { kind: "unknown" };
 }
+
+/** Inspect a single exact Studio hash. A consensus AGREE is not a GenVM SUCCESS. */
+export function studioHashInspection(tx, expectedHash, contract) {
+  const basic = classifyStudioTransaction(tx, expectedHash, null, contract);
+  const raw = tx && typeof tx === "object" ? tx : {};
+  const leaders = raw.consensus_data?.leader_receipt;
+  const leader = Array.isArray(leaders) ? leaders[0] : leaders;
+  const output = leader && typeof leader === "object" ? leader.result : undefined;
+  const executionStatus = String(output?.status ?? leader?.execution_result ?? "").toLowerCase();
+  const final = basic.status === "FINALIZED" || basic.status === "ACCEPTED";
+  const isReturn = executionStatus === "return" || executionStatus === "success";
+  const isError = ["rollback","contract_error","error","revert","failed"].includes(executionStatus);
+  const outcome = basic.kind === "invalid" ? "invalid"
+    : basic.kind === "failed" || isError ? "failed"
+    : final && (basic.kind === "confirmed" || isReturn) ? "confirmed"
+    : final ? "final-status-only" : basic.kind;
+  return {
+    outcome, status: basic.status || "UNKNOWN",
+    consensus: String(raw.resultName ?? "").toUpperCase() || "UNKNOWN",
+    execution: executionStatus || basic.execution || "UNKNOWN",
+    reason: basic.reason || "",
+  };
+}
+
+/** Extract only explicit open_job return fields, not receipt status, nonce or arbitrary numbers. */
+export function exactJobIdFromStudioTransaction(tx) {
+  if (!tx || typeof tx !== "object") return "";
+  const candidates = [tx.returnValue, tx.return_value];
+  const receipt = tx.consensus_data?.leader_receipt;
+  const leaders = Array.isArray(receipt) ? receipt : receipt ? [receipt] : [];
+  for (const leader of leaders) {
+    if (!leader || typeof leader !== "object") continue;
+    const result = leader.result;
+    if (result && typeof result === "object" && String(result.status ?? "").toLowerCase() === "return") {
+      candidates.push(result.payload?.readable, result.payload?.value, result.payload);
+    }
+  }
+  for (const value of candidates) {
+    const id = parseJobId(value);
+    if (id) return id;
+    if (typeof value === "string") {
+      const quoted = value.trim();
+      if (/^['"][1-9][0-9]*['"]$/.test(quoted)) return quoted.slice(1,-1);
+    }
+  }
+  return "";
+}
