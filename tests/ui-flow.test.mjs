@@ -43,11 +43,19 @@ function makePage({ applyWrites = true } = {}) {
       throw Error("Unexpected wallet RPC " + method);
     },
   };
+  const historicalJob = {
+    id: "1", status: "HIT", url: "https://example.org",
+    question: "Historical sample", justification: "Documentation examples",
+    page_hash: "f".repeat(64),
+  };
   const readClient = {
     chain: { consensusMainContract: { address: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575" } },
-    async readContract({ functionName }) {
+    async readContract({ functionName, args = [] }) {
       if (functionName === "last_job_of") return job ? "7" : "";
-      if (functionName === "get_job") return JSON.stringify(job || {});
+      if (functionName === "get_job") {
+        if (String(args[0]) === "1") return JSON.stringify(historicalJob);
+        return JSON.stringify(job || {});
+      }
       throw Error("Unexpected GenLayer read " + functionName);
     },
     async waitForTransactionReceipt() {
@@ -121,4 +129,31 @@ test("no matching finalized state never auto-resends or announces success", asyn
   await page.element("clearPendingBtn").onclick();
   assert.equal(page.storage.has("spotter.pending"), false);
   assert.equal(page.writes, 1);
+});
+
+test("historical proof lookup does not mutate live job ID or workflow state", async () => {
+  const page = makePage();
+  assert.equal(page.element("jid").value, "");
+  await page.element("sampleBtn").onclick();
+  assert.equal(page.writes, 0, "reading sample must never submit a transaction");
+  assert.equal(page.element("jid").value, "", "sample ID must not become active job");
+  assert.equal(page.element("lookupId").value, "1");
+  assert.match(page.element("out").children.map(x => x.textContent || "").join(" "), /HIT/);
+  await page.element("connectBtn").onclick();
+  assert.equal(page.element("subBtn").disabled, true, "public proof does not unlock Submit");
+  assert.equal(page.element("judgeBtn").disabled, true, "public proof does not unlock Verify");
+  await page.element("openBtn").onclick();
+  assert.equal(page.element("jid").value, "7");
+  assert.equal(page.element("subBtn").disabled, false);
+  await page.element("sampleBtn").onclick();
+  assert.equal(page.element("jid").value, "7", "existing active job must survive historical read");
+  assert.equal(page.element("subBtn").disabled, false, "historical read must not disable active Submit");
+  assert.equal(page.writes, 1);
+  page.element("lookupId").value = "1";
+  await page.element("readBtn").onclick();
+  assert.equal(page.element("jid").value, "7");
+  assert.equal(page.writes, 1, "manual public proof read must never write");
+  await page.element("subBtn").onclick();
+  assert.equal(page.job.id, "7");
+  assert.equal(page.job.status, "SUBMITTED");
 });

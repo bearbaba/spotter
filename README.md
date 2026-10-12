@@ -16,6 +16,8 @@ Spotter lets a poster define a question and a decision rubric. A hunter submits 
 
 The deployed contract on Studionet has not been replaced. Read-only checks do not require a wallet or GEN.
 
+**Public lookup is separate from the active write session.** Selecting sample Job #1 or reading any public Job ID never overwrites the Job ID being used for an active Create → Submit → Verify flow. An exact Job ID can be entered in the **Advanced · recover an existing Job ID** panel only when the user has independently verified it in Studio.
+
 ## Run / build locally
 
 Requirements: Node.js 20+ for the optional offline build/tests; Python 3 for a simple static web server. **No npm dependencies, API keys, or secret environment variables are required.**
