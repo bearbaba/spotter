@@ -487,7 +487,7 @@ test("accepted SUBMITTED Job auto-reconciles stale tracked submit without any se
   assert.equal(page.storage.has("spotter.pending"),false);
   assert.equal(page.element("jid").value,"7");
   assert.equal(page.element("judgeBtn").disabled,false);
-  assert.match(page.element("msg").textContent,/matching finalized on-chain Job #7/);
+  assert.match(page.element("msg").textContent,/Job #7 confirmed on GenLayer/);
 });
 test("unmatched pending URL stays locked and does not resend or unlock Judge", async () => {
   const page=makePage();
@@ -528,7 +528,7 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-readable-receipts"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-open-job-inline-recovery"/);
 });
 
 test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
@@ -557,5 +557,37 @@ test("proof result uses accessible mobile-safe layout without injecting contract
   assert.match(html,/\.proof-field-value\{/);
   assert.match(html,/\.proof-hash\{/);
   assert.match(html,/\.proof-json\{/);
-  assert.match(html,/readable-receipts/);
+  assert.match(html,/open-job-inline-recovery/);
+});
+
+test("existing accepted open_job is restored to the primary Submit step without signing again", async () => {
+  const page=makePage({existingJob:true});
+  await page.element("connectBtn").onclick();
+  const writesBefore=page.writes;
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"d".repeat(64),fn:"open_job",jobId:"",
+    wallet:"0x1111111111111111111111111111111111111111",
+    previousJobId:"6",question:"Historical result",rubric:"Exact match"
+  }));
+  await page.element("checkCompletedBtn").onclick();
+  assert.equal(page.writes,writesBefore);
+  assert.equal(page.storage.has("spotter.pending"),false);
+  assert.equal(page.element("jid").value,"7");
+  assert.equal(page.element("subBtn").disabled,false);
+  assert.equal(page.element("openBtn").disabled,true);
+  assert.match(page.element("msg").textContent,/Job #7 confirmed on GenLayer/);
+});
+test("ambiguous old open_job cannot overwrite the active workflow", async () => {
+  const page=makePage({existingJob:true});
+  await page.element("connectBtn").onclick();
+  page.storage.set("spotter.pending",JSON.stringify({
+    hash:"0x"+"d".repeat(64),fn:"open_job",jobId:"",
+    wallet:"0x1111111111111111111111111111111111111111",
+    previousJobId:"7",question:"Historical result",rubric:"Exact match"
+  }));
+  await page.element("checkCompletedBtn").onclick();
+  assert.equal(page.storage.has("spotter.pending"),true);
+  assert.equal(page.element("jid").value,"");
+  assert.equal(page.element("subBtn").disabled,true);
+  assert.equal(page.writes,0);
 });
