@@ -35,13 +35,13 @@ Requirements: Node 20+, Python 3. Open http://localhost:8080 and follow Path A. 
 4. Observe Job ID returned by the transaction. If the app cannot decode it, open that transaction in Studio and paste the **actual** `open_job` return.
 5. Click **3. Submit URL**. After finalization confirm status `SUBMITTED`.
 6. Click **4. Judge**. After finalization click **5. Read** and inspect `status`, `page_hash`, `page_chars`, `fetch_ok`, `fail_kind` and `justification`. Fresh HIT/MISS/DEAD is not predetermined; compare against actual fetched evidence.
-7. If waiting times out **do not click the same write again**. Click **Resume latest transaction** (read-only) or inspect the saved transaction hash in Explorer.
+7. If waiting times out **do not click the same write again**. Click **Resume latest transaction** (read-only). MetaMask initially provides an EVM hash; after its mined `NewTransaction` event, the app displays the *separate* GenLayer transaction ID with an Explorer link. Do not confuse the two identifiers.
 
 If contract deployment source, public URL, test GEN or RPC is not accessible, note the limitation instead of asserting a passing live smoke test.
 
 ## Security/interpretation notes
 
-- The frontend does not automatically sign or retry writes.
+- The frontend uses **genlayer-js v0.18.10**, whose `writeContract` estimates EVM gas internally. It does not expose the newer `estimateTransactionFeesForWrite` or `waitForFinalization` helpers. The frontend does not automatically sign or retry writes.
 - Read-only views work without wallet authentication.
 - Job ID is the return from `open_job`; this avoids a race with concurrent jobs.
 - `judge` is not restricted to a single authority in the existing contract. Anyone able to call it can request evaluation of a submitted job.
