@@ -74,20 +74,14 @@ function updateRecoveredControls() {
   const candidate = recoveredJobCandidate;
   surface.classList.toggle("hidden", !candidate);
   if (!candidate) { button.disabled = true; return; }
-  const isOwner = Boolean(account && typeof candidate.poster === "string" &&
-    account.toLowerCase() === candidate.poster.toLowerCase());
-  const sameHunter = Boolean(account && typeof candidate.hunter === "string" &&
-    account.toLowerCase() === candidate.hunter.toLowerCase());
-  const usable = candidate.status === "OPEN" ||
-    (candidate.status === "SUBMITTED" && sameHunter);
+  const usable = candidate.status === "OPEN" || candidate.status === "SUBMITTED";
   const blocked = busy || Boolean(sessionStorage.getItem("spotter.pending"));
-  button.disabled = blocked || !isOwner || !usable;
+  button.disabled = blocked || !account || !usable;
   button.textContent = "Continue with Job #" + candidate.id + " ↗";
   $("recoveredJobHint").textContent = blocked
     ? "A previous transaction is still pending. Resolve it before continuing with this Job."
-    : !account ? "Connect the original Job owner's wallet to continue. Reading proof needs no wallet."
-    : !isOwner ? "Connected wallet is not this Job's poster. Change to the original owner's wallet."
-    : !usable ? "This Job is finalized or is assigned to another hunter. Read its proof instead."
+    : !account ? "Connect a Studionet wallet to submit a source or run verification."
+    : !usable ? "This Job is finalized. Read its proof instead."
     : "Job #" + candidate.id + " is available. Continue only after confirming its on-chain state.";
 }
 function syncWallet(address) {
@@ -187,7 +181,7 @@ async function readProofById(id) {
 async function adoptExistingJob(rawId) {
   const id=parseJobId(rawId);
   if(!id)throw Error("Select an existing public Job.");
-  if(!account||!window.ethereum?.request)throw Error("Connect the original Job owner wallet first.");
+  if(!account||!window.ethereum?.request)throw Error("Connect a Studionet wallet to join this public Job.");
   if(sessionStorage.getItem("spotter.pending"))throw Error("A previous transaction is still unresolved. Inspect it first.");
   const chain=await window.ethereum.request({method:"eth_chainId"});
   if(String(chain).toLowerCase()!==CHAIN_ID)throw Error("Switch to Studionet 61999.");
@@ -195,11 +189,9 @@ async function adoptExistingJob(rawId) {
     address:CONTRACT,functionName:"get_job",args:[id],transactionHashVariant:"latest-final",
   }),9000);
   const job=parseJobResult(raw);
-  if(parseJobId(job.id)!==id||String(job.poster||"").toLowerCase()!==account.toLowerCase())
-    throw Error("Job owner or ID mismatch. No transaction was sent.");
-  if(job.status!=="OPEN"&&!(job.status==="SUBMITTED"&&
-      String(job.hunter||"").toLowerCase()===account.toLowerCase()))
-    throw Error("Job is not eligible for this wallet. Read the public proof instead.");
+  if(parseJobId(job.id)!==id)throw Error("Job ID mismatch. No transaction was sent.");
+  if(job.status!=="OPEN"&&job.status!=="SUBMITTED")
+    throw Error("The Job is already finalized; only read-only proof lookup is permitted.");
   $("jid").value=id; $("lookupId").value=id;
   $("q").value=String(job.question||"");
   $("r").value=String(job.rubric||"");
@@ -207,8 +199,8 @@ async function adoptExistingJob(rawId) {
   setStage(job.status==="OPEN"?1:2);
   renderJob(job);
   note("Selected Job #"+id+". "+
-    (job.status==="OPEN"?"Review the URL and select 2 · Submit evidence.":
-      "Evidence already submitted. Select 3 · Run verification.")+
+    (job.status==="OPEN"?"Submit one public URL as its first hunter with your own wallet approval.":
+      "Evidence already submitted. You may request a verification with wallet approval.")+
     " No transaction was sent by selecting this Job.");
   $("workspace").scrollIntoView?.({behavior:"smooth",block:"start"});
 }
@@ -602,9 +594,7 @@ $("recoverHashBtn").onclick = async () => {
 $("continueRecoveredBtn").onclick = () => guarded(async () => {
   const candidate = recoveredJobCandidate;
   if (!candidate || !parseJobId(candidate.id)) throw Error("Recover an existing transaction by hash first.");
-  if (!account || account.toLowerCase() !== candidate.poster.toLowerCase()) {
-    throw Error("Connect the original Job poster wallet to continue this Job.");
-  }
+  if (!account) throw Error("Connect a Studionet wallet to continue a public Job.");
   if (sessionStorage.getItem("spotter.pending")) {
     throw Error("Resolve the previous tracked transaction before continuing.");
   }
@@ -615,13 +605,11 @@ $("continueRecoveredBtn").onclick = () => guarded(async () => {
     transactionHashVariant: "latest-final",
   }), 9000);
   const job = parseJobResult(raw);
-  if (parseJobId(job.id) !== candidate.id ||
-      String(job.poster ?? "").toLowerCase() !== account.toLowerCase()) {
-    throw Error("Recovered Job no longer matches its stored owner and ID. No transaction was sent.");
+  if (parseJobId(job.id) !== candidate.id) {
+    throw Error("Recovered Job no longer matches its ID. No transaction was sent.");
   }
-  if (job.status !== "OPEN" &&
-      !(job.status === "SUBMITTED" && String(job.hunter ?? "").toLowerCase() === account.toLowerCase())) {
-    throw Error("Job is not eligible for your next action. Read its current public proof instead.");
+  if (job.status !== "OPEN" && job.status !== "SUBMITTED") {
+    throw Error("Job is finalized; no further write is permitted.");
   }
   $("jid").value = candidate.id;
   $("q").value = String(job.question || "");
