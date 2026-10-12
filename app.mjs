@@ -171,41 +171,86 @@ function renderJob(job) {
   const output = $("out");
   output.replaceChildren();
   output.classList.remove("empty");
+  output.classList.add("proof-result");
   const status = String(job.status || "UNKNOWN").toUpperCase();
+  const final = settledStatus(status);
+  const header = document.createElement("div");
+  header.className = "proof-header";
+  const heading = document.createElement("div");
+  const eyebrow = document.createElement("div");
+  eyebrow.className = "proof-eyebrow";
+  eyebrow.textContent = "GENLAYER · ON-CHAIN RECORD";
+  const name = document.createElement("h4");
+  name.className = "proof-title";
+  name.textContent = "Verification #" + String(job.id || "?");
+  heading.append(eyebrow, name);
   const badge = document.createElement("span");
-  badge.className = "tag " + (["HIT", "MISS", "DEAD", "OPEN", "SUBMITTED"].includes(status) ? status : "OPEN");
-  badge.textContent = status + (job.fail_kind ? " / " + job.fail_kind : "");
-  const heading = document.createElement("h4");
-  heading.textContent = "On-chain job #" + String(job.id || "?");
-  heading.style.margin = "8px 0 12px";
-  heading.style.fontSize = "16px";
-  output.append(badge, heading);
-  const fields = [
-    ["Claim", job.question], ["Evidence", job.url], ["Verdict", status],
-    ["Reason", job.justification], ["SHA-256", job.page_hash],
-  ];
-  for (const [label, value] of fields) {
-    if (value === undefined || value === null || value === "") continue;
-    const row = document.createElement("div");
-    row.className = "proof-row";
-    const name = document.createElement("span");
-    name.className = "proof-label";
-    name.textContent = label;
-    const text = document.createElement("span");
-    text.className = "proof-value";
-    text.textContent = String(value);
-    row.append(name, text);
-    output.append(row);
-  }
+  badge.className = "tag " + (["HIT","MISS","DEAD","OPEN","SUBMITTED"].includes(status) ? status : "SUBMITTED");
+  badge.textContent = status;
+  header.append(heading, badge);
+  output.append(header);
+  const summary = document.createElement("p");
+  summary.className = "proof-summary";
+  summary.textContent = final ? (
+    status === "HIT" ? "Evidence supports this claim." :
+    status === "MISS" ? "Evidence does not support this claim." :
+    "The source could not be reliably retrieved."
+  ) : status === "OPEN" ? "Waiting for a public evidence URL." :
+      "Evidence submitted. No final verdict yet.";
+  output.append(summary);
+  const field = (label, value, kind) => {
+    if (value === undefined || value === null || value === "") return;
+    const item = document.createElement("div");
+    item.className = "proof-field";
+    const labelNode = document.createElement("div");
+    labelNode.className = "proof-field-label";
+    labelNode.textContent = label;
+    const valueNode = document.createElement("div");
+    valueNode.className = "proof-field-value" + (kind === "hash" ? " proof-hash" : "");
+    if (kind === "link") {
+      const link = document.createElement("a");
+      link.href = String(value);
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = String(value);
+      valueNode.append(link);
+    } else {
+      valueNode.textContent = String(value);
+    }
+    item.append(labelNode, valueNode);
+    if (kind === "hash") {
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.className = "btn btn-small btn-subtle proof-copy";
+      copy.textContent = "Copy hash";
+      copy.setAttribute("aria-label", "Copy page SHA-256 hash");
+      copy.onclick = async () => {
+        try {
+          if (!window.navigator?.clipboard?.writeText) throw Error("Clipboard is unavailable.");
+          await window.navigator.clipboard.writeText(String(value));
+          copy.textContent = "Copied ✓";
+        } catch {
+          copy.textContent = "Select hash to copy";
+        }
+      };
+      item.append(copy);
+    }
+    output.append(item);
+  };
+  field("Claim", job.question);
+  field("Evidence URL", job.url, "link");
+  if (job.justification) field("Validator explanation", job.justification);
+  if (job.page_hash) field("Page SHA-256", job.page_hash, "hash");
+  if (job.fail_kind) field("Evaluation note", job.fail_kind);
   const details = document.createElement("details");
   details.className = "proof-json";
-  const summary = document.createElement("summary");
-  summary.textContent = "View complete on-chain record";
+  const trigger = document.createElement("summary");
+  trigger.textContent = "Technical details · complete on-chain JSON";
   const pre = document.createElement("pre");
   pre.textContent = JSON.stringify(job, null, 2);
-  details.append(summary, pre);
+  details.append(trigger, pre);
   output.append(details);
-  note("Contract state: " + status + (settledStatus(status) ? " · final verdict available" : " · not a final verdict"));
+  note("Contract state: " + status + (final ? " · final verdict available" : " · not a final verdict"));
 }
 async function readProofById(id) {
   const validated = parseJobId(id);

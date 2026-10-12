@@ -145,7 +145,7 @@ test("missing NewTransaction logs: recover Create / Submit / Verify from exact f
   assert.equal(page.writes, 3);
   assert.equal(page.job.status, "HIT");
   assert.equal(page.storage.has("spotter.pending"), false);
-  assert.match(page.element("out").children.map(x=>x.textContent||"").join(" "), /HIT/);
+  assert.match(page.element("out").children.map(x=>x.textContent||"").join(" "), /Evidence supports this claim/);
 });
 test("no matching finalized state never auto-resends or announces success", async () => {
   const page = makePage({ applyWrites: false });
@@ -170,7 +170,7 @@ test("historical proof lookup does not mutate live job ID or workflow state", as
   assert.equal(page.writes, 0, "reading sample must never submit a transaction");
   assert.equal(page.element("jid").value, "", "sample ID must not become active job");
   assert.equal(page.element("lookupId").value, "1");
-  assert.match(page.element("out").children.map(x => x.textContent || "").join(" "), /HIT/);
+  assert.match(page.element("out").children.map(x => x.textContent || "").join(" "), /Evidence supports this claim/);
   await page.element("connectBtn").onclick();
   assert.equal(page.element("subBtn").disabled, true, "public proof does not unlock Submit");
   assert.equal(page.element("judgeBtn").disabled, true, "public proof does not unlock Verify");
@@ -528,5 +528,34 @@ test("explicit pending recovery control and cache-busted release script stay pre
   const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
   assert.match(html,/id="checkCompletedBtn"/);
   assert.match(html,/id="pendingRecoveryActions"/);
-  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-resume-unblock-v2"/);
+  assert.match(html,/src="\.\/app\.mjs\?v=spotter-20261012-readable-receipts"/);
+});
+
+test("proof receipt renders spaced structured fields and hides technical JSON until requested",async()=>{
+  const page=makePage();
+  await page.element("connectBtn").onclick();
+  await page.element("openBtn").onclick();
+  await page.element("subBtn").onclick();
+  await page.element("judgeBtn").onclick();
+  const output=page.element("out");
+  const fields=output.children.filter(x=>x.className==="proof-field");
+  assert.ok(fields.length>=4,"claim, URL, explanation and hash get separate rows");
+  assert.equal(fields[0].children[0].textContent,"Claim");
+  assert.equal(fields[1].children[0].textContent,"Evidence URL");
+  assert.equal(fields[2].children[0].textContent,"Validator explanation");
+  assert.equal(fields[3].children[0].textContent,"Page SHA-256");
+  assert.equal(fields[3].children[1].textContent,"a".repeat(64));
+  assert.equal(fields[3].children[2].textContent,"Copy hash");
+  const detail=output.children.at(-1);
+  assert.equal(detail.className,"proof-json");
+  assert.equal(detail.children[0].textContent,"Technical details · complete on-chain JSON");
+  assert.equal(page.writes,3);
+});
+test("proof result uses accessible mobile-safe layout without injecting contract text as markup",()=>{
+  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+  assert.match(html,/\.proof-field-label\{/);
+  assert.match(html,/\.proof-field-value\{/);
+  assert.match(html,/\.proof-hash\{/);
+  assert.match(html,/\.proof-json\{/);
+  assert.match(html,/readable-receipts/);
 });
