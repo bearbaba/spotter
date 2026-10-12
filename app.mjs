@@ -563,9 +563,29 @@ $("connectBtn").onclick = async () => {
   try {
     if (!window.ethereum) throw new Error("MetaMask-compatible wallet not found.");
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID }] });
+    try {
+      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID }] });
+    } catch (switchError) {
+      const code = Number(switchError?.code ?? switchError?.data?.originalError?.code);
+      if (code !== 4902) throw switchError;
+      // Official GenLayer Studionet network; MetaMask asks for approval.
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: CHAIN_ID,
+          chainName: "GenLayer Studionet",
+          rpcUrls: ["https://studio.genlayer.com/api"],
+          nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
+          blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
+        }],
+      });
+      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_ID }] });
+    }
+    const confirmedChain=await window.ethereum.request({method:"eth_chainId"});
+    if(String(confirmedChain).toLowerCase()!==CHAIN_ID)throw Error("Switch to GenLayer Studionet 61999 before writing.");
     syncWallet(accounts[0] || null);
-    note("Wallet connected. Review the exact transaction in MetaMask before signing.");
+    await restoreTrackedJobOnLoad();
+    note("Wallet connected on GenLayer Studionet. Every blockchain write requires separate MetaMask approval.");
   } catch (err) {
     if (err?.code === 4902) note("Studionet not added to MetaMask. Add chain 61999 using the official GenLayer network details.", true);
     else note(errorText(err), true);
