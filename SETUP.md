@@ -8,7 +8,7 @@
 4. Optionally use the historical Sample verification Job #1. Review may be completed without knowing any Job ID or Studio hash beforehand.
 5. Independently cross-check a shown Job's ID using the Studio contract `get_job` view on the same Studionet address.
 
-**Wallet continuation from existing contract state:** Connect the original Job owner wallet (no signature just to connect), choose **My jobs** and find an OPEN Job. Click **Continue · Submit**; verify the existing question and rubric load into the form without a new `open_job`. SUBMITTED jobs are only continued to Judge when the connected wallet also matches the on-chain first hunter. Check any write carefully in MetaMask.
+**Wallet continuation from existing contract state:** Connect a wallet (wallet permission but no blockchain transaction), choose **My jobs** for your own activity or **All jobs** to participate permissionlessly. On an OPEN Job select **Submit a source**; on a SUBMITTED Job select **Run verification**. The interface rereads the finalized Job and loads the question/rubric without a new `open_job`. Anyone may judge according to the deployed contract, but only the first hunter may replace an already-SUBMITTED URL. Check any write carefully in MetaMask.
 
 **Known already-finalized transactions:** `0xaa6cead7f9e18e900c1d74a91c4adfc54019dadb2299c4a6f1619d8aca0bbe06` returned OPEN Job #5 and `0x2c998a84010127893291b9819e19105d94c65077d394ba0e4a1dab3d158d8bdd` returned OPEN Job #6 when inspected. These are transaction outcomes; they are not completed HIT/MISS/DEAD verdicts. Browsing these jobs requires no hash paste.
 
@@ -43,7 +43,7 @@ Requirements: Node 20+, Python 3. Open http://localhost:8080 and follow Path A. 
 
 1. Use a test wallet with Studionet chain ID `61999` (`0xf22f`), RPC `https://studio.genlayer.com/api`. Do not use mainnet.
 2. Connect MetaMask and confirm chain 61999.
-3. **Prefer an already-open job**: select your OPEN Job in **My jobs → Continue · Submit** (read-only). Only create a new job if you specifically intend a new claim and no reusable Job exists. If creating, choose **HIT example → 1 · Create job** and approve the explicit wallet prompt.
+3. **Prefer an already-open job**: select any eligible OPEN Job in **All jobs / My jobs → Submit a source** (read-only selection). Only create a new job if you specifically intend a new claim and no reusable Job exists. If creating, choose **HIT example → 1 · Create job** and approve the explicit wallet prompt.
 4. The interface should fill the Job ID using the receipt return, or verify a matching new `last_job_of` value against pre-write ID, wallet, question and rubric. If this cannot be matched, check Studio and paste the exact ID manually.
 5. Click **2 · Submit evidence**. After finalization confirm status `SUBMITTED`.
 6. Click **3 · Run verification**. After finalization click **Read proof** and inspect `status`, `page_hash`, `page_chars`, `fetch_ok`, `fail_kind` and `justification`. Fresh HIT/MISS/DEAD is not predetermined; compare against actual fetched evidence.
