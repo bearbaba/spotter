@@ -52,9 +52,14 @@ function setStage(stage) {
     2: "Evidence submitted. Run GenLayer verification to request an on-chain verdict.",
     3: "Verification record is available. Read the proof or create a new job.",
   };
-  $("nextStepDescription").textContent = blocked
-    ? "A previous transaction is unresolved. Open Transaction details → Resume previous transaction. Never submit it again."
-    : descriptions[stage] || descriptions[0];
+  const pending = Boolean(sessionStorage.getItem("spotter.pending"));
+  $("nextStepDescription").textContent = pending
+    ? "A transaction is still being tracked. Open Transaction details → Resume previous transaction. Never submit it again."
+    : busy
+      ? "Checking your current action. Wait for confirmation before continuing."
+      : stage === 0 && account
+        ? "Wallet connected to Studionet. Review your question, decision rule and URL, then select 1 · Create job."
+        : descriptions[stage] || descriptions[0];
   setStep(stage === 0 ? (account ? 2 : 1) : stage + 2);
 }
 function syncWallet(address) {
