@@ -139,13 +139,13 @@ function renderJob(job) {
   pre.textContent = JSON.stringify(job, null, 2);
   details.append(summary, pre);
   output.append(details);
-  setStage(status === "OPEN" ? 1 : (status === "SUBMITTED" && job.fail_kind !== "PARSE" ? 2 : 3));
   note("Contract state: " + status + (settledStatus(status) ? " · final verdict available" : " · not a final verdict"));
 }
-async function readCurrentJob() {
-  const id = requireJobId();
-  const job = await readJob(id);
-  if (!job.id) throw new Error("No accepted state found for job " + id + " yet.");
+async function readProofById(id) {
+  const validated = parseJobId(id);
+  if (!validated) throw new Error("Enter a valid public Job ID to read a proof.");
+  const job = await readJob(validated);
+  if (!job.id) throw new Error("No accepted state found for job " + validated + " yet.");
   renderJob(job);
   return job;
 }
@@ -309,12 +309,12 @@ $("exDead").onclick = () => loadExample("DEAD");
 $("exParse").onclick = () => loadExample("PARSE");
 $("newHunt").onclick = () => loadExample("MISS");
 $("sampleBtn").onclick = async () => {
-  $("jid").value = "1";
-  try { await readCurrentJob(); setStep(5); }
+  $("lookupId").value = "1";
+  try { await readProofById("1"); }
   catch (err) { note(errorText(err), true); }
 };
 $("readBtn").onclick = async () => {
-  try { await readCurrentJob(); setStep(5); }
+  try { await readProofById($("lookupId").value); }
   catch (err) { note(errorText(err), true); }
 };
 $("openBtn").onclick = () => guarded(async () => {
