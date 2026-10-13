@@ -1,0 +1,19 @@
+name: EVM escrow verification
+on:
+  push:
+    branches: [main, feat/proofgate-v2-contract-foundation]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  foundry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: Compile contracts
+        run: forge build
+      - name: Execute escrow regressions
+        run: forge test -vvv

@@ -1,4 +1,4 @@
-# Spotter — web evidence, on-chain verdicts
+> **Spotter V2 full rebuild in progress (October 2026).** The long-term product is a verifiable work marketplace with ProofGate, work registry, dispute arbitration, and escrow, rather than the legacy simple URL verdict app. See [V2 preview](v2/index.html), [architecture](protocol/ARCHITECTURE.md), and [native GEN escrow prototype](contracts/evm/SpotterEscrow.sol). The V2 page contains clearly labeled sample work only. No live marketplace, production escrow, or finalized GenVM→Solidity payment bridge exists yet. Historical V1 chain data remains accessible during migration, but V1 is no longer the product architecture to preserve or extend by default. Never deposit funds based on an offline model or unaudited prototype.\n\n# Spotter — web evidence, on-chain verdicts
 
 **GenLayer Studionet 61999** · [Live GitHub Pages](https://bearbaba.github.io/spotter/) · [Contract in Studio](https://studio.genlayer.com/?import-contract=0x730143dF831778569e15975Ef44dFDeCB668609b) · [Explorer](https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b)
 

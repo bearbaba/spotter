@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>Spotter V2 — Verifiable Work</title>
+<meta name="description" content="Spotter V2: evidence-backed work, disputes and settlement. Development preview, no live deposits.">
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui;color:#eaf9f4;background:#081314}
+*{box-sizing:border-box}body{margin:0}a{color:#79efd3}button,select{font:inherit}
+header,main,footer{max-width:1200px;margin:auto;padding:24px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;border-bottom:1px solid #28423e}
+.logo{font-weight:850;font-size:24px;letter-spacing:-1px}.logo span{color:#79efd3}
+.nav{display:flex;gap:22px}nav a{text-decoration:none;color:#cadcd6}
+.tag{font-size:12px;color:#ffdc9e;border:1px solid #705c3a;border-radius:100px;padding:7px 12px}
+h1{font-size:clamp(38px,6vw,76px);letter-spacing:-.055em;line-height:1.06;margin:10px 0 25px;max-width:900px}
+h1 em{font-style:normal;color:#79efd3}p{color:#a8c1b8;line-height:1.7}
+.hero{padding:70px 0 35px}.eyebrow{color:#79efd3;text-transform:uppercase;font-size:12px;font-weight:800;letter-spacing:.18em}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.panel{background:#102324;border:1px solid #2b4642;border-radius:18px;padding:24px}
+.panel strong{font-size:26px}.panel small{display:block;color:#a8c1b8;margin:8px 0 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:15px}
+section{margin:46px 0}h2{font-size:26px;letter-spacing:-.035em}
+.job-list{display:grid;gap:12px}.job{display:flex;justify-content:space-between;align-items:center;gap:16px;border:1px solid #2b4642;background:#102324;border-radius:15px;padding:20px}.job b{font-size:17px}.job p{margin:7px 0 0}
+.badge{border:1px solid #45736a;border-radius:100px;padding:5px 10px;font-size:12px;color:#8aeed3;white-space:nowrap}
+.btn{background:#79efd3;border:0;border-radius:11px;padding:12px 16px;font-weight:750;color:#05271e;cursor:pointer}.btn.secondary{color:#dcf2eb;background:#1f3b38;border:1px solid #3b645b}
+button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid white;outline-offset:3px}
+.notice{padding:16px 20px;border:1px solid #745b36;border-radius:12px;background:#2c261c;color:#ffe0aa}
+footer{border-top:1px solid #28423e;color:#91b0a6;font-size:13px}
+@media(max-width:780px){.grid{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start;flex-direction:column}.job{align-items:flex-start;flex-direction:column}.hero{padding-top:42px}.nav{flex-wrap:wrap}}@media(max-width:430px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header><div class="logo">SPOTTER<span>.</span> V2</div><nav class="nav" aria-label="Main navigation"><a href="#proof">On-chain proof</a><a href="#protocol">Protocol</a><a href="#marketplace">Marketplace</a><a href="#security">Security</a><a href="https://github.com/bearbaba/spotter" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav><div class="tag">Development preview · No deposits</div></header>
+<main><div class="hero"><div class="eyebrow">Work. Evidence. Consensus.</div><h1>Work deserves <em>verifiable outcomes.</em></h1><p>Spotter is evolving into a verifiable work protocol: immutable acceptance policies, GenLayer evidence verification, disputes, and milestone settlement. Financial features are under development and are not live. Our GenLayer Studio work-certification path has completed a real on-chain test.</p><a class="btn secondary" href="#marketplace">Explore the prototype ↓</a></div>
+<section id="proof" aria-labelledby="proof-heading"><div class="row"><h2 id="proof-heading">Real GenLayer certification</h2><span class="badge">Work #1 · CERTIFIED</span></div><p>A work record for merged <a href="https://github.com/bearbaba/spotter/pull/24" target="_blank" rel="noopener noreferrer">GitHub PR #24</a> advanced through OPEN → SUBMITTED → ACCEPTED → CERTIFIED. GenLayer Studio reports the finalized certificate-issuance transaction below. This is a recorded on-chain test, not a live payment or an independently indexed marketplace listing.</p><div class="grid"><div class="panel"><strong>01</strong><h3>ProofGate</h3><small>GenLayer Studio deployed contract · 0xD57a…aBE7</small><p><a href="https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7" target="_blank" rel="noopener noreferrer">Inspect contract ↗</a></p></div><div class="panel"><strong>02</strong><h3>Finalized call</h3><small>issue_acceptance("1") · GenVM SUCCESS</small><p><a href="https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599" target="_blank" rel="noopener noreferrer">View transaction ↗</a></p></div><div class="panel"><strong>03</strong><h3>Source evidence</h3><small>Merged GitHub PR, lockable rubric and acceptance policy</small><p><a href="https://github.com/bearbaba/spotter/pull/25" target="_blank" rel="noopener noreferrer">Review source ↗</a></p></div><div class="panel"><strong>04</strong><h3>Payment</h3><small>Not live · 0 GEN moved by certification transaction</small><p><a href="https://github.com/bearbaba/spotter/blob/feat/proofgate-v2-contract-foundation/SUBMISSION_V2.md" target="_blank" rel="noopener noreferrer">Read limitations ↗</a></p></div></div></section>
+<section id="protocol"><div class="row"><h2>Protocol layers</h2><span class="tag">Testnet engineering</span></div><div class="grid"><div class="panel"><strong>01</strong><h3>Work</h3><small>Milestones, policy hashes, deadlines</small></div><div class="panel"><strong>02</strong><h3>Proof</h3><small>GenVM evidence verification</small></div><div class="panel"><strong>03</strong><h3>Disputes</h3><small>Challenge window and arbitration</small></div><div class="panel"><strong>04</strong><h3>Escrow</h3><small>Native-asset Solidity prototype</small></div></div></section>
+<section id="marketplace"><div class="row"><h2>Marketplace preview</h2><label>View <select id="filter"><option value="all">All states</option><option value="draft">Draft</option><option value="verification">Verification</option><option value="dispute">Dispute</option></select></label></div><p>This is a sample UI, not an indexed live marketplace. No wallet connection or token transfer occurs.</p><div class="job-list" id="jobs" aria-live="polite"></div></section>
+<section id="security"><h2>Security comes before settlement.</h2><div class="notice">No escrow contract is authorized for real funds. The ProofGate-to-Solidity finality adapter, audited custody, independent dispute fallback and on-chain end-to-end tests are still outstanding.</div><p>Browse the <a href="../">original Studionet proof explorer</a> for existing historical jobs. It remains separate from this V2 development preview.</p></section></main>
+<footer>Spotter V2 · Protocol development preview · No investment claims or guaranteed payouts.</footer>
+<script type="module">
+const examples=[
+{title:"Repository integration",state:"verification",detail:"Evidence pending independent verification · sample"},
+{title:"Documentation milestone",state:"draft",detail:"Acceptance requirements not yet locked · sample"},
+{title:"UI accessibility review",state:"dispute",detail:"Challenge window illustration · sample"}
+];
+const list=document.getElementById("jobs");
+function render(){
+ const filter=document.getElementById("filter").value;
+ const visible=examples.filter(x=>filter==="all"||x.state===filter);
+ list.replaceChildren();
+ for(const x of visible){
+  const el=document.createElement("article");el.className="job";
+  const left=document.createElement("div"),title=document.createElement("b"),detail=document.createElement("p"),badge=document.createElement("span");
+  title.textContent=x.title;detail.textContent=x.detail;badge.className="badge";badge.textContent=x.state.toUpperCase();left.append(title,detail);el.append(left,badge);list.append(el);
+ }
+}
+document.getElementById("filter").addEventListener("change",render);render();
+</script></body></html>
