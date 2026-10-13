@@ -13,17 +13,17 @@ test("client funding is required before any work",()=>{
 test("exactly one release, with no subsequent refund",()=>{
  let s=apply(seed(),accept);
  s=transition(s,"FINALIZE_ACCEPT",C,86500);
- s=transition(s,"RELEASE_CONFIRMED",W,100);
+ s=transition(s,"RELEASE_CONFIRMED",W,86500);
  assert.equal(s.escrow,"PAID");
- assert.throws(()=>transition(s,"RELEASE_CONFIRMED",W,100));
- assert.throws(()=>transition(s,"REFUND_CONFIRMED",C,100));
+ assert.throws(()=>transition(s,"RELEASE_CONFIRMED",W,86500));
+ assert.throws(()=>transition(s,"REFUND_CONFIRMED",C,86500));
 });
 test("rejection refunds client only",()=>{
  let s=apply(seed(),reject);
  assert.throws(()=>transition(s,"FINALIZE_REJECT",W,86500));
  s=transition(s,"FINALIZE_REJECT",C,86500);
- assert.throws(()=>transition(s,"RELEASE_CONFIRMED",W,100));
- s=transition(s,"REFUND_CONFIRMED",C,100);
+ assert.throws(()=>transition(s,"RELEASE_CONFIRMED",W,86500));
+ s=transition(s,"REFUND_CONFIRMED",C,86500);
  assert.equal(s.escrow,"REFUNDED");
 });
 test("unauthorized stranger cannot challenge",()=>{
@@ -91,5 +91,31 @@ test("arbitration finality does not reopen challenges",()=>{
 test("challenge window bounds are validated",()=>{
  for(const challengeSeconds of [0,-1,3599,604801,1.5]){
   assert.throws(()=>newMilestone({client:C,worker:W,verifier:V,arbitrator:A,units:1n,deadline:200,policyHash:H,challengeSeconds}));
+ }
+});
+
+test("timed out arbitration never permits unilateral transfer or refund",()=>{
+ let s=apply(seed(),accept);
+ s=transition(s,"OPEN_DISPUTE",W,101);
+ assert.throws(()=>transition(s,"ESCALATE_TIMEOUT",W,604900));
+ s=transition(s,"ESCALATE_TIMEOUT",W,604901);
+ assert.equal(s.dispute,"TIMEOUT");
+ assert.throws(()=>transition(s,"FINALIZE_ACCEPT",C,604901));
+ assert.throws(()=>transition(s,"RESOLVE_ACCEPT",A,604901));
+ s=transition(s,"CONSENT_TIMEOUT_REJECT",C,604902);
+ assert.throws(()=>transition(s,"FINALIZE_REJECT",C,604902));
+ assert.throws(()=>transition(s,"CONFIRM_TIMEOUT",C,604902));
+ s=transition(s,"CONFIRM_TIMEOUT",W,604903);
+ assert.equal(s.work,"REJECTED");
+ assert.equal(s.dispute,"RESOLVED");
+ assert.equal(transition(s,"FINALIZE_REJECT",C,604903).escrow,"REFUNDABLE");
+});
+test("monotonic event timestamps prevent rollback",()=>{
+ let s=apply(seed(),[["FUND_CONFIRMED",C,100],["START",W,101]]);
+ assert.throws(()=>transition(s,"SUBMIT",W,100),/monotonic/);
+});
+test("arbitration timeout configuration enforced",()=>{
+ for(const arbitrationSeconds of [0,86399,2592001,1.5]){
+  assert.throws(()=>newMilestone({client:C,worker:W,verifier:V,arbitrator:A,units:1n,deadline:200,policyHash:H,arbitrationSeconds}));
  }
 });
