@@ -51,7 +51,7 @@ export function unresolvedTransactionBlocks(records, method, workId) {
     if(entry.method==="create_work"){
       // Even after a successful create receipt, do not recreate while its Work ID
       // is unknown or awaiting independent contract readback.
-      const outstanding=["PENDING","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID","WORK VERIFIED ON-CHAIN","ON-CHAIN VERIFIED"];
+      const outstanding=["PENDING","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"];
       return method==="create_work" && outstanding.includes(entry.status);
     }
     if(entry.status!=="PENDING" || method==="create_work")return false;
