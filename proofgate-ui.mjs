@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash, parseWork, workActionAllowed } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt } from "./proofgate-core.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
@@ -8,6 +8,11 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 const $ = id => document.getElementById(id);
 const client = createClient({chain:studionet,endpoint:ENDPOINT,account:ZERO});
 const KEY = "spotter.work.pending";
+const HISTORY_KEY = "spotter.work.history.v1";
+const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x:[];}catch{return [];}};
+function remember(entry){const records=history();const i=records.findIndex(x=>x.hash===entry.hash);if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
+function renderHistory(){const root=$("workHistory");if(!root)return;root.replaceChildren();const rows=history();if(!rows.length){root.textContent="No transactions recorded in this browser.";return;}for(const p of rows){const item=document.createElement("div");item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";const label=document.createElement("span");label.textContent=p.method+" · "+(p.status||"PENDING")+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";item.append(label,link);root.append(item);}}
+
 let lastWork = null;
 let busy = false;
 function syncButtons() {
@@ -96,7 +101,8 @@ async function act(method) {
     const result=await writer.writeContract({address:ADDRESS,functionName:method,args:callArgs,value:0n});
     const hash=transactionHash(result);
     if (!hash) throw Error("Wallet response did not contain a recognized transaction hash; inspect wallet history before retrying.");
-    sessionStorage.setItem(KEY,JSON.stringify({hash,method,account,created:Date.now()}));
+    const entry={hash,method,account,created:Date.now(),status:"PENDING",workId:method==="create_work"?"":callArgs[0],owner:method==="create_work"?callArgs[1]:"",repository:method==="create_work"?callArgs[2]:"",pr:method==="create_work"?String(callArgs[4]):""};
+    sessionStorage.setItem(KEY,JSON.stringify(entry));remember(entry);
     refreshPending();
     note("Transaction sent. Open the Explorer link below and wait until FINALIZED. Then read the current Work state. Never send an unresolved transaction twice.");
   } finally {busy=false;refreshPending();syncButtons();}
@@ -107,25 +113,38 @@ for(const button of document.querySelectorAll("[data-work-method]")) {
   button.addEventListener("click",async()=>{try {await act(button.dataset.workMethod);}catch(e){note(e.message,true);}});
 }
 $("workId").addEventListener("input",()=>{lastWork=null;syncButtons();});
-$("workCheck").addEventListener("click",async()=>{
+let checkInProgress=false;
+async function checkTransaction(){
  const p=pending();
- if(!p)return;
- const button=$("workCheck");
- button.disabled=true;
- note("Checking this transaction on GenLayer. No new wallet transaction will be sent.");
+ if(!p||checkInProgress)return;
+ checkInProgress=true;$("workCheck").disabled=true;
  try{
-   const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"ACCEPTED",interval:3000,retries:5});
-   const status=String(receipt?.statusName||receipt?.status||"").toUpperCase();
-   const execution=String(receipt?.txExecutionResultName||receipt?.executionResult||"").toUpperCase();
-   if(/ERROR|REVERT|CANCEL|FAIL/.test(status+" "+execution)){
-     note("Transaction returned a failure: "+status+" "+execution+". Do not retry until you inspect Explorer.",true);
-   }else{
-     note("GenLayer returned a transaction receipt. "+(status||"Consensus result observed")+". Check Explorer for FINALIZED and read the contract again. Clearing tracking does not send or cancel a transaction.");
-   }
- }catch(e){
-   note("Final confirmation is not available through this RPC yet. Keep this transaction tracked; check Explorer or try this read-only check later. "+String(e?.message||"").slice(0,180),true);
- }finally{button.disabled=false;}
-});
+  const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"ACCEPTED",interval:2500,retries:2});
+  const status=finalizedReceipt(receipt);
+  if(status==="FAILED"){remember({...p,status:"FAILED"});note("Transaction failed. Inspect Explorer before considering another attempt.",true);return;}
+  if(status!=="FINALIZED"){note("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
+  if(p.method==="create_work"){
+    const id=createdWorkId(receipt);
+    if(!id){note("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});return;}
+    const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
+    const work=parseWork(raw);
+    if(!work || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
+      remember({...p,status:"FINALIZED · VERIFY ID"});
+      note("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
+    }
+    $("workId").value=id;remember({...p,status:"FINALIZED",workId:id});sessionStorage.removeItem(KEY);refreshPending();render(work);note("Work #"+id+" created and verified on-chain. You can now switch to the nominated worker wallet.");return;
+  }
+  remember({...p,status:"FINALIZED"});
+  sessionStorage.removeItem(KEY);refreshPending();
+  note("Transaction FINALIZED. Read Work #"+p.workId+" to see the new contract state.");
+  if(p.workId){$("workId").value=p.workId;try{await read();}catch{}}
+ }catch(e){note("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
+ finally{checkInProgress=false;$("workCheck").disabled=false;}
+}
+$("workCheck").addEventListener("click",checkTransaction);
+renderHistory();
+setInterval(()=>{if(pending() && document.visibilityState==="visible")void checkTransaction();},15000);
+if(pending())void checkTransaction();
 $("workClear").addEventListener("click",()=>{
   if (!pending()) return;
   if (!window.confirm("Only clear tracking after Explorer confirms FINALIZED or failed. Clearing does NOT cancel a transaction. Continue?")) return;
