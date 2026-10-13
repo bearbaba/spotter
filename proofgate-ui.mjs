@@ -220,3 +220,51 @@ $("workPickWallet").addEventListener("click",async()=>{
   } catch(e){note(e.message,true);}
 });
 generateRubric();
+
+let connectedAccount="";
+function showAccount(addr){
+ connectedAccount=addr||"";
+ $("walletCurrent").textContent=addr?addr.slice(0,6)+"…"+addr.slice(-4):"Wallet not connected";
+ $("walletConnect").textContent=addr?"Switch account":"Connect wallet";
+}
+async function connectAccount(){
+ if(!window.ethereum?.request)throw Error("MetaMask is not available.");
+ const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
+ const addr=accounts?.[0]||"";
+ if(!/^0x[0-9a-fA-F]{40}$/.test(addr))throw Error("Select a valid account in MetaMask.");
+ showAccount(addr);
+ await findMine();
+}
+async function findMine(){
+ const display=$("walletWorks");
+ if(!connectedAccount){display.textContent="Connect MetaMask to find your work.";return;}
+ display.textContent="Reading work records from GenLayer…";
+ const found=[];
+ let missed=0,checked=0;
+ // Bounded scan: no indexer exists in the current contract.
+ for(let id=1;id<=100;id++){
+   try {
+     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[String(id)],transactionHashVariant:"latest-final"});
+     const work=parseWork(raw);
+     checked++;
+     if(!work){missed++;if(missed>=5 && id>5)break;continue;}
+     missed=0;
+     if([work.client,work.worker].some(x=>typeof x==="string"&&x.toLowerCase()===connectedAccount.toLowerCase()))found.push(work);
+   }catch(e){display.textContent="Could not finish reading on-chain work. Try Refresh my work.";return;}
+ }
+ display.replaceChildren();
+ if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
+ for(const work of found.reverse()){
+  const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
+  btn.textContent="Work #"+work.id+" · "+work.state+" · PR #"+work.pr_number+" ↗";
+  btn.style.margin="4px";
+  btn.addEventListener("click",()=>{$("workId").value=work.id;render(work);});
+  display.append(btn);
+ }
+}
+$("walletConnect").addEventListener("click",()=>{connectAccount().catch(e=>note(e.message,true));});
+$("workFindMine").addEventListener("click",()=>{findMine().catch(e=>note(e.message,true));});
+if(window.ethereum?.request){
+ window.ethereum.request({method:"eth_accounts"}).then(a=>{if(a?.[0]){showAccount(a[0]);void findMine();}}).catch(()=>{});
+ window.ethereum.on?.("accountsChanged",a=>{showAccount(a?.[0]||"");void findMine();});
+}
