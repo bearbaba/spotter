@@ -15,6 +15,7 @@ class Work:
     owner: str
     repository: str
     target_branch: str
+    required_label: str
     pr_number: u32
     state: str
     explanation: str
@@ -44,7 +45,7 @@ def canonical_api_url(owner: str, repository: str, number: int) -> str:
         raise Exception("invalid pull request number")
     return "https://api.github.com/repos/" + owner + "/" + repository + "/pulls/" + str(number)
 
-def verify_api_payload(data: dict, owner: str, repository: str, number: int, branch: str) -> dict:
+def verify_api_payload(data: dict, owner: str, repository: str, number: int, branch: str, required_label: str = "") -> dict:
     """Inspect structured GitHub PR fields, not PR prose or arbitrary submitted URLs."""
     expected = "https://github.com/" + owner + "/" + repository
     base = data.get("base", {})
@@ -70,7 +71,16 @@ def verify_api_payload(data: dict, owner: str, repository: str, number: int, bra
         c in "0123456789abcdefABCDEF" for c in merge_commit
     ):
         return {"state": "REVIEW", "reason": "missing valid merge commit", "merge_commit": ""}
-    return {"state": "ACCEPTED", "reason": "Allowed GitHub PR merged into required branch", "merge_commit": merge_commit.lower()}
+    if required_label:
+        labels = data.get("labels")
+        if not isinstance(labels, list) or len(labels) > 100:
+            return {"state": "REVIEW", "reason": "missing or oversized PR labels", "merge_commit": ""}
+        for item in labels:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                return {"state": "REVIEW", "reason": "malformed PR label metadata", "merge_commit": ""}
+        if required_label not in [item["name"] for item in labels]:
+            return {"state": "REJECTED", "reason": "Required acceptance label absent", "merge_commit": ""}
+    return {"state": "ACCEPTED", "reason": "Merged PR satisfies locked branch and label policy", "merge_commit": merge_commit.lower()}
 
 class ProofGate(gl.Contract):
     works: TreeMap[str, Work]
@@ -80,19 +90,21 @@ class ProofGate(gl.Contract):
         self.next_id = u32(1)
 
     @gl.public.write
-    def create_work(self, worker: Address, owner: str, repository: str, target_branch: str, pr_number: u32) -> str:
+    def create_work(self, worker: Address, owner: str, repository: str, target_branch: str, pr_number: u32, required_label: str = "") -> str:
         # The immutable policy is exact GitHub repository + PR number + target branch.
         # No arbitrary evidence URL is accepted or fetched.
         canonical_api_url(owner, repository, int(pr_number))
         if not branch_identifier(target_branch):
             raise Exception("invalid target branch")
+        if required_label and (len(required_label) > 64 or not all(c.isascii() and (c.isalnum() or c in "-_.") for c in required_label)):
+            raise Exception("invalid required label")
         if worker == Address("0x0000000000000000000000000000000000000000"):
             raise Exception("worker required")
         work_id = str(int(self.next_id))
         self.next_id = u32(int(self.next_id) + 1)
         self.works[work_id] = Work(
             client=gl.message.sender_address, worker=worker, owner=owner,
-            repository=repository, target_branch=target_branch, pr_number=pr_number,
+            repository=repository, target_branch=target_branch, required_label=required_label, pr_number=pr_number,
             state="OPEN", explanation="", evidence_digest="", merge_commit=""
         )
         return work_id
@@ -113,7 +125,7 @@ class ProofGate(gl.Contract):
         if record.state not in ("SUBMITTED", "REVIEW"):
             raise Exception("work already decided")
         url = canonical_api_url(record.owner, record.repository, int(record.pr_number))
-        owner, repository, branch, number = record.owner, record.repository, record.target_branch, int(record.pr_number)
+        owner, repository, branch, number, required_label = record.owner, record.repository, record.target_branch, int(record.pr_number), record.required_label
 
         def collect() -> str:
             try:
@@ -123,7 +135,7 @@ class ProofGate(gl.Contract):
                 payload = json.loads(response.body.decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("unexpected response")
-                result = verify_api_payload(payload, owner, repository, number, branch)
+                result = verify_api_payload(payload, owner, repository, number, branch, required_label)
                 return json.dumps(result, sort_keys=True)
             except Exception:
                 return json.dumps({"state": "REVIEW", "reason": "Evidence could not be verified", "merge_commit": ""}, sort_keys=True)
@@ -170,7 +182,7 @@ class ProofGate(gl.Contract):
         return json.dumps({
             "id": work_id, "client": str(rec.client), "worker": str(rec.worker),
             "owner": rec.owner, "repository": rec.repository,
-            "target_branch": rec.target_branch, "pr_number": int(rec.pr_number),
+            "target_branch": rec.target_branch, "required_label": rec.required_label, "pr_number": int(rec.pr_number),
             "state": rec.state, "explanation": rec.explanation,
             "evidence_digest": rec.evidence_digest, "merge_commit": rec.merge_commit,
             "evidence_api": canonical_api_url(rec.owner, rec.repository, int(rec.pr_number)),
