@@ -218,10 +218,12 @@ renderHistory();
 setInterval(()=>{if(pending() && document.visibilityState==="visible")void checkTransaction();},15000);
 if(pending())void checkTransaction();
 $("workClear").addEventListener("click",()=>{
-  if (!pending()) return;
-  if (!window.confirm("Only clear tracking after Explorer confirms FINALIZED or failed. Clearing does NOT cancel a transaction. Continue?")) return;
+  const p=pending();if(!p)return;
+  const outcome=window.prompt("Explorer has confirmed this transaction. Type FAILED if GenVM Execution is ERROR, or FINALIZED if GenVM Execution is SUCCESS. Do not clear a pending transaction.");
+  if(outcome!=="FAILED"&&outcome!=="FINALIZED")return;
+  remember({...p,status:outcome==="FAILED"?"FAILED (GENVM)":"FINALIZED (EXPLORER)"});
   sessionStorage.removeItem(KEY);refreshPending();
-  note("Local tracking cleared. Read finalized Work state before another write.");
+  note(outcome==="FAILED"?"Explorer-confirmed failed transaction recorded. The on-chain work has not advanced. Select the authorized worker before retrying.":"Explorer-confirmed finalized transaction recorded. Read the latest Work state before another write.");
 });
 refreshPending();
 
