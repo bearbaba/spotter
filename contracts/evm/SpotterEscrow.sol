@@ -22,6 +22,8 @@ contract SpotterEscrow {
     }
     mapping(bytes32 => Milestone) public milestones;
     mapping(address => uint256) public claimable;
+    struct TimeoutProposal { address proposer; bool accepted; }
+    mapping(bytes32 => TimeoutProposal) public timeoutProposals;
     uint256 public lockedTotal;
     uint256 public outstandingClaims;
     uint256 private withdrawing;
@@ -29,6 +31,8 @@ contract SpotterEscrow {
     event StateChanged(bytes32 indexed id, Status status);
     event ClaimAccrued(bytes32 indexed id, address indexed recipient, uint256 amount);
     event Withdrawn(address indexed recipient, uint256 amount);
+    event TimeoutResolutionProposed(bytes32 indexed id, address indexed proposer, bool accepted);
+    event TimeoutResolutionApproved(bytes32 indexed id, bool accepted);
 
     error Unauthorized();
     error InvalidState();
@@ -113,6 +117,32 @@ contract SpotterEscrow {
         // Resolved cases cannot be re-challenged. Settle immediately through finalize.
         m.decidedAt = 0;
         emit StateChanged(id, m.status);
+    }
+
+    /// @notice When arbitration expires, one party may propose settlement, but only
+    /// the counterparty can approve it. An unapproved proposal never releases assets.
+    function proposeTimeoutResolution(bytes32 id, bool accepted) external {
+        Milestone storage m = milestones[id];
+        if (msg.sender != m.client && msg.sender != m.worker) revert Unauthorized();
+        if (m.status != Status.Disputed) revert InvalidState();
+        if (block.timestamp < uint256(m.disputedAt) + m.arbitrationWindow) revert InvalidTime();
+        TimeoutProposal storage p = timeoutProposals[id];
+        if (p.proposer != address(0)) revert InvalidState();
+        p.proposer = msg.sender;
+        p.accepted = accepted;
+        emit TimeoutResolutionProposed(id, msg.sender, accepted);
+    }
+
+    function approveTimeoutResolution(bytes32 id) external {
+        Milestone storage m = milestones[id];
+        if (m.status != Status.Disputed) revert InvalidState();
+        TimeoutProposal memory p = timeoutProposals[id];
+        if (p.proposer == address(0) || msg.sender == p.proposer) revert Unauthorized();
+        if (msg.sender != m.client && msg.sender != m.worker) revert Unauthorized();
+        if (block.timestamp < uint256(m.disputedAt) + m.arbitrationWindow) revert InvalidTime();
+        delete timeoutProposals[id];
+        _accrue(id, m, p.accepted);
+        emit TimeoutResolutionApproved(id, p.accepted);
     }
 
     function finalize(bytes32 id) external {
