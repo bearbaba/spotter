@@ -77,6 +77,16 @@ class ProofGatePolicyTests(unittest.TestCase):
         payload["merge_commit_sha"]="NOT A HASH"
         self.assertNotEqual(verify_api_payload(payload,"bearbaba","spotter",24,"main")["state"],"ACCEPTED")
 
+
+    def test_required_label_is_enforced_from_github_metadata(self):
+        payload = example()
+        payload["labels"] = [{"name": "accepted-work"}, {"name": "security"}]
+        self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "ACCEPTED")
+        self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "wrong-label")["state"], "REJECTED")
+        self.assertEqual(verify_api_payload(example(), "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "REVIEW")
+        payload["labels"] = [{"name": "accepted-work"}, "malformed"]
+        self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "REVIEW")
+
     def test_contract_controls_evidence_endpoint_and_gate(self):
         text=SOURCE.read_text(encoding="utf-8")
         self.assertIn("gl.nondet.web.request(url, method=\"GET\")",text)
