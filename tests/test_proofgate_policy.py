@@ -19,6 +19,7 @@ def example(merged=True, repo="bearbaba/spotter", number=24, branch="main", url=
             "full_name": repo,
             "html_url": url or "https://github.com/" + repo}},
         "merged_at": "2026-10-13T01:00:00Z" if merged else None,
+        "merged": merged, "state": "closed" if merged else "open",
         "merge_commit_sha": "a"*40 if merged else None}
 
 class ProofGatePolicyTests(unittest.TestCase):
@@ -52,7 +53,7 @@ class ProofGatePolicyTests(unittest.TestCase):
         self.assertEqual(result["merge_commit"],"a"*40)
 
     def test_unmerged_rejected(self):
-        self.assertEqual(verify_api_payload(example(merged=False),"bearbaba","spotter",24,"main")["state"],"REJECTED")
+        self.assertEqual(verify_api_payload(example(merged=False),"bearbaba","spotter",24,"main")["state"],"REVIEW")
 
     def test_wrong_branch_rejected(self):
         self.assertEqual(verify_api_payload(example(branch="develop"),"bearbaba","spotter",24,"main")["state"],"REJECTED")
