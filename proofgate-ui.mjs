@@ -82,7 +82,10 @@ function syncButtons() {
   const blocked = busy;
   for (const button of document.querySelectorAll("[data-work-method]")) {
     const method = button.dataset.workMethod;
-    button.disabled = blocked || transactionBlocks(method) || (method !== "create_work" && (!lastWork || lastWork.id !== $("workId").value.trim() || !workActionAllowed(method,lastWork.state) || !signerAllowed(method,lastWork,connectedAccount)));
+    const stageValid=method==="create_work" || (lastWork && lastWork.id===$("workId").value.trim() && workActionAllowed(method,lastWork.state));
+    if(method!=="create_work")button.hidden=!stageValid;
+    button.disabled = blocked || transactionBlocks(method) || !stageValid || !signerAllowed(method,lastWork,connectedAccount);
+    if(stageValid && method!=="create_work")button.title=transactionBlocks(method)?"Waiting for transaction tracking on this work":!signerAllowed(method,lastWork,connectedAccount)?"Selected wallet is not authorized for this action":"";
   }
   $("workRead").disabled = busy;
 }
