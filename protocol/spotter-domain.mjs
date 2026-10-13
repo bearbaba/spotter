@@ -6,12 +6,13 @@ export const DISPUTE = Object.freeze(["NONE","OPEN","EVIDENCE","RESOLVED"]);
 export const FINAL_ESCROW = new Set(["PAID","REFUNDED"]);
 export function assert(condition,message){ if(!condition) throw new Error(message); }
 export function requirePositiveUnits(value){ assert(typeof value==="bigint"&&value>0n,"amount must be a positive integer in smallest units"); return value; }
-export function newMilestone({client,worker,verifier,arbitrator,units,deadline,policyHash}){
+export function newMilestone({client,worker,verifier,arbitrator,units,deadline,policyHash,challengeSeconds=86400}){
  assert(client&&worker&&verifier&&arbitrator&&new Set([client,worker,verifier,arbitrator]).size===4,"four distinct role identities required");
  requirePositiveUnits(units);
  assert(Number.isSafeInteger(deadline)&&deadline>0,"deadline required");
  assert(/^[a-f0-9]{64}$/i.test(policyHash),"32-byte policy hash required");
- return Object.freeze({client,worker,verifier,arbitrator,units,deadline,policyHash:policyHash.toLowerCase(),work:"DRAFT",escrow:"UNFUNDED",dispute:"NONE",version:0,issued:false});
+ assert(Number.isSafeInteger(challengeSeconds)&&challengeSeconds>=3600&&challengeSeconds<=604800,"challenge window must be 1 hour to 7 days");
+ return Object.freeze({client,worker,verifier,arbitrator,units,deadline,challengeSeconds,decidedAt:null,policyHash:policyHash.toLowerCase(),work:"DRAFT",escrow:"UNFUNDED",dispute:"NONE",version:0,issued:false});
 }
 export function transition(x,event,actor,now){
  assert(WORK.includes(x.work)&&ESCROW.includes(x.escrow)&&DISPUTE.includes(x.dispute),"invalid state");
@@ -39,23 +40,23 @@ export function transition(x,event,actor,now){
    n.work="VERIFYING";break;
  case "PROOF_ACCEPTED":
    assert(actor===x.verifier&&x.work==="VERIFYING"&&x.dispute==="NONE","verifier only");
-   n.work="ACCEPTED";break;
+   n.work="ACCEPTED";n.decidedAt=now;break;
  case "PROOF_REJECTED":
    assert(actor===x.verifier&&x.work==="VERIFYING"&&x.dispute==="NONE","verifier only");
-   n.work="REJECTED";break;
+   n.work="REJECTED";n.decidedAt=now;break;
  case "OPEN_DISPUTE":
-   assert((client||worker)&&["ACCEPTED","REJECTED"].includes(x.work)&&x.escrow==="LOCKED"&&x.dispute==="NONE","challenge not authorized");
+   assert((client||worker)&&["ACCEPTED","REJECTED"].includes(x.work)&&x.escrow==="LOCKED"&&x.dispute==="NONE"&&x.decidedAt!==null&&now>=x.decidedAt&&now<x.decidedAt+x.challengeSeconds,"challenge not authorized or window closed");
    n.work="DISPUTED";n.dispute="OPEN";break;
  case "RESOLVE_ACCEPT":
  case "RESOLVE_REJECT":
    // This model intentionally permits only an externally designated arbitrator role.
    assert(actor===x.arbitrator&&x.dispute==="OPEN"&&x.work==="DISPUTED","arbitrator only");
-   n.dispute="RESOLVED";n.work=event==="RESOLVE_ACCEPT"?"ACCEPTED":"REJECTED";break;
+   n.dispute="RESOLVED";n.work=event==="RESOLVE_ACCEPT"?"ACCEPTED":"REJECTED";n.decidedAt=now;break;
  case "FINALIZE_ACCEPT":
-   assert((client||worker)&&x.work==="ACCEPTED"&&x.escrow==="LOCKED"&&x.dispute!=="OPEN","cannot release");
+   assert((client||worker)&&x.work==="ACCEPTED"&&x.escrow==="LOCKED"&&x.dispute!=="OPEN"&&(x.dispute==="RESOLVED"||now>=x.decidedAt+x.challengeSeconds),"cannot release");
    n.work="SETTLED";n.escrow="RELEASABLE";break;
  case "FINALIZE_REJECT":
-   assert(client&&x.work==="REJECTED"&&x.escrow==="LOCKED"&&x.dispute!=="OPEN","cannot refund");
+   assert(client&&x.work==="REJECTED"&&x.escrow==="LOCKED"&&x.dispute!=="OPEN"&&(x.dispute==="RESOLVED"||now>=x.decidedAt+x.challengeSeconds),"cannot refund");
    n.work="SETTLED";n.escrow="REFUNDABLE";break;
  case "RELEASE_CONFIRMED":
    assert(worker&&x.work==="SETTLED"&&x.escrow==="RELEASABLE","not releasable");
