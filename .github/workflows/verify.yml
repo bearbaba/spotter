@@ -18,4 +18,4 @@ jobs:
       - name: Test frontend safety helpers
         run: npm test
       - name: Parse Python smart contract source
-        run: python3 -m py_compile Spotter.py
+        run: python3 -m py_compile contracts/proofgate.py && python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
