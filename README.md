@@ -1,5 +1,17 @@
 # Spotter — web evidence, on-chain verdicts
 
+## ProofGate V2 — verified work certification on GenLayer
+
+Spotter has extended from general public webpage verification to a **specific work acceptance workflow**. ProofGate V2 locks a GitHub repository, PR, branch and rubric in a GenLayer contract; consensus validates merged PR metadata from the canonical GitHub API and evaluates remaining qualitative evidence. A successful accepted work item may then receive an on-chain certificate.
+
+- **Certified work:** [ProofGate V2 Work #1 in Studio](https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7), state `CERTIFIED` from operator's recorded readback.
+- **Finalized issuance:** [GenLayer Explorer transaction](https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599) — `issue_acceptance(1)`, SUCCESS, 0 GEN transferred.
+- **Enforced source policy:** [ProofGate V2 contract implementation](https://github.com/bearbaba/spotter/blob/feat/proofgate-v2-contract-foundation/contracts/proofgate_v2.py).
+- **Review evidence and limitations:** [REVIEWER.md](./REVIEWER.md).
+
+The single official website is [Spotter](https://bearbaba.github.io/spotter/). Its original interactive verification workspace still connects to the V1 contract; the ProofGate V2 certificate is shown in a dedicated section with direct links to Studio and Explorer. No automated payment bridge or live escrow transfer is claimed.
+
+
 **GenLayer Studionet 61999** · [Live GitHub Pages](https://bearbaba.github.io/spotter/) · [Contract in Studio](https://studio.genlayer.com/?import-contract=0x730143dF831778569e15975Ef44dFDeCB668609b) · [Explorer](https://explorer-studio.genlayer.com/address/0x730143dF831778569e15975Ef44dFDeCB668609b)
 
 Spotter lets a poster define a question and a decision rubric. A hunter submits a live public URL; GenLayer's validators fetch and evaluate it. The on-chain record exposes a **HIT**, **MISS**, or **DEAD** verdict, an explanation, and fetch metadata such as the returned page hash. **This is an experimental AI-assisted evaluation, not a guarantee of factual truth or immutable historical webpage content.** There is no bounty or payment system in the current Spotter contract.
