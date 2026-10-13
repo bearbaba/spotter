@@ -135,6 +135,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .jobs-foot p{font-size:12px;color:#a2c1b7;margin:0}
 @media(max-width:760px){.jobs-grid{grid-template-columns:1fr}.activity-summary{padding:15px}.activity-body{padding:0 15px 15px}.jobs-toolbar .btn{flex:1;min-width:105px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* Certified ProofGate V2 evidence — public, read-only, no simulated receipts */
+.certified{margin:0 auto 36px;padding:26px;border:1px solid #326458;background:linear-gradient(125deg,#102a28,#0b1d20);border-radius:22px}
+.certified h2{font:600 29px/1.2 "Space Grotesk",sans-serif;margin:7px 0 10px;letter-spacing:-.035em}
+.certified p{color:#b6d3cb;margin:7px 0 18px;max-width:920px}
+.certified-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.certified-tag{font-size:12px;border:1px solid #68d5b6;color:#baffdf;border-radius:20px;padding:6px 12px;font-weight:800}
+.certified-meta{font-size:12px;color:#9bbcb4;overflow-wrap:anywhere}
+.certified-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:17px}
 </style>
 </head>
 <body>
@@ -173,6 +182,20 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </section>
 
   
+
+  <section class="certified" id="certified-work" aria-labelledby="certified-heading">
+    <div class="certified-row"><div class="eyebrow">PROOFGATE V2 · VERIFIED WORK</div><span class="certified-tag">WORK #1 · CERTIFIED</span></div>
+    <h2 id="certified-heading">A real on-chain work certification.</h2>
+    <p>Spotter's ProofGate V2 verified merged <a href="https://github.com/bearbaba/spotter/pull/24" target="_blank" rel="noopener noreferrer" style="color:var(--teal);text-decoration:underline">GitHub PR #24</a> against a locked acceptance rubric. GenLayer recorded its acceptance and finalized the certificate issuance. This is a separate V2 contract from the web-evidence verification workspace below.</p>
+    <div class="certified-meta">GenLayer Studionet · ProofGate V2 contract: <code>0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7</code> · Work ID: 1 · State: CERTIFIED</div>
+    <div class="certified-actions">
+      <a class="btn btn-primary" href="https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7" target="_blank" rel="noopener noreferrer">Read certified work ↗</a>
+      <a class="btn" href="https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599" target="_blank" rel="noopener noreferrer">Finalized transaction ↗</a>
+      <a class="btn btn-subtle" href="https://github.com/bearbaba/spotter/pull/25" target="_blank" rel="noopener noreferrer">Review V2 source ↗</a>
+    </div>
+    <p style="font-size:12px;margin:16px 0 0">ProofGate certification is live on testnet; escrow settlement and payouts are not connected. No GEN payment occurred in this certificate transaction.</p>
+  </section>
+
 <main id="workspace">
     <div class="section-head"><div><div class="eyebrow">YOUR WORKSPACE</div><h2>Verify a public claim</h2></div><p>Wallet approval only for blockchain writes</p></div>
     <div class="resume-hint"><span>Already started a verification?</span><button id="openActivityBtn" class="resume-link" type="button">Find and continue your work ↗</button></div>
