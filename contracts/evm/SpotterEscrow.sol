@@ -98,7 +98,7 @@ contract SpotterEscrow {
         Milestone storage m = milestones[id];
         if (msg.sender != m.client && msg.sender != m.worker) revert Unauthorized();
         if (m.status != Status.Accepted && m.status != Status.Rejected) revert InvalidState();
-        if (block.timestamp >= uint256(m.decidedAt) + m.challengeWindow) revert InvalidTime();
+        if (m.decidedAt == 0 || block.timestamp >= uint256(m.decidedAt) + m.challengeWindow) revert InvalidTime();
         m.status = Status.Disputed;
         m.disputedAt = uint64(block.timestamp);
         emit StateChanged(id, m.status);
