@@ -87,6 +87,40 @@ class ProofGatePolicyTests(unittest.TestCase):
         payload["labels"] = [{"name": "accepted-work"}, "malformed"]
         self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "REVIEW")
 
+    def test_address_normalization_before_storing_roles(self):
+        class Address:
+            def __init__(self, value):
+                if isinstance(value, bytes):
+                    self.data = value
+                elif isinstance(value, str) and value.startswith("0x"):
+                    self.data = bytes.fromhex(value[2:])
+                else:
+                    raise ValueError("invalid address")
+                if len(self.data) != 20:
+                    raise ValueError("invalid address size")
+            @property
+            def as_bytes(self):
+                return self.data
+            def __eq__(self, other):
+                return isinstance(other, Address) and self.data == other.data
+        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        definition = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "normalize_address")
+        namespace = {"Address": Address}
+        exec(compile(ast.Module(body=[definition], type_ignores=[]), str(SOURCE), "exec"), namespace)
+        normalize = namespace["normalize_address"]
+        address = "0x" + "4c" * 20
+        self.assertEqual(normalize(int(address, 16)).as_bytes, bytes.fromhex("4c" * 20))
+        self.assertEqual(normalize(address).as_bytes, bytes.fromhex("4c" * 20))
+        self.assertEqual(normalize(bytes.fromhex("4c" * 20)).as_bytes, bytes.fromhex("4c" * 20))
+        self.assertEqual(normalize(normalize(address)).as_bytes, bytes.fromhex("4c" * 20))
+        for invalid in [-1, 1 << 160, True, b"short", object()]:
+            with self.subTest(invalid=repr(invalid)), self.assertRaises(Exception):
+                normalize(invalid)
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("client = normalize_address(gl.message.sender_address)", source)
+        self.assertIn("worker = normalize_address(worker)", source)
+        self.assertIn("client=client, worker=worker", source)
+
     def test_genvm_stored_integer_is_explicitly_wrapped_u32(self):
         source = SOURCE.read_text(encoding="utf-8")
         parsed = ast.parse(source)
