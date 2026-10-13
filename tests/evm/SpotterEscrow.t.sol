@@ -116,4 +116,40 @@ contract SpotterEscrowTest {
         vm.expectRevert(SpotterEscrow.InvalidState.selector);
         vault.finalize(ID);
     }
+    function testTimeoutRequiresBothParties() public {
+        submit();
+        vm.prank(VERIFIER); vault.verdict(ID, true);
+        vm.prank(WORKER); vault.challenge(ID);
+        vm.warp(block.timestamp + ARBITRATION);
+        vm.prank(WORKER); vault.proposeTimeoutResolution(ID, false);
+        require(vault.claimable(CLIENT) == 0 && vault.claimable(WORKER) == 0, "proposal unlocked funds");
+        vm.prank(WORKER);
+        vm.expectRevert(SpotterEscrow.Unauthorized.selector);
+        vault.approveTimeoutResolution(ID);
+        vm.prank(VERIFIER);
+        vm.expectRevert(SpotterEscrow.Unauthorized.selector);
+        vault.approveTimeoutResolution(ID);
+        vm.prank(CLIENT); vault.approveTimeoutResolution(ID);
+        require(vault.claimable(CLIENT) == 1 ether, "mutual refund failed");
+        vm.prank(CLIENT);
+        vm.expectRevert(SpotterEscrow.InvalidState.selector);
+        vault.approveTimeoutResolution(ID);
+        require(vault.solvent(), "insolvent");
+    }
+    function testTimeoutProposalCannotPrematurelyResolve() public {
+        submit();
+        vm.prank(VERIFIER); vault.verdict(ID, false);
+        vm.prank(CLIENT); vault.challenge(ID);
+        vm.prank(CLIENT);
+        vm.expectRevert(SpotterEscrow.InvalidTime.selector);
+        vault.proposeTimeoutResolution(ID, true);
+        vm.warp(block.timestamp + ARBITRATION);
+        vm.prank(CLIENT); vault.proposeTimeoutResolution(ID, true);
+        vm.prank(CLIENT);
+        vm.expectRevert(SpotterEscrow.InvalidState.selector);
+        vault.proposeTimeoutResolution(ID, false);
+        vm.prank(WORKER); vault.approveTimeoutResolution(ID);
+        require(vault.claimable(WORKER) == 1 ether, "mutual payout failed");
+    }
+
 }
