@@ -155,7 +155,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     </a>
     <div class="nav-side">
       <span class="network"><span class="live-dot" aria-hidden="true"></span>GENLAYER STUDIONET · 61999</span>
-      <div class="wallet-box"><span class="wallet-address">MetaMask approval on writes</span></div>
+      <div class="wallet-box" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="walletCurrent" class="wallet-address">Wallet not connected</span><button id="walletConnect" type="button" class="btn btn-subtle btn-small">Connect wallet</button></div>
     </div>
   </header>
 
@@ -222,7 +222,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
         <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
         <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
       </div>
-      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p><details open class="work-history"><summary>Transaction history · This browser</summary><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
+      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p><details open class="work-history"><summary>My work & transactions</summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
     </div>
   </div>
 </section>
