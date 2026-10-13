@@ -340,12 +340,13 @@ async function findMine(){
  }
  display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
+ if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[found.length-1].id;void read().catch(e=>note(e.message,true));}
  for(const work of found.reverse()){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
   btn.textContent="Work #"+work.id+" · "+work.state+" · PR #"+work.pr_number+" ↗";
   btn.style.margin="4px";
   btn.addEventListener("click",()=>{$("workId").value=work.id;render(work);});
-  display.append(btn);if(primary){const visible=btn.cloneNode(true);visible.addEventListener("click",()=>{$("workId").value=work.id;render(work);document.querySelector("#work-app")?.scrollIntoView({behavior:"smooth",block:"start"});});primary.append(visible);}
+  display.append(btn);if(primary){const visible=btn.cloneNode(true);visible.addEventListener("click",()=>{$("workId").value=work.id;void read().catch(e=>note(e.message,true));document.querySelector("#work-app")?.scrollIntoView({behavior:"smooth",block:"start"});});primary.append(visible);}
  }
 }
 $("walletAccount").addEventListener("change",()=>{showAccount($("walletAccount").value);void findMine();});
