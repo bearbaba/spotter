@@ -87,6 +87,13 @@ class ProofGatePolicyTests(unittest.TestCase):
         payload["labels"] = [{"name": "accepted-work"}, "malformed"]
         self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "REVIEW")
 
+    def test_qualitative_ai_does_not_recheck_verified_merge(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("ALREADY verified", source)
+        self.assertIn("Do not require title or description", source)
+        self.assertIn("verified by strict GitHub consensus", source)
+        self.assertIn("Use REVIEW for ", source)
+
     def test_safe_qualitative_failure_diagnostics(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn('type(err).__name__[:45]', source)
