@@ -34,6 +34,12 @@ def branch_identifier(text: str) -> bool:
 def canonical_api_url(owner: str, repository: str, number: int) -> str:
     if not github_identifier(owner) or not github_identifier(repository):
         raise Exception("invalid repository identity")
+    # GitHub user/org login names allow ASCII letters, digits and hyphens only.
+    # A dotted owner is not a second hostname, but should be rejected as an invalid identity.
+    if not all(c.isascii() and (c.isalnum() or c == "-") for c in owner):
+        raise Exception("invalid GitHub owner")
+    if owner.startswith("-") or owner.endswith("-") or "--" in owner or len(owner) > 39:
+        raise Exception("invalid GitHub owner")
     if number <= 0 or number > 1000000000:
         raise Exception("invalid pull request number")
     return "https://api.github.com/repos/" + owner + "/" + repository + "/pulls/" + str(number)
