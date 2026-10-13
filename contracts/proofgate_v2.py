@@ -153,9 +153,9 @@ class ProofGate(gl.Contract):
         def collect() -> str:
             try:
                 response = gl.nondet.web.request(url, method="GET")
-                if response.status_code != 200:
+                if response.status != 200:
                     return json.dumps({"state": "REVIEW", "reason": "GitHub API not available", "merge_commit": ""}, sort_keys=True)
-                payload = json.loads(response.body.decode("utf-8"))
+                payload = json.loads((response.body or b"").decode("utf-8"))
                 if not isinstance(payload, dict):
                     raise ValueError("unexpected response")
                 result = verify_api_payload(payload, owner, repository, number, branch, required_label)
@@ -186,9 +186,9 @@ class ProofGate(gl.Contract):
         if state == "ACCEPTED" and rubric:
             def collect_claim() -> str:
                 response = gl.nondet.web.request(url, method="GET")
-                if response.status_code != 200:
+                if response.status != 200:
                     return json.dumps({"error": "GitHub unavailable"})
-                payload = json.loads(response.body.decode("utf-8"))
+                payload = json.loads((response.body or b"").decode("utf-8"))
                 if not isinstance(payload, dict):
                     return json.dumps({"error": "Malformed GitHub response"})
                 gate = verify_api_payload(payload, owner, repository, number, branch, required_label)
