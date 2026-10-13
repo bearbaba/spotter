@@ -181,8 +181,16 @@ class ProofGate(gl.Contract):
                     "rubric": rubric,
                 }, sort_keys=True)
             try:
+                checked_claim = gl.eq_principle.strict_eq(collect_claim)
+                claim = json.loads(checked_claim)
+                if not isinstance(claim, dict) or claim.get("error") or claim.get("merge_commit") != sha.lower():
+                    raise ValueError("qualitative evidence preflight failed")
+                if not isinstance(claim.get("title"), str) or not isinstance(claim.get("description"), str):
+                    raise ValueError("invalid PR evidence")
+                def evidence_for_ai() -> str:
+                    return checked_claim
                 ai_raw = gl.eq_principle.prompt_non_comparative(
-                    collect_claim,
+                    evidence_for_ai,
                     task=(
                         "Evaluate whether the GitHub pull request title and description "
                         "provide concrete evidence that the locked rubric is satisfied. "
