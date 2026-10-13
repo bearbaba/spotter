@@ -1,7 +1,6 @@
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash } from "./spotter-core.mjs";
-import { parseWork, workActionAllowed } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, workActionAllowed } from "./proofgate-core.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
