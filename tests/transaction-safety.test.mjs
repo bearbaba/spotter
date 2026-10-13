@@ -46,3 +46,10 @@ test("rapid repeated clicks reserve the write slot before any awaited RPC",()=>{
  assert.match(body,/finally \{\s*preparingSignature=false;/);
  assert.match(ui,/const blocked = busy \|\| preparingSignature;/);
 });
+
+test("wallet state is initialized before startup refresh reaches button authorization",()=>{
+ const walletInit=ui.indexOf('let connectedAccount = ""');
+ const firstStartupRefresh=ui.indexOf('\nrefreshPending();\nwindow.addEventListener("storage"');
+ assert.ok(walletInit>=0 && firstStartupRefresh>walletInit);
+ assert.equal(ui.match(/let connectedAccount\b/g)?.length,1);
+});
