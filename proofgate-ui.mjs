@@ -105,7 +105,10 @@ function transactionBlocks(method){
  if(unresolved)return true;
  if(!p)return false;
  if(p.method==="recovered transaction")return false;
- if(method==="create_work"||p.method==="create_work")return true;
+ const stored=history().find(e=>e.hash.toLowerCase()===p.hash.toLowerCase());
+ if(stored && stored.status!=="PENDING")return false;
+ if(p.method==="create_work")return method==="create_work";
+ if(method==="create_work")return false;
  return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
 }
 function refreshPending() {
@@ -307,7 +310,17 @@ async function verifyHistoricalReceipts(){
    if(!item.update)continue; // pending, unrecognized or RPC unavailable: no inferred result
    const current=history().find(e=>e.hash.toLowerCase()===item.hash.toLowerCase());
    if(!current || !outstandingReceipts([current]).length)continue;
-   remember({...current,...item.update});
+   let update=item.update;
+   if(current.method==="create_work" && update.status==="FINALIZED · VERIFY ID" && update.candidateWorkId){
+    try{
+     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[update.candidateWorkId],transactionHashVariant:"latest-final"});
+     const work=parseWork(raw);
+     if(work && work.id===update.candidateWorkId && work.client?.toLowerCase()===current.account?.toLowerCase() && work.owner?.toLowerCase()===current.owner?.toLowerCase() && work.repository?.toLowerCase()===current.repository?.toLowerCase() && String(work.pr_number)===String(current.pr)){
+      update={...update,status:"FINALIZED (RECEIPT VERIFIED)",workId:work.id};
+     }
+    }catch{/* Receipt finalized; contract readback remains unverified. */}
+   }
+   remember({...current,...update});
   }
   refreshPending(); // A finalized historical hash must release the correct action lock.
  } finally {historyScanRunning=false;}
