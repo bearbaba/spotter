@@ -99,7 +99,10 @@ function pending() {
   try { return JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch { return null; }
 }
 function transactionBlocks(method){
- const p=pending();if(!p)return false;
+ const p=pending();
+ const unresolved=history().some(x=>x.status==="PENDING" && x.method!=="recovered transaction" && (method==="create_work" || x.method==="create_work" || (x.workId && String(x.workId)===$("workId").value.trim())));
+ if(unresolved)return true;
+ if(!p)return false;
  if(p.method==="recovered transaction")return false;
  if(method==="create_work"||p.method==="create_work")return true;
  return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
@@ -192,6 +195,16 @@ function args(method) {
 }
 async function act(method) {
   if (busy || transactionBlocks(method)) throw Error("Resolve the transaction pending for this work before signing again.");
+  if(method!=="create_work"){
+    const id=$("workId").value.trim();
+    const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
+    const current=parseWork(raw);
+    if(!current||current.id!==id||!workActionAllowed(method,current.state)){
+      if(current)render(current);
+      throw Error("Work state changed on-chain; action canceled without a wallet signature. Read the latest Work state.");
+    }
+    lastWork=current;
+  }
   const callArgs = args(method);
   const account = await wallet();
   if(method!=="create_work" && !signerAllowed(method,lastWork,account))throw Error("Wrong signing wallet. This action requires the nominated worker address "+lastWork?.worker+". Choose that wallet in the header before submitting.");
@@ -258,11 +271,11 @@ async function checkTransaction(){
   }
   if(p.method==="create_work"){
     const id=createdWorkId(receipt);
-    if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});return;}
+    if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});sessionStorage.removeItem(KEY);refreshPending();return;}
     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
     const work=parseWork(raw);
     if(!work || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
-      remember({...p,status:"FINALIZED · VERIFY ID"});
+      remember({...p,status:"FINALIZED · VERIFY ID"});sessionStorage.removeItem(KEY);refreshPending();
       scopedNote("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
     }
     $("workId").value=id;remember({...p,status:"FINALIZED",workId:id});sessionStorage.removeItem(KEY);refreshPending();render(work);scopedNote("Work #"+id+" created and verified on-chain. You can now switch to the nominated worker wallet.");return;
@@ -287,11 +300,8 @@ setInterval(()=>{if(pending() && document.visibilityState==="visible")void check
 if(pending())void checkTransaction();
 $("workClear").addEventListener("click",()=>{
   const p=pending();if(!p)return;
-  const outcome=window.prompt("Explorer has confirmed this transaction. Type FAILED if GenVM Execution is ERROR, or FINALIZED if GenVM Execution is SUCCESS. Do not clear a pending transaction.");
-  if(outcome!=="FAILED"&&outcome!=="FINALIZED")return;
-  remember({...p,status:outcome==="FAILED"?"FAILED (GENVM)":"FINALIZED (EXPLORER)"});
-  sessionStorage.removeItem(KEY);refreshPending();
-  note(outcome==="FAILED"?"Explorer-confirmed failed transaction recorded. The on-chain work has not advanced. Select the authorized worker before retrying.":"Explorer-confirmed finalized transaction recorded. Read the latest Work state before another write.");
+  note("Manual transaction resolution is disabled for safety. Use Check transaction confirmation or inspect Explorer; unverified results must not be marked successful.");
+  void checkTransaction();
 });
 refreshPending();
 
