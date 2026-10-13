@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWork,workActionAllowed } from "../proofgate-core.mjs";
+import { parseWork,workActionAllowed,createdWorkId,finalizedReceipt } from "../proofgate-core.mjs";
 test("work readback unwraps JSON encoded string",()=>{
  const raw=JSON.stringify(JSON.stringify({id:"1",state:"CERTIFIED",owner:"bearbaba"}));
  assert.deepEqual(parseWork(raw),{id:"1",state:"CERTIFIED",owner:"bearbaba"});
@@ -25,4 +25,12 @@ test("official page serves only certified-work interface",()=>{
  assert.match(html,/id="certified-work"/);
  assert.doesNotMatch(html,/id="workspace"|src="\.\/app\.mjs|0x730143dF831778569e15975Ef44dFDeCB668609b/);
  assert.match(html,/0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7/);
+});
+
+test("receipt must report FINALIZED before success",()=>{
+ assert.equal(finalizedReceipt({statusName:"ACCEPTED"}),"PENDING");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"FINISHED_WITH_RETURN"}),"FINALIZED");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"FINISHED_WITH_ERROR"}),"FAILED");
+ assert.equal(createdWorkId({returnValue:'"2"'}),"2");
+ assert.equal(createdWorkId({returnValue:"0x"+"b".repeat(64)}),"");
 });
