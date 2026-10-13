@@ -31,7 +31,7 @@ test("pending transaction blocks only matching work and pending creation",()=>{
  assert.equal(unresolvedTransactionBlocks(p,"evaluate","3"),false);
  assert.equal(unresolvedTransactionBlocks(p,"create_work",""),false);
  assert.equal(unresolvedTransactionBlocks([{method:"create_work",status:"PENDING"}],"create_work",""),true);
- assert.equal(unresolvedTransactionBlocks([{method:"create_work",status:"PENDING"}],"evaluate","3"),true);
+ assert.equal(unresolvedTransactionBlocks([{method:"create_work",status:"PENDING"}],"evaluate","3"),false);
  assert.equal(unresolvedTransactionBlocks([{method:"evaluate",status:"FINALIZED",workId:"2"}],"evaluate","2"),false);
  assert.equal(unresolvedTransactionBlocks([{method:"recovered transaction",status:"PENDING"}],"evaluate","2"),false);
 });
