@@ -243,6 +243,7 @@ async function checkTransaction(){
  checkInProgress=true;$("workCheck").disabled=true;
  try{
   const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"FINALIZED",interval:2500,retries:2});
+  if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return; // latest-final Work state already resolved tracking
   const status=finalizedReceipt(receipt);
   if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
   if(status!=="FINALIZED"){scopedNote("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
@@ -261,7 +262,7 @@ async function checkTransaction(){
   sessionStorage.removeItem(KEY);refreshPending();
   scopedNote("Transaction FINALIZED. Read Work #"+p.workId+" to see the new contract state.");
   if(p.workId){$("workId").value=p.workId;try{await read();}catch{}}
- }catch(e){scopedNote("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
+ }catch(e){if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return;scopedNote("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
  finally{checkInProgress=false;$("workCheck").disabled=false;}
 }
 $("workCheck").addEventListener("click",checkTransaction);
