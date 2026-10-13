@@ -233,9 +233,10 @@ class ProofGate(gl.Contract):
                 if ai["verdict"] == "REVIEW":
                     state = "REVIEW"
                 report["reason"] = ("Rubric assessment: " + reason)[:200]
-            except Exception:
+            except Exception as err:
                 state = "REVIEW"
-                report["reason"] = "Qualitative assessment unavailable"
+                # Expose the failure category, never untrusted exception text or proof data.
+                report["reason"] = "Qualitative assessment unavailable (" + type(err).__name__[:45] + ")"
         report["state"] = state
         rec = self.works[work_id]
         rec.state = state
@@ -256,7 +257,7 @@ class ProofGate(gl.Contract):
         rec = self.works[work_id]
         if rec.state != "ACCEPTED":
             raise Exception("work not accepted")
-        if rec.client != gl.message.sender_address and rec.worker != gl.message.sender_address:
+        if rec.client != normalize_address(gl.message.sender_address) and rec.worker != normalize_address(gl.message.sender_address):
             raise Exception("only participants can issue acceptance")
         rec.state = "CERTIFIED"
         self.works[work_id] = rec
