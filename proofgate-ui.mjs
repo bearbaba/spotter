@@ -93,6 +93,14 @@ async function read() {
   const work = parseWork(raw);
   if (!work || work.id !== id) throw Error("Finalized work record not found or response invalid.");
   render(work);
+  const p=pending();
+  // A latest-final on-chain record corroborates creation even when the RPC receipt tracker stalls.
+  if(p?.method==="create_work" && work.client?.toLowerCase()===p.account?.toLowerCase() && work.owner?.toLowerCase()===p.owner?.toLowerCase() && work.repository?.toLowerCase()===p.repository?.toLowerCase() && String(work.pr_number)===String(p.pr)){
+    remember({...p,status:"FINALIZED · ON-CHAIN VERIFIED",workId:work.id});
+    sessionStorage.removeItem(KEY);refreshPending();
+    note("Work #"+work.id+" is recorded in latest-final contract state. Previous create transaction tracking reconciled.");
+    void findMine();
+  }
 }
 async function wallet() {
   if (!window.ethereum?.request) throw Error("MetaMask is required for contract writes.");
