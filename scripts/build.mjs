@@ -12,6 +12,7 @@ const files=[
  "proofgate-ui.mjs",
  "proofgate-core.mjs",
  "transaction-tracker.mjs",
+ "wallet-write-guard.mjs",
  "github-preflight.mjs",
 ];
 const shipped=new Set(files);
