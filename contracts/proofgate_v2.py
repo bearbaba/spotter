@@ -58,10 +58,13 @@ def verify_api_payload(data: dict, owner: str, repository: str, number: int, bra
         return {"state": "REVIEW", "reason": "PR target repository mismatch", "merge_commit": ""}
     if str(repo_info.get("html_url", "")).rstrip("/").casefold() != expected.casefold():
         return {"state": "REVIEW", "reason": "PR repository identity mismatch", "merge_commit": ""}
-    if data.get("number") != number or str(base.get("ref", "")) != branch:
+    if type(data.get("number")) is not int or data.get("number") != number or str(base.get("ref", "")) != branch:
         return {"state": "REJECTED", "reason": "PR number or target branch mismatch", "merge_commit": ""}
-    if data.get("merged_at") is None:
-        return {"state": "REJECTED", "reason": "Pull request is not merged", "merge_commit": ""}
+    # A PR may merge later. Never permanently reject it solely because it is pending.
+    if data.get("merged_at") is None or data.get("merged") is not True:
+        return {"state": "REVIEW", "reason": "Pull request not confirmed merged", "merge_commit": ""}
+    if data.get("state") != "closed":
+        return {"state": "REVIEW", "reason": "Inconsistent merged PR state", "merge_commit": ""}
     merge_commit = data.get("merge_commit_sha")
     if not isinstance(merge_commit, str) or len(merge_commit) != 40 or not all(
         c in "0123456789abcdefABCDEF" for c in merge_commit
@@ -126,14 +129,24 @@ class ProofGate(gl.Contract):
                 return json.dumps({"state": "REVIEW", "reason": "Evidence could not be verified", "merge_commit": ""}, sort_keys=True)
 
         # Validators compare compact, deterministic, normalized fields rather than volatile API JSON.
-        report = json.loads(gl.eq_principle.strict_eq(collect))
+        try:
+            report = json.loads(gl.eq_principle.strict_eq(collect))
+            if not isinstance(report, dict):
+                raise ValueError("invalid consensus report")
+        except Exception:
+            report = {"state": "REVIEW", "reason": "Consensus unavailable", "merge_commit": ""}
         state = report.get("state", "REVIEW")
         if state not in ("ACCEPTED", "REJECTED", "REVIEW"):
             raise Exception("invalid consensus result")
         rec = self.works[work_id]
         rec.state = state
         rec.explanation = str(report.get("reason", ""))[:200]
-        rec.merge_commit = str(report.get("merge_commit", ""))[:40] if state == "ACCEPTED" else ""
+        sha = report.get("merge_commit", "")
+        if state == "ACCEPTED" and (not isinstance(sha, str) or len(sha) != 40 or not all(c in "0123456789abcdefABCDEF" for c in sha)):
+            state = "REVIEW"
+            rec.state = state
+            rec.explanation = "Invalid consensus merge commit"
+        rec.merge_commit = sha.lower() if state == "ACCEPTED" else ""
         rec.evidence_digest = hashlib.sha256(
             (url + "|" + rec.merge_commit + "|" + state).encode("utf-8")
         ).hexdigest()
