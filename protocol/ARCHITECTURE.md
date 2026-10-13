@@ -14,7 +14,7 @@ Goal: full verifiable work marketplace; no cosmetic minimum-viable-only cap. Del
 `spotter-domain.mjs` is a PURE JavaScript executable state model, not a deployed contract or custodial escrow. It proves preliminary invariants in offline tests: worker cannot start unfunded work, client must fund, only worker submits, unknown accounts cannot challenge, OPEN disputes block settlement, and terminal PAID/REFUNDED cannot repeat.
 
 ### Important design gaps before ANY funds
-- The current model lacks challenge time window, binding of arbitrator identity, timeout/cancellation and confirmation-depth handling. Actor string 'ARBITRATOR' is a test-only placeholder, not permission security.
+- The model lacks challenge time window, timeout/cancellation and confirmation-depth handling. Verifier and arbitrator identities are explicit in the model, but caller authentication must be implemented in deployed contracts.
 - Never assume an escrowed token can be transferred on GenLayer Studionet until token standard compatibility, wallet receipts and balances are tested.
 - Locking/releasing funds MUST only happen on chain. These state transitions do not prove transfers or conservation of balances.
 - An AI verdict is provisional until the dispute window closes and any challenge resolves. Implement that gate before escrow code.
