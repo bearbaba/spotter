@@ -192,7 +192,7 @@ async function checkTransaction(){
  try{
   const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"FINALIZED",interval:2500,retries:2});
   const status=finalizedReceipt(receipt);
-  if(status==="FAILED"){remember({...p,status:"FAILED"});note("Transaction failed. Inspect Explorer before considering another attempt.",true);return;}
+  if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();note("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
   if(status!=="FINALIZED"){note("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
   if(p.method==="create_work"){
     const id=createdWorkId(receipt);
@@ -389,5 +389,5 @@ $("walletConnect").addEventListener("click",()=>{connectAccount().catch(e=>note(
 $("workFindMine").addEventListener("click",()=>{findMine().catch(e=>note(e.message,true));});
 if(window.ethereum?.request){
  window.ethereum.request({method:"eth_accounts"}).then(a=>{if(a?.length){setAccounts(a);void findMine();}}).catch(()=>{});
- window.ethereum.on?.("accountsChanged",a=>{setAccounts(a);lastWork=null;$("workId").value="";syncButtons();void findMine();});
+ window.ethereum.on?.("accountsChanged",a=>{setAccounts(a);if(a?.[0]){$("walletAccount").value=a[0];showAccount(a[0]);}lastWork=null;$("workId").value="";syncButtons();void findMine();});
 }
