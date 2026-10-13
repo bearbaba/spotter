@@ -21,7 +21,7 @@ A client creates a work order identifying a worker wallet and a **single specifi
 * The `worker` field is a beneficiary/participant wallet nominated by the client, **not verified against GitHub's PR author**. Future identity verification needs an independently enforceable binding.
 * No deadline, contest challenge window, escrow, or payments have been claimed or implemented. A challenge mechanism must be designed with strict authorization and explicit lifecycle controls before deployment.
 * The merged PR check is deliberately narrow. In future, adding AI-based qualitative code review must be a separate rule whose evidence scope and economic consequence are explicitly defined.
-* A contract verdict **REJECTED** is final under the current prototype. Since an unmerged PR could be merged later, production workflows will need deadline/grace-period semantics before treating absence of merge as a final rejection.
+* A contract verdict **REJECTED** is final under this prototype only for a structurally wrong target branch or PR identity. Unmerged PRs remain **REVIEW** and can be reevaluated, with deadline/grace-period semantics still required before a production-ready noncompletion decision.
 
 ## Reproduce checks
 
@@ -73,3 +73,8 @@ Once a *new V2 contract is deployed*, demonstrate separate testnet work orders:
 - Record a fresh V2 demo with wallet approvals and public read-only reviewer paths. Synchronize README, reviewer guide, repository branch, deployment source, website, and submission links.
 
 **No-go rule:** Any missing live V2 transaction evidence, undocumented mutable trust assumption, incompatible GenVM behavior, or contradictory reviewer documentation blocks release. V1 remains the public production demo until all gates pass.
+
+## V2-only development direction
+As of 2026-10-13, all new product development is scoped to Spotter V2. V1 is a legacy deployed snapshot, NOT a deployment target, roadmap milestone, or acceptance-proof fixture for V2. The legacy public site will only be replaced once a verified V2 deployment and its independent read-only proof path exist; existing deployed contract data cannot be migrated merely by changing frontend branding.
+
+**No-go until live validation:** current GitHub PR merge receipt is a narrow metadata check, not qualitative AI assessment of contracted work. Add a source-scoped rubric/GenLayer evaluation path and protect any monetary consequence behind the fully verified escrow/dispute protocol. Tests using a mock GenLayer object do not establish compatibility with real GenVM or external API response behavior.
