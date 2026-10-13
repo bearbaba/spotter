@@ -1,7 +1,7 @@
 import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
@@ -100,7 +100,7 @@ function pending() {
 }
 function transactionBlocks(method){
  const p=pending();
- const unresolved=history().some(x=>x.status==="PENDING" && x.method!=="recovered transaction" && (method==="create_work" || x.method==="create_work" || (x.workId && String(x.workId)===$("workId").value.trim())));
+ const unresolved=unresolvedTransactionBlocks(history(),method,$("workId").value.trim());
  if(unresolved)return true;
  if(!p)return false;
  if(p.method==="recovered transaction")return false;
