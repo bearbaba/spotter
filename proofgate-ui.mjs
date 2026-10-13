@@ -113,6 +113,20 @@ for(const button of document.querySelectorAll("[data-work-method]")) {
   button.addEventListener("click",async()=>{try {await act(button.dataset.workMethod);}catch(e){note(e.message,true);}});
 }
 $("workId").addEventListener("input",()=>{lastWork=null;syncButtons();});
+$("workImport").addEventListener("click",()=>{
+  const hash=$("workImportHash").value.trim();
+  if(!/^0x[0-9a-fA-F]{64}$/.test(hash)){note("Enter a complete 0x transaction hash (64 hexadecimal characters).",true);return;}
+  const existing=history().find(x=>x.hash.toLowerCase()===hash.toLowerCase());
+  if(existing){note("This transaction is already in local history. Open its Explorer link.");return;}
+  remember({hash,method:"recovered transaction",created:Date.now(),status:"UNVERIFIED"});
+  $("workImportHash").value="";
+  if(!pending()){
+    sessionStorage.setItem(KEY,JSON.stringify({hash,method:"recovered transaction",created:Date.now()}));
+    refreshPending();
+    void checkTransaction();
+  }
+  note("Transaction added to local history without signing. Its real status must be confirmed from Explorer/GenLayer; no Work ID was assumed.");
+});
 let checkInProgress=false;
 async function checkTransaction(){
  const p=pending();
