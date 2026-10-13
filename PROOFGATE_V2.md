@@ -37,3 +37,20 @@ python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
 3. Run wallet-signed tests: OPEN → worker SUBMITTED → ACCEPTED → CERTIFIED; outsiders cannot submit; REJECTED cannot certify; spoofed repository cannot certify; unauthorized wallet cannot certify; REVIEW can retry.
 4. Connect frontend to V2 API and re-record a demo showing its real transactions and consequence.
 5. Update reviewer guide and submission: the old generic webpage classifier is **not** the V2 implementation.
+
+## Concrete review fixtures (checked against GitHub repository data)
+
+The GitHub repository currently has a merged **PR #24** targeting `main`, with merge commit
+`080afca461de824fa7d1bf173f73c4b4df3c349e`:
+https://github.com/bearbaba/spotter/pull/24
+
+Once a *new V2 contract is deployed*, demonstrate separate testnet work orders:
+
+| Work order policy | Worker-submitted evidence | Expected consequence |
+| --- | --- | --- |
+| `bearbaba/spotter`, PR `24`, target `main` | GitHub API merged PR with exact target | `ACCEPTED` then nominated participant can `issue_acceptance` → `CERTIFIED` |
+| `bearbaba/spotter`, PR `24`, target `develop` | Same real PR, wrong required target | `REJECTED`; certification must fail |
+| Invalid owner or repository identifier | Creation rejects malformed policy | No work order created |
+| GitHub API unavailable / mismatched data | Only the contract-derived GitHub endpoint is fetched | `REVIEW`; no certification, can retry |
+
+**These are planned verification scenarios, not executed V2 on-chain transactions yet.** Check current GitHub PR metadata again just before running tests. The owner/repo/branch/PR values are immutable per work order; a different URL cannot be substituted through the user interface.
