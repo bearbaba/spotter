@@ -79,7 +79,7 @@ function args(method) {
   if (!/^0x[a-fA-F0-9]{40}$/.test(worker)) throw Error("Worker must be an Ethereum wallet address.");
   if (!/^[a-zA-Z0-9-]{1,39}$/.test(owner) || !/^[a-zA-Z0-9_.-]{1,100}$/.test(repo)) throw Error("Enter a valid GitHub owner/repository.");
   if (!branch || branch.length > 100 || !/^[1-9][0-9]*$/.test(pr) || Number(pr)>4294967295) throw Error("Enter a target branch and 32-bit PR number.");
-  if (!rubric || rubric.length>2000 || label.length>100) throw Error("Enter a specific acceptance rubric (max 2000 characters).");
+  if (rubric.trim().length < 16 || rubric.length > 500 || label.length > 64) throw Error("Write specific acceptance requirements (16–500 characters); labels must be 64 characters or less.");
   return [worker,owner,repo,branch,Number(pr),label,rubric];
 }
 async function act(method) {
