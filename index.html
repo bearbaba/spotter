@@ -144,6 +144,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .certified-tag{font-size:12px;border:1px solid #68d5b6;color:#baffdf;border-radius:20px;padding:6px 12px;font-weight:800}
 .certified-meta{font-size:12px;color:#9bbcb4;overflow-wrap:anywhere}
 .certified-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:17px}
+
+/* Spotter work-first interface: simple actions, technical detail on demand */
+.work-product{max-width:1160px;margin-inline:auto}.work-product .work-main{margin:22px 0}.work-product .work-track-panel{max-width:100%;width:100%;padding:27px}.work-product .work-track-panel h3{font-size:25px;margin:0 0 15px}.work-product .work-summary{padding:20px 22px;border:1px solid #2d5b57;border-radius:16px;background:#102c2a;margin-bottom:22px}.work-product .work-summary p{margin:9px 0 0}.work-product .work-state{display:inline-block;color:#74efd7;font-size:12px;font-weight:800;letter-spacing:.08em}.work-product .work-summary strong{display:block;margin-top:9px;font-size:21px}.work-product .work-next{border:1px solid #2a4b49;background:#0c211f;border-radius:14px;padding:18px;margin:20px 0}.work-product .work-eyebrow{letter-spacing:.12em;color:#75bcb4;font-weight:800;font-size:11px;margin:0 0 12px}.work-product .work-state-actions{display:flex;gap:12px;flex-wrap:wrap}.work-product .work-state-actions .btn[disabled]{display:none!important}.work-product .work-state-actions .btn:not([disabled]){min-width:200px}.work-product .work-id-field{max-width:260px}.work-product .work-my-list,.work-product .work-create-section,.work-product>.work-history{border:1px solid #28514d;border-radius:18px;padding:22px;margin:18px 0;background:#0b201e}.work-product .work-my-list h3{margin:0 0 6px;font-size:21px}.work-product .work-my-list p{margin:0}.work-product details summary{cursor:pointer;font-weight:750;list-style-position:inside}.work-product .work-create-section>.panel{margin-top:22px}.work-product .work-create-section .work-create-panel{max-width:100%}.work-product .work-technical{margin:18px 0}.work-product .work-technical pre{margin-top:14px;max-height:300px;overflow:auto}.work-product #workPrimaryList{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}.work-product #workPrimaryList button{flex:1 1 220px;text-align:left;padding:14px;border-radius:12px}.work-product #walletWorks{display:none}.work-product .work-pending-actions{max-width:380px}.work-product #workStatus{margin:14px 0}.work-product [hidden]{display:none!important}@media(max-width:650px){.work-product .work-track-panel{padding:16px}.work-product .work-my-list,.work-product .work-create-section,.work-product>.work-history{padding:14px}.work-product .work-state-actions .btn:not([disabled]){width:100%}}
 </style>
 </head>
 <body>
@@ -192,13 +195,23 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <p style="font-size:12px;margin:16px 0 0">ProofGate certification is live on testnet; escrow settlement and payouts are not connected. No GEN payment occurred in this certificate transaction.</p>
   </section>
 
-<section class="certified" id="work-app" aria-labelledby="workAppHeading">
-  <div class="eyebrow">GENLAYER STUDIONET · REAL ON-CHAIN TRANSACTIONS</div>
-  <h2 id="workAppHeading">Verify completed work</h2>
-  <p>One simple flow: agree on the work, submit the GitHub pull request, let GenLayer verify it, then certify the result. Every blockchain write requires your approval. No funds are transferred.</p><div class="stepbar" aria-label="Work verification steps"><div class="step"><span class="step-num">01</span><span>Create work</span></div><div class="step"><span class="step-num">02</span><span>Submit PR</span></div><div class="step"><span class="step-num">03</span><span>AI verification</span></div><div class="step"><span class="step-num">04</span><span>Certification</span></div></div>
-  <div class="workspace">
-    <div class="panel">
-      <h3>1. Set up the task</h3>
+<section class="certified work-product" id="work-app" aria-labelledby="workAppHeading"><div class="eyebrow">SPOTTER · GENLAYER STUDIONET</div><h2 id="workAppHeading">Your work, verified.</h2><p>Review work, check evidence, and certify completion on-chain. Select a work item to see the next step.</p><div class="work-main">    <div class="panel work-track-panel">
+      <h3>Work details</h3><div id="workSummary" class="work-summary" aria-live="polite"><span class="work-state">SELECT A WORK</span><p>Connect your wallet and select a work item below, or open certified Work #1.</p></div>
+      <div class="field work-id-field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" placeholder="Automatically selected after creation" /></div>
+      <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button><button id="workExample" type="button" class="btn btn-subtle btn-small" style="margin-left:8px">See real certified Work #1</button>
+      <div class="work-next"><p class="work-eyebrow">NEXT ACTION</p><div class="action-row work-state-actions"><button type="button" class="btn btn-primary" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn btn-primary" data-work-method="evaluate" disabled>Run AI evaluation</button><button type="button" class="btn btn-primary" data-work-method="issue_acceptance" disabled>Issue certificate</button></div><p id="workNextHelp" class="hint">Select work to see what can happen next.</p></div>
+      <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
+      <details class="work-technical"><summary>View complete on-chain record</summary><pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre></details>
+      <p id="workPending" class="notice pending" hidden></p>
+      <div class="work-pending-actions" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:14px 0">
+        <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a>
+        <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
+        <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
+      </div>
+      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p>
+    </div>
+</div><section class="work-my-list"><div class="work-section-head"><div><h3>My work</h3><p>Assigned to your connected wallet</p></div></div><div id="workPrimaryList"><p class="hint">Connect MetaMask to load your work.</p></div></section><details id="workCreateSection" class="work-create-section"><summary>+ Create a new work agreement</summary>    <div class="panel work-create-panel">
+      <h3>Create a work agreement</h3>
       <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /><button id="workPickWallet" type="button" class="btn btn-subtle btn-small">Use selected MetaMask account</button><p class="hint">Choose your account in MetaMask, or enter a different worker address.</p></div>
       <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" value="bearbaba" placeholder="bearbaba" /></div>
       <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" value="spotter" placeholder="spotter" /></div>
@@ -209,23 +222,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <button type="button" class="btn btn-primary" data-work-method="create_work">Create on-chain work ↗</button>
       <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
     </div>
-    <div class="panel">
-      <h3>2. Track and verify</h3>
-      <div class="field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" placeholder="Automatically selected after creation" /><p class="hint">Your new Work ID will appear here once the finalized contract result is verified.</p></div>
-      <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button><button id="workExample" type="button" class="btn btn-subtle btn-small" style="margin-left:8px">See real certified Work #1</button>
-      <div class="action-row"><button type="button" class="btn" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn" data-work-method="evaluate" disabled>Run GenLayer evaluation</button><button type="button" class="btn" data-work-method="issue_acceptance" disabled>Issue certification</button></div>
-      <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
-      <pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre>
-      <p id="workPending" class="notice pending" hidden></p>
-      <div class="work-pending-actions" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:14px 0">
-        <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a>
-        <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
-        <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
-      </div>
-      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p><details open class="work-history"><summary>My work & transactions</summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
-    </div>
-  </div>
-</section>
+</details><details class="work-history"><summary>Transaction history and recovery</summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details></section>
 <section class="certified" id="details"><div class="eyebrow">TRANSPARENT TESTNET SOFTWARE</div><h2>Verified results, not promises.</h2><p>Spotter records accepted work on GenLayer Studionet. Work certification is live; escrow payments are not implemented. Every write requires explicit wallet approval, and every result must be checked against finalized on-chain state.</p></section>
 <footer class="footer">
     <span>Spotter is experimental software on GenLayer Studionet. AI verdicts are not guarantees of truth. No real funds or escrow.</span>
