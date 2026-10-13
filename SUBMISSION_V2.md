@@ -13,7 +13,7 @@ Source branch: `feat/proofgate-v2-contract-foundation`
 - Clearly marked non-financial V2 user-interface preview at `v2/index.html`.
 
 ## Non-negotiable remaining requirements before claiming an on-chain product
-1. **Partially verified:** ProofGate V2 deployed on GenLayer Studio at `0x87E73676c37c1fb506126c12DF49FA22E3CB8867`; the `create_work` call finalized successfully and returned Work ID `1`. Deployed source parity and remaining lifecycle still require verification.
+1. **Positive lifecycle observed:** a newer ProofGate V2 Studio instance returned Work ID `1` with state `CERTIFIED` after `create_work`, `submit_for_review`, `evaluate`, and `issue_acceptance`, as reported via `get_work`. The latest deployment address and finalized transaction hashes are still needed to independently link and verify this claim. Earlier `0x87E73676c37c1fb506126c12DF49FA22E3CB8867` only has the separately linked finalized `create_work` evidence below.
 2. Perform one authentic positive and one negative verification with independent wallets and recorded finalized transaction references.
 3. Wire a verified GenVM finality proof into the EVM contract. **Manual verifier signer is not GenLayer consensus.** Until then do not describe payment as automated by AI consensus.
 4. Deploy the Solidity vault only with test assets on a confirmed compatible chain; record address, chain ID, compiler/artifact hash, test transaction receipts, balances, double-withdrawal rejection, and failure cases.
@@ -49,4 +49,12 @@ Timeout proposals require both named parties; a non-cooperating counterparty can
 - Status: **FINALIZED**, consensus **Accepted**, GenVM execution **SUCCESS**.
 - Method: `create_work` for `bearbaba/spotter` PR #24 targeting `main`; work ID returned `"1"`.
 - Transaction value: 0 GEN. This demonstrates work registration, **not** escrow funding or proof acceptance.
-- Still required: finalized `submit_for_review`, `evaluate`, `issue_acceptance`, negative authorization tests and an authenticated escrow bridge.
+- A subsequent V2 instance reportedly completed the full positive lifecycle to `CERTIFIED`; see the record below. Still required: transaction links for each finalization, negative authorization tests, and an authenticated escrow bridge.
+
+## Positive ProofGate V2 lifecycle — user-reported Studio readback (October 13, 2026)
+- Latest `get_work("1")` output: `state = "CERTIFIED"`, for `bearbaba/spotter` merged PR #24 targeting `main`.
+- Merge commit: `080afca461de824fa7d1bf173f73c4b4df3c349e`.
+- Evidence digest: `e3a62a3c772e33717d5a01d7b08d987e43460d843961f872fb7cbffc3073ff6c`.
+- Rubric result reports concrete Studionet MetaMask network configuration (RPC endpoint, chain ID, explicit user approval).
+- This readback is **user-supplied evidence**. The final deployed contract address, issuance transaction hash and source-to-deployment match have not yet been independently verified; do not cite earlier instance addresses as this certified instance.
+- `CERTIFIED` represents work verification, **not** an escrow deposit, payment, or audited automatic disbursement.
