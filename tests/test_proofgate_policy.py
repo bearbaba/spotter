@@ -87,6 +87,21 @@ class ProofGatePolicyTests(unittest.TestCase):
         payload["labels"] = [{"name": "accepted-work"}, "malformed"]
         self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "REVIEW")
 
+    def test_genvm_stored_integer_is_explicitly_wrapped_u32(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        parsed = ast.parse(source)
+        work_calls = [
+            node for node in ast.walk(parsed)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "Work"
+        ]
+        self.assertEqual(len(work_calls), 1)
+        pr_arg = next(kw.value for kw in work_calls[0].keywords if kw.arg == "pr_number")
+        self.assertIsInstance(pr_arg, ast.Call)
+        self.assertIsInstance(pr_arg.func, ast.Name)
+        self.assertEqual(pr_arg.func.id, "u32")
+
     def test_contract_controls_evidence_endpoint_and_gate(self):
         text=SOURCE.read_text(encoding="utf-8")
         self.assertIn("gl.nondet.web.request(url, method=\"GET\")",text)
