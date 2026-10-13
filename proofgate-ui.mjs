@@ -11,6 +11,15 @@ const client = createClient({chain:studionet,endpoint:ENDPOINT,account:ZERO});
 const KEY = "spotter.work.pending";
 let lastWork = null;
 let busy = false;
+function syncButtons() {
+  const blocked = busy || Boolean(pending());
+  for (const button of document.querySelectorAll("[data-work-method]")) {
+    const method = button.dataset.workMethod;
+    button.disabled = blocked || (method !== "create_work" && (!lastWork || lastWork.id !== $("workId").value.trim() || !workActionAllowed(method,lastWork.state)));
+  }
+  $("workRead").disabled = busy;
+}
+
 function note(message, error = false) {
   const el = $("workStatus");
   el.textContent = message;
@@ -25,9 +34,13 @@ function refreshPending() {
   if (p) {
     $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
     $("workClear").hidden = false;
+    $("workTxLink").hidden = false;
+    $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
   } else {
     $("workClear").hidden = true;
+    $("workTxLink").hidden = true;
   }
+  syncButtons();
 }
 function render(work) {
   lastWork = work;
@@ -35,13 +48,12 @@ function render(work) {
   $("workOutput").hidden = false;
   const state = work.state || "UNKNOWN";
   note("Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
-  for (const button of document.querySelectorAll("[data-work-method]")) {
-    const method = button.dataset.workMethod;
-    button.disabled = (method !== "create_work" && !workActionAllowed(method,state)) || Boolean(pending()) || busy;
-  }
+  syncButtons();
 }
 async function read() {
   const id = $("workId").value.trim();
+  lastWork = null;
+  syncButtons();
   if (!/^[1-9][0-9]*$/.test(id)) throw Error("Enter an existing positive numeric Work ID.");
   const raw = await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
   const work = parseWork(raw);
@@ -76,7 +88,7 @@ async function act(method) {
   const callArgs = args(method);
   const account = await wallet();
   busy=true;
-  for (const button of document.querySelectorAll("[data-work-method]")) button.disabled=true;
+  syncButtons();
   note("Waiting for MetaMask approval. No transaction has been confirmed yet.");
   try {
     const writer=createClient({chain:studionet,endpoint:ENDPOINT,account,provider:window.ethereum});
@@ -85,13 +97,14 @@ async function act(method) {
     if (!hash) throw Error("Wallet response did not contain a recognized transaction hash; inspect wallet history before retrying.");
     sessionStorage.setItem(KEY,JSON.stringify({hash,method,account,created:Date.now()}));
     refreshPending();
-    note("Transaction submitted: "+hash+". Wait for FINALIZED in Studio/Explorer, then read the Work again. Do not send twice.");
-  } finally {busy=false;refreshPending();}
+    note("Transaction sent. Open the Explorer link below and wait until FINALIZED. Then read the current Work state. Never send an unresolved transaction twice.");
+  } finally {busy=false;refreshPending();syncButtons();}
 }
 $("workRead").addEventListener("click",async()=>{try {await read();}catch(e){note(e.message,true);}});
 for(const button of document.querySelectorAll("[data-work-method]")) {
   button.addEventListener("click",async()=>{try {await act(button.dataset.workMethod);}catch(e){note(e.message,true);}});
 }
+$("workId").addEventListener("input",()=>{lastWork=null;syncButtons();});
 $("workClear").addEventListener("click",()=>{
   if (!pending()) return;
   if (!window.confirm("Only clear tracking after Explorer confirms FINALIZED or failed. Clearing does NOT cancel a transaction. Continue?")) return;
