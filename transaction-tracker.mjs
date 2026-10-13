@@ -7,6 +7,7 @@ const CHECKABLE = new Set([
   "WORK VERIFIED ON-CHAIN",
   "ON-CHAIN VERIFIED",
   "UNVERIFIED LOCAL HISTORY",
+  "UNVERIFIED",
   "FINALIZED · VERIFY ID",
 ]);
 
@@ -59,4 +60,24 @@ export async function verifyStoredReceipts(records, getTransaction, { limit = 3,
     }
   }
   return {inspected, remaining:outstanding.length};
+}
+
+/**
+ * Retain every unresolved receipt and the newest bounded number of completed
+ * records; never silently drop a pending hash when the history becomes large.
+ */
+export function compactHistory(records, completedLimit=100){
+  if(!Array.isArray(records))return [];
+  const found=new Set(),valid=[];
+  for(const entry of records){
+    if(!entry || !HASH.test(entry.hash||""))continue;
+    const hash=entry.hash.toLowerCase();
+    if(found.has(hash))continue;
+    found.add(hash);
+    valid.push(entry);
+  }
+  const unresolved=valid.filter(entry=>CHECKABLE.has(entry.status)||entry.status==="FINALIZED · ID UNKNOWN");
+  const resolved=valid.filter(entry=>!CHECKABLE.has(entry.status)&&entry.status!=="FINALIZED · ID UNKNOWN");
+  const limit=Math.max(0,Math.min(1000,Number(completedLimit)||0));
+  return [...unresolved,...resolved.slice(0,limit)].sort((a,b)=>(Number(b.created)||0)-(Number(a.created)||0));
 }
