@@ -33,10 +33,12 @@ function refreshPending() {
   if (p) {
     $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
     $("workClear").hidden = false;
+    $("workCheck").hidden = false;
     $("workTxLink").hidden = false;
     $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
   } else {
     $("workClear").hidden = true;
+    $("workCheck").hidden = true;
     $("workTxLink").hidden = true;
   }
   syncButtons();
@@ -105,6 +107,25 @@ for(const button of document.querySelectorAll("[data-work-method]")) {
   button.addEventListener("click",async()=>{try {await act(button.dataset.workMethod);}catch(e){note(e.message,true);}});
 }
 $("workId").addEventListener("input",()=>{lastWork=null;syncButtons();});
+$("workCheck").addEventListener("click",async()=>{
+ const p=pending();
+ if(!p)return;
+ const button=$("workCheck");
+ button.disabled=true;
+ note("Checking this transaction on GenLayer. No new wallet transaction will be sent.");
+ try{
+   const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"ACCEPTED",interval:3000,retries:5});
+   const status=String(receipt?.statusName||receipt?.status||"").toUpperCase();
+   const execution=String(receipt?.txExecutionResultName||receipt?.executionResult||"").toUpperCase();
+   if(/ERROR|REVERT|CANCEL|FAIL/.test(status+" "+execution)){
+     note("Transaction returned a failure: "+status+" "+execution+". Do not retry until you inspect Explorer.",true);
+   }else{
+     note("GenLayer returned a transaction receipt. "+(status||"Consensus result observed")+". Check Explorer for FINALIZED and read the contract again. Clearing tracking does not send or cancel a transaction.");
+   }
+ }catch(e){
+   note("Final confirmation is not available through this RPC yet. Keep this transaction tracked; check Explorer or try this read-only check later. "+String(e?.message||"").slice(0,180),true);
+ }finally{button.disabled=false;}
+});
 $("workClear").addEventListener("click",()=>{
   if (!pending()) return;
   if (!window.confirm("Only clear tracking after Explorer confirms FINALIZED or failed. Clearing does NOT cancel a transaction. Continue?")) return;
