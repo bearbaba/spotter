@@ -94,6 +94,7 @@ class ProofGate(gl.Contract):
     def create_work(self, worker: Address, owner: str, repository: str, target_branch: str, pr_number: u32, required_label: str = "", acceptance_rubric: str = "") -> str:
         # The immutable policy is exact GitHub repository + PR number + target branch.
         # No arbitrary evidence URL is accepted or fetched.
+        pr_number = u32(int(pr_number))
         canonical_api_url(owner, repository, int(pr_number))
         if not branch_identifier(target_branch):
             raise Exception("invalid target branch")
@@ -107,7 +108,7 @@ class ProofGate(gl.Contract):
         self.next_id = u32(int(self.next_id) + 1)
         self.works[work_id] = Work(
             client=gl.message.sender_address, worker=worker, owner=owner,
-            repository=repository, target_branch=target_branch, required_label=required_label, acceptance_rubric=acceptance_rubric, pr_number=pr_number,
+            repository=repository, target_branch=target_branch, required_label=required_label, acceptance_rubric=acceptance_rubric, pr_number=u32(int(pr_number)),
             state="OPEN", explanation="", evidence_digest="", merge_commit=""
         )
         return work_id
