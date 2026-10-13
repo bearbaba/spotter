@@ -34,3 +34,14 @@ test("receipt must report FINALIZED before success",()=>{
  assert.equal(createdWorkId({returnValue:'"2"'}),"2");
  assert.equal(createdWorkId({returnValue:"0x"+"b".repeat(64)}),"");
 });
+
+test("receipt watcher fails closed on incomplete and negative executions",()=>{
+ assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"PENDING");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NOT_VOTED"}),"PENDING");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"TIMEOUT"}),"FAILED");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NONDET_DISAGREE"}),"FAILED");
+ assert.equal(finalizedReceipt({statusName:"PENDING",txExecutionResultName:"FINISHED_WITH_RETURN"}),"PENDING");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/client\.getTransaction\(\{hash:p\.hash\}\)/);
+ assert.doesNotMatch(ui,/waitForTransactionReceipt\(\{hash:p\.hash/);
+});
