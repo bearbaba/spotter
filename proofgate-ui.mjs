@@ -39,11 +39,19 @@ async function checkPrReadiness(config,target){
 
 let lastWork = null;
 let busy = false;
+function signerAllowed(method,work,account){
+ if(method==="create_work")return true;
+ if(!work || !account)return false;
+ const signer=account.toLowerCase();
+ if(method==="submit_for_review")return work.worker?.toLowerCase()===signer;
+ if(method==="issue_acceptance")return [work.client,work.worker].some(a=>a?.toLowerCase()===signer);
+ return true;
+}
 function syncButtons() {
   const blocked = busy || Boolean(pending());
   for (const button of document.querySelectorAll("[data-work-method]")) {
     const method = button.dataset.workMethod;
-    button.disabled = blocked || (method !== "create_work" && (!lastWork || lastWork.id !== $("workId").value.trim() || !workActionAllowed(method,lastWork.state)));
+    button.disabled = blocked || (method !== "create_work" && (!lastWork || lastWork.id !== $("workId").value.trim() || !workActionAllowed(method,lastWork.state) || !signerAllowed(method,lastWork,connectedAccount)));
   }
   $("workRead").disabled = busy;
 }
@@ -130,6 +138,7 @@ async function act(method) {
   if (busy || pending()) throw Error("Resolve the existing transaction first; duplicate submissions are disabled.");
   const callArgs = args(method);
   const account = await wallet();
+  if(method!=="create_work" && !signerAllowed(method,lastWork,account))throw Error("Wrong signing wallet. This action requires the nominated worker address "+lastWork?.worker+". Choose that wallet in the header before submitting.");
   busy=true;
   syncButtons();
   note("Waiting for MetaMask approval. No transaction has been confirmed yet.");
@@ -307,6 +316,7 @@ function showAccount(addr){
  connectedAccount=addr||"";
  $("walletCurrent").textContent=addr?addr.slice(0,6)+"…"+addr.slice(-4):"Wallet not connected";
  $("walletConnect").textContent=addr?"Manage wallets":"Connect wallet";
+ syncButtons();
 }
 async function connectAccount(){
  if(!window.ethereum?.request)throw Error("MetaMask is not available.");
