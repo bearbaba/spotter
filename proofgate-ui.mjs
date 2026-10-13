@@ -107,6 +107,15 @@ async function act(method) {
     sessionStorage.setItem(KEY,JSON.stringify(entry));remember(entry);
     refreshPending();
     note("Transaction sent. Open the Explorer link below and wait until FINALIZED. Then read the current Work state. Never send an unresolved transaction twice.");
+  } catch(e) {
+    const message=String(e?.shortMessage||e?.message||e);
+    if(/rate.limit|429|too many requests|eth_sendRawTransaction/i.test(message)) {
+      note("Studionet RPC is rate limiting transaction submissions. The wallet request may have reached the network even though this page received no transaction hash. Check MetaMask Activity and re-read Work #"+(method==="create_work"?"(new)":callArgs[0])+" before considering another signature. Do NOT immediately resend.",true);
+    } else if(e?.code===4001 || /user rejected|user denied/i.test(message)) {
+      note("Signature rejected in MetaMask; no transaction hash was recorded.");
+    } else {
+      note("Transaction submission returned an error; inspect MetaMask Activity before retrying. "+message.slice(0,180),true);
+    }
   } finally {busy=false;refreshPending();syncButtons();}
 }
 $("workRead").addEventListener("click",async()=>{try {await read();}catch(e){note(e.message,true);}});
