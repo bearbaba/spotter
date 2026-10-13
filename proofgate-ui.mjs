@@ -114,23 +114,46 @@ $("workClear").addEventListener("click",()=>{
 refreshPending();
 
 let rubricEdited = false;
-function generateRubric() {
+let suggestionVersion = 0;
+const criteriaBase = () => {
   const owner=$("workOwner").value.trim(), repo=$("workRepo").value.trim(), branch=$("workBranch").value.trim(), pr=$("workPr").value.trim();
-  const requiredLabel=$("workLabel").value.trim();
-  if (!/^[A-Za-z0-9-]{1,39}$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo) || !branch || !/^[1-9][0-9]*$/.test(pr)) {
-    $("workRubric").value="";
-    $("workRubricHelp").textContent="Enter GitHub owner, repository, target branch and PR number to generate requirements.";
-    return;
-  }
-  const rubric="The pull request #"+pr+" in "+owner+"/"+repo+" must be merged into "+branch+". Its title and description must give concrete details of the change delivered and explain how the agreed work is fulfilled."+(requiredLabel?" The PR must have label "+requiredLabel+".":"");
-  $("workRubric").value=rubric.slice(0,500);
-  $("workRubricHelp").textContent="Automatically prepared from your work details. Review or edit before signing; this agreement becomes immutable.";
+  const label=$("workLabel").value.trim();
+  if(!/^[A-Za-z0-9-]{1,39}$/.test(owner)|| !/^[A-Za-z0-9_.-]{1,100}$/.test(repo)|| !branch || !/^[1-9][0-9]*$/.test(pr)) return "";
+  return "PR #"+pr+" in "+owner+"/"+repo+" must be merged into "+branch+". The PR title and description must clearly explain the agreed work and demonstrate its completion."+(label?" Required label: "+label+".":"");
+};
+function generateRubric() {
+  const result=criteriaBase();
+  if (!rubricEdited) $("workRubric").value=result;
+  $("workGenerateRubric").hidden = !rubricEdited;
+  $("workRubricHelp").textContent=result ? (rubricEdited?"You edited the criteria. Regenerate only if you want to replace your text.":"Suggested criteria ready. You can edit before signing.") : "Enter GitHub owner, repository, target branch and PR number to prepare criteria.";
 }
-$("workRubric").addEventListener("input",()=>{rubricEdited=true;});
+$("workRubric").addEventListener("input",()=>{rubricEdited=true;generateRubric();});
 $("workGenerateRubric").addEventListener("click",()=>{rubricEdited=false;generateRubric();});
 for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"]) {
-  $(id).addEventListener("input",()=>{if (!rubricEdited) generateRubric(); else $("workRubricHelp").textContent="Work details changed. Press Regenerate requirements to synchronize the edited agreement.";});
+  $(id).addEventListener("input",()=>{suggestionVersion++;generateRubric();});
 }
+$("workFetchPr").addEventListener("click",async()=>{
+ const owner=$("workOwner").value.trim(),repo=$("workRepo").value.trim(),pr=$("workPr").value.trim(),branch=$("workBranch").value.trim();
+ if(!criteriaBase()) { $("workRubricHelp").textContent="Enter the GitHub repository, target branch and PR number first.";return; }
+ const revision=++suggestionVersion, button=$("workFetchPr");button.disabled=true;
+ $("workRubricHelp").textContent="Reading public GitHub PR details…";
+ try{
+   const response=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repo)+"/pulls/"+encodeURIComponent(pr),{headers:{"Accept":"application/vnd.github+json"}});
+   if(!response.ok)throw Error("GitHub could not return this PR ("+response.status+").");
+   const data=await response.json();
+   if(revision!==suggestionVersion)return;
+   if(String(data.number)!==pr || data.base?.ref!==branch || String(data.base?.repo?.full_name||"").toLowerCase()!==(owner+"/"+repo).toLowerCase()) throw Error("PR details do not match the selected repository or target branch.");
+   const title=String(data.title||"").replace(/\\s+/g," ").trim().slice(0,130);
+   const description=String(data.body||"").replace(/[#*_\x60>]/g," ").replace(/\\s+/g," ").trim().slice(0,170);
+   const prefix=criteriaBase();
+   const suggested=(prefix+" Work described by PR: "+title+"."+(description?" Description: "+description+".":"")).slice(0,500);
+   if(rubricEdited && !window.confirm("Replace your edited acceptance criteria with a suggestion based on public PR text?"))return;
+   rubricEdited=false;$("workRubric").value=suggested;generateRubric();
+   $("workRubric").value=suggested;
+   $("workRubricHelp").textContent="Suggested using public PR text. Review carefully: the PR description is not independently verified.";
+ }catch(e){if(revision===suggestionVersion)$("workRubricHelp").textContent=e.message+" You can use the automatically prepared criteria instead.";}
+ finally {button.disabled=false;}
+});
 $("workPickWallet").addEventListener("click",async()=>{
   try {
     if(!window.ethereum?.request) throw Error("Install or unlock MetaMask first.");
