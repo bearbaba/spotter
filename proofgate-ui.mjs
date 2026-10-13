@@ -194,28 +194,29 @@ let checkInProgress=false;
 async function checkTransaction(){
  const p=pending();
  if(!p||checkInProgress)return;
+ const scopedNote=(message,error=false)=>{if(p.method==="create_work" || String(p.workId)===$("workId").value.trim())note(message,error);};
  checkInProgress=true;$("workCheck").disabled=true;
  try{
   const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"FINALIZED",interval:2500,retries:2});
   const status=finalizedReceipt(receipt);
-  if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();note("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
-  if(status!=="FINALIZED"){note("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
+  if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
+  if(status!=="FINALIZED"){scopedNote("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
   if(p.method==="create_work"){
     const id=createdWorkId(receipt);
-    if(!id){note("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});return;}
+    if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});return;}
     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
     const work=parseWork(raw);
     if(!work || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
       remember({...p,status:"FINALIZED · VERIFY ID"});
-      note("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
+      scopedNote("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
     }
-    $("workId").value=id;remember({...p,status:"FINALIZED",workId:id});sessionStorage.removeItem(KEY);refreshPending();render(work);note("Work #"+id+" created and verified on-chain. You can now switch to the nominated worker wallet.");return;
+    $("workId").value=id;remember({...p,status:"FINALIZED",workId:id});sessionStorage.removeItem(KEY);refreshPending();render(work);scopedNote("Work #"+id+" created and verified on-chain. You can now switch to the nominated worker wallet.");return;
   }
   remember({...p,status:"FINALIZED"});
   sessionStorage.removeItem(KEY);refreshPending();
-  note("Transaction FINALIZED. Read Work #"+p.workId+" to see the new contract state.");
+  scopedNote("Transaction FINALIZED. Read Work #"+p.workId+" to see the new contract state.");
   if(p.workId){$("workId").value=p.workId;try{await read();}catch{}}
- }catch(e){note("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
+ }catch(e){scopedNote("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
  finally{checkInProgress=false;$("workCheck").disabled=false;}
 }
 $("workCheck").addEventListener("click",checkTransaction);
