@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {outstandingReceipts,receiptResolution,verifyStoredReceipts} from "../transaction-tracker.mjs";
+import {outstandingReceipts,receiptResolution,verifyStoredReceipts,compactHistory} from "../transaction-tracker.mjs";
 import {unresolvedTransactionBlocks} from "../proofgate-core.mjs";
 const hash=n=>"0x"+n.repeat(64);
 const receipt=(name,outcome,txId)=>({statusName:name,txExecutionResultName:outcome,txId});
@@ -58,4 +58,30 @@ test("batch is bounded and rotates for larger browser histories",async()=>{
  const calls=[];
  await verifyStoredReceipts(entries,async id=>{calls.push(id);return receipt("ACCEPTED","NOT_VOTED",id);},{limit:2,offset:4});
  assert.deepEqual(calls,[hash("e"),hash("a")]);
+});
+
+test("unverified imported transactions are checked without wallet signatures",async()=>{
+ const record={hash:hash("a"),method:"recovered transaction",status:"UNVERIFIED"};
+ assert.equal(outstandingReceipts([record]).length,1);
+ const resolved=await verifyStoredReceipts([record],async()=>receipt("FINALIZED","FINISHED_WITH_RETURN",record.hash));
+ assert.equal(resolved.inspected[0].update.status,"FINALIZED (RECEIPT VERIFIED)");
+});
+
+test("history compaction never evicts a pending hash when 150 completed records exist",()=>{
+ const old={hash:hash("a"),created:1,method:"evaluate",workId:"3",status:"PENDING"};
+ const done=Array.from({length:150},(_,i)=>({
+  hash:"0x"+i.toString(16).padStart(64,"0"),
+  created:150-i+2,status:"FINALIZED (RECEIPT VERIFIED)"
+ }));
+ const compacted=compactHistory([...done,old]);
+ assert.equal(compacted.length,101);
+ assert.ok(compacted.some(x=>x.hash===old.hash && x.status==="PENDING"));
+ assert.equal(compacted.filter(x=>x.status==="FINALIZED (RECEIPT VERIFIED)").length,100);
+});
+
+test("verified Work readback may release create guard without claiming receipt success",()=>{
+ const entry={hash:hash("a"),method:"create_work",status:"WORK VERIFIED ON-CHAIN"};
+ assert.equal(unresolvedTransactionBlocks([entry],"create_work",""),false);
+ assert.equal(unresolvedTransactionBlocks([{...entry,status:"ON-CHAIN VERIFIED"}],"create_work",""),false);
+ assert.equal(unresolvedTransactionBlocks([{...entry,status:"FINALIZED · VERIFY ID"}],"create_work",""),true);
 });
