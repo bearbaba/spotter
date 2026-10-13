@@ -147,6 +147,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 
 /* Spotter work-first interface: simple actions, technical detail on demand */
 .work-product{max-width:1160px;margin-inline:auto}.work-product .work-main{margin:22px 0}.work-product .work-track-panel{max-width:100%;width:100%;padding:27px}.work-product .work-track-panel h3{font-size:25px;margin:0 0 15px}.work-product .work-summary{padding:20px 22px;border:1px solid #2d5b57;border-radius:16px;background:#102c2a;margin-bottom:22px}.work-product .work-summary p{margin:9px 0 0}.work-product .work-state{display:inline-block;color:#74efd7;font-size:12px;font-weight:800;letter-spacing:.08em}.work-product .work-summary strong{display:block;margin-top:9px;font-size:21px}.work-product .work-next{border:1px solid #2a4b49;background:#0c211f;border-radius:14px;padding:18px;margin:20px 0}.work-product .work-eyebrow{letter-spacing:.12em;color:#75bcb4;font-weight:800;font-size:11px;margin:0 0 12px}.work-product .work-state-actions{display:flex;gap:12px;flex-wrap:wrap}.work-product .work-state-actions .btn[disabled]{display:none!important}.work-product .work-state-actions .btn:not([disabled]){min-width:200px}.work-product .work-id-field{max-width:260px}.work-product .work-my-list,.work-product .work-create-section,.work-product>.work-history{border:1px solid #28514d;border-radius:18px;padding:22px;margin:18px 0;background:#0b201e}.work-product .work-my-list h3{margin:0 0 6px;font-size:21px}.work-product .work-my-list p{margin:0}.work-product details summary{cursor:pointer;font-weight:750;list-style-position:inside}.work-product .work-create-section>.panel{margin-top:22px}.work-product .work-create-section .work-create-panel{max-width:100%}.work-product .work-technical{margin:18px 0}.work-product .work-technical pre{margin-top:14px;max-height:300px;overflow:auto}.work-product #workPrimaryList{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}.work-product #workPrimaryList button{flex:1 1 220px;text-align:left;padding:14px;border-radius:12px}.work-product #walletWorks{display:none}.work-product .work-pending-actions{max-width:380px}.work-product #workStatus{margin:14px 0}.work-product [hidden]{display:none!important}@media(max-width:650px){.work-product .work-track-panel{padding:16px}.work-product .work-my-list,.work-product .work-create-section,.work-product>.work-history{padding:14px}.work-product .work-state-actions .btn:not([disabled]){width:100%}}
+
+/* Product-first landing: usable workspace before promotional proof */
+.hero{padding-top:32px!important;padding-bottom:18px!important;min-height:0!important;gap:20px!important}.hero h1{font-size:clamp(32px,4.1vw,52px)!important;line-height:1.08!important;margin:12px 0!important}.hero p{max-width:610px!important;margin:14px 0!important}.hero-side{display:none!important}.hero-actions{margin:16px 0 0!important}.work-product{margin-top:12px!important}.work-product .work-main{margin-top:16px!important}.work-product>.eyebrow{opacity:.75}.work-product>h2{font-size:clamp(25px,3vw,36px)!important;margin:8px 0!important}.work-product>.work-my-list{margin-top:14px}.work-product .work-track-panel{padding:24px!important}.work-product .work-track-panel>.work-summary{margin-bottom:16px!important}.work-product .work-track-panel>.work-next{margin:16px 0!important}.certified#certified-work{margin-top:24px!important}.certified#certified-work>p{max-width:750px!important}.certified#certified-work .certified-meta{overflow-wrap:anywhere}@media(max-width:650px){.hero{padding-top:18px!important}.hero h1{font-size:34px!important}.work-product .work-track-panel{padding:16px!important}}
 </style>
 </head>
 <body>
@@ -166,9 +169,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <div>
       <div class="eyebrow">WORK · EVIDENCE · CONSENSUS</div>
       <h1>Work completed?<br><em>Prove it on-chain.</em></h1>
-      <p>Define a software task, lock its GitHub evidence policy, submit a pull request and let GenLayer verify completion. Accepted work receives an inspectable on-chain certificate.</p>
+      <p>Certify GitHub contributions with verifiable on-chain acceptance.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#work-app">Open work workspace ↗</a>
+        <a class="btn btn-primary" href="#work-app">Open workspace ↗</a>
         <a class="btn btn-subtle" href="#certified-work">See certified work</a>
       </div>
     </div>
@@ -182,20 +185,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 
   
 
-  <section class="certified" id="certified-work" aria-labelledby="certified-heading">
-    <div class="certified-row"><div class="eyebrow">CERTIFIED SOFTWARE WORK</div><span class="certified-tag">WORK #1 · CERTIFIED</span></div>
-    <h2 id="certified-heading">Verified work. Enforced source policy.</h2>
-    <p>Spotter's ProofGate verified merged <a href="https://github.com/bearbaba/spotter/pull/24" target="_blank" rel="noopener noreferrer" style="color:var(--teal);text-decoration:underline">GitHub PR #24</a> against a locked acceptance rubric. GenLayer recorded its acceptance and finalized the certificate issuance. The contract fixes the GitHub repository, target branch, PR number and rubric; only evidence from the canonical GitHub PR API can satisfy its acceptance checks. An authorized participant issued the certificate only after the work reached ACCEPTED. The work certification interface below interacts with this deployed ProofGate contract. Every write requires wallet approval.</p>
-    <div class="certified-meta">GenLayer Studionet · ProofGate contract: <code>0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7</code> · Work ID: 1 · State: CERTIFIED</div>
-    <div class="certified-actions">
-      <a class="btn btn-primary" href="https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7" target="_blank" rel="noopener noreferrer">Read certified work ↗</a>
-      <a class="btn" href="https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599" target="_blank" rel="noopener noreferrer">Finalized transaction ↗</a>
-      <a class="btn btn-subtle" href="https://github.com/bearbaba/spotter/pull/25" target="_blank" rel="noopener noreferrer">Inspect contract source policy ↗</a>
-    </div>
-    <p style="font-size:12px;margin:16px 0 0">ProofGate certification is live on testnet; escrow settlement and payouts are not connected. No GEN payment occurred in this certificate transaction.</p>
-  </section>
-
-<section class="certified work-product" id="work-app" aria-labelledby="workAppHeading"><div class="eyebrow">SPOTTER · GENLAYER STUDIONET</div><h2 id="workAppHeading">Your work, verified.</h2><p>Review work, check evidence, and certify completion on-chain. Select a work item to see the next step.</p><div class="work-main">    <div class="panel work-track-panel">
+  <section class="certified work-product" id="work-app" aria-labelledby="workAppHeading"><div class="eyebrow">SPOTTER · GENLAYER STUDIONET</div><h2 id="workAppHeading">Your work, verified.</h2><p>Review work, check evidence, and certify completion on-chain. Select a work item to see the next step.</p><div class="work-main">    <div class="panel work-track-panel">
       <h3>Work details</h3><div id="workSummary" class="work-summary" aria-live="polite"><span class="work-state">SELECT A WORK</span><p>Connect your wallet and select a work item below, or open certified Work #1.</p></div>
       <div class="field work-id-field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" placeholder="Automatically selected after creation" /></div>
       <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button><button id="workExample" type="button" class="btn btn-subtle btn-small" style="margin-left:8px">See real certified Work #1</button>
@@ -223,6 +213,19 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
     </div>
 </details><details class="work-history"><summary>Transaction history and recovery</summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details></section>
+<section class="certified" id="certified-work" aria-labelledby="certified-heading">
+    <div class="certified-row"><div class="eyebrow">CERTIFIED SOFTWARE WORK</div><span class="certified-tag">WORK #1 · CERTIFIED</span></div>
+    <h2 id="certified-heading">Verified work. Enforced source policy.</h2>
+    <p>Work #1 certified merged <a href="https://github.com/bearbaba/spotter/pull/24" target="_blank" rel="noopener noreferrer">PR #24</a> on GenLayer Studionet. Verify the acceptance record, transaction, and locked GitHub evidence policy.</p>
+    <div class="certified-meta">GenLayer Studionet · ProofGate contract: <code>0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7</code> · Work ID: 1 · State: CERTIFIED</div>
+    <div class="certified-actions">
+      <a class="btn btn-primary" href="https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7" target="_blank" rel="noopener noreferrer">Read certified work ↗</a>
+      <a class="btn" href="https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599" target="_blank" rel="noopener noreferrer">Finalized transaction ↗</a>
+      <a class="btn btn-subtle" href="https://github.com/bearbaba/spotter/pull/25" target="_blank" rel="noopener noreferrer">Inspect contract source policy ↗</a>
+    </div>
+    <p style="font-size:12px;margin:16px 0 0">ProofGate certification is live on testnet; escrow settlement and payouts are not connected. No GEN payment occurred in this certificate transaction.</p>
+  </section>
+
 <section class="certified" id="details"><div class="eyebrow">TRANSPARENT TESTNET SOFTWARE</div><h2>Verified results, not promises.</h2><p>Spotter records accepted work on GenLayer Studionet. Work certification is live; escrow payments are not implemented. Every write requires explicit wallet approval, and every result must be checked against finalized on-chain state.</p></section>
 <footer class="footer">
     <span>Spotter is experimental software on GenLayer Studionet. AI verdicts are not guarantees of truth. No real funds or escrow.</span>
