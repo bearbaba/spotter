@@ -6,16 +6,16 @@ const root = resolve(import.meta.dirname, "..");
 const html = readFileSync(resolve(root, "index.html"), "utf8");
 const entry = readFileSync(resolve(root, "app.mjs"), "utf8");
 if (!/from "\.\/jobs-browser\.mjs\?v=[a-z0-9-]+"/i.test(entry)) throw new Error("Missing versioned Job explorer module import");
-const files = ["index.html", "app.mjs", "spotter-core.mjs", "jobs-browser.mjs"];
+const files = ["index.html", "app.mjs", "spotter-core.mjs", "jobs-browser.mjs", "proofgate-core.mjs", "proofgate-ui.mjs"];
 for (const file of files) {
   if (file === "index.html" && !/src="\.\/app\.mjs\?v=[a-z0-9-]+"/i.test(html)) {
     throw new Error("Missing application module");
   }
 }
 if (html.includes('id="undefined"')) throw new Error("Broken HTML reference");
-for (const name of ["app.mjs", "spotter-core.mjs", "jobs-browser.mjs"]) {
+for (const name of ["app.mjs", "spotter-core.mjs", "jobs-browser.mjs", "proofgate-core.mjs", "proofgate-ui.mjs"]) {
   execFileSync(process.execPath, ["--check", resolve(root, name)], { stdio: "inherit" });
 }
 mkdirSync(resolve(root, "dist"), { recursive: true });
 for (const file of files) copyFileSync(resolve(root, file), resolve(root, "dist", file));
-console.log("Static build OK: dist/index.html + 3 JS modules; no external install needed.");
+console.log("Static build OK: dist/index.html + 5 JS modules; no external install needed.");
