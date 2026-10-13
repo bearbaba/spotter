@@ -198,11 +198,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 
 <section class="certified" id="work-app" aria-labelledby="workAppHeading">
   <div class="eyebrow">GENLAYER STUDIONET · REAL ON-CHAIN TRANSACTIONS</div>
-  <h2 id="workAppHeading">Work certification workspace</h2>
-  <p>Create a GitHub PR work agreement, submit it for review, request GenLayer evaluation, and issue a certificate only after acceptance. Each write needs a separate MetaMask approval. No escrow or payment.</p>
+  <h2 id="workAppHeading">Verify completed work</h2>
+  <p>One simple flow: agree on the work, submit the GitHub pull request, let GenLayer verify it, then certify the result. Every blockchain write requires your approval. No funds are transferred.</p><div class="stepbar" aria-label="Work verification steps"><div class="step"><span class="step-num">01</span><span>Create work</span></div><div class="step"><span class="step-num">02</span><span>Submit PR</span></div><div class="step"><span class="step-num">03</span><span>AI verification</span></div><div class="step"><span class="step-num">04</span><span>Certification</span></div></div>
   <div class="workspace">
     <div class="panel">
-      <h3>Create a work agreement</h3>
+      <h3>1. Set up the task</h3>
       <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /></div>
       <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" placeholder="bearbaba" /></div>
       <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" placeholder="spotter" /></div>
@@ -214,15 +214,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
     </div>
     <div class="panel">
-      <h3>Inspect and advance work</h3>
+      <h3>2. Track and verify</h3>
       <div class="field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" value="1" /></div>
       <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button>
       <div class="action-row"><button type="button" class="btn" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn" data-work-method="evaluate" disabled>Run GenLayer evaluation</button><button type="button" class="btn" data-work-method="issue_acceptance" disabled>Issue certification</button></div>
       <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
       <pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre>
-      <p id="workPending" class="notice pending" hidden></p>
+      <p id="workPending" class="notice pending" hidden></p><a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Check transaction on Explorer ↗</a>
       <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear resolved transaction tracking</button>
-      <p class="hint">After signing, wait for FINALIZED in Studio / Explorer. A submitted transaction is not automatically a successful final state. Never retry an unresolved write.</p>
+      <p class="hint">After signing, check the Explorer transaction until it is FINALIZED, then read Work again. The next action unlocks only when the contract state permits it.</p>
     </div>
   </div>
 </section>
