@@ -221,7 +221,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p>
     </div>
 </div></div></div><details id="workCreateSection" class="work-create-section"><summary>+ Create a new work agreement</summary>    <div class="panel work-create-panel">
-      <h3>Create a work agreement</h3>
+      <h3>Create a work agreement</h3><div class="field"><label for="workPrUrl">GitHub pull request URL</label><input id="workPrUrl" type="url" autocomplete="off" placeholder="https://github.com/owner/repository/pull/123" /><p class="hint">Paste a public GitHub PR link. Repository, branch, PR number and suggested criteria will be prepared automatically.</p></div>
       <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /><button id="workPickWallet" type="button" class="btn btn-subtle btn-small">Use selected MetaMask account</button><p class="hint">Choose your account in MetaMask, or enter a different worker address.</p></div>
       <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" value="bearbaba" placeholder="bearbaba" /></div>
       <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" value="spotter" placeholder="spotter" /></div>
