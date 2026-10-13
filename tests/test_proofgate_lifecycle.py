@@ -72,6 +72,7 @@ def github_pr(merged=True, branch="main", repo="bearbaba/spotter"):
         "base": {"ref": branch, "repo": {
             "full_name": repo, "html_url": "https://github.com/" + repo}},
         "merged_at": "2026-10-13T00:00:00Z" if merged else None,
+        "merged": merged, "state": "closed" if merged else "open",
         "merge_commit_sha": "a" * 40 if merged else None,
     }
 
@@ -123,7 +124,7 @@ class LifecycleTests(unittest.TestCase):
         DummyGL.message.sender_address = WORKER
         self.p.submit_for_review(self.ident)
         self.p.evaluate(self.ident)
-        self.assertEqual(self.p.works[self.ident].state, "REJECTED")
+        self.assertEqual(self.p.works[self.ident].state, "REVIEW")
         with self.assertRaisesRegex(Exception, "not accepted"):
             self.p.issue_acceptance(self.ident)
 
