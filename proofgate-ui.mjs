@@ -240,6 +240,10 @@ function showAccount(addr){
 }
 async function connectAccount(){
  if(!window.ethereum?.request)throw Error("MetaMask is not available.");
+ if(connectedAccount && window.ethereum.request){
+   try{await window.ethereum.request({method:"wallet_requestPermissions",params:[{eth_accounts:{}}]});}
+   catch(e){if(e?.code===4001)throw Error("Account selection canceled in MetaMask.");/* wallet may not support permission selection; continue with existing authorized accounts */}
+ }
  const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
  const addr=accounts?.[0]||"";
  if(!/^0x[0-9a-fA-F]{40}$/.test(addr))throw Error("Select a valid account in MetaMask.");
