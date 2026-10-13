@@ -7,6 +7,7 @@ const CHECKABLE = new Set([
   "WORK VERIFIED ON-CHAIN",
   "ON-CHAIN VERIFIED",
   "UNVERIFIED LOCAL HISTORY",
+  "FINALIZED · VERIFY ID",
 ]);
 
 // Browser history is a hint, never proof. Only hashes with unresolved receipts are polled.
@@ -23,6 +24,8 @@ export function outstandingReceipts(records) {
 }
 
 export function receiptResolution(entry, receipt) {
+  const identity = receipt?.hash ?? receipt?.txId ?? receipt?.id;
+  if(identity && String(identity).toLowerCase()!==String(entry.hash).toLowerCase())return null;
   const outcome = finalizedReceipt(receipt);
   if (outcome === "PENDING") return null;
   const audit = {
@@ -32,7 +35,7 @@ export function receiptResolution(entry, receipt) {
   if (outcome === "FAILED") return { status: "FAILED (GENVM)", ...audit };
   if (entry.method === "create_work") {
     // Receipt is successful, but its output is not necessarily a verified Work ID.
-    const id = createdWorkId(receipt);
+    const id = entry.candidateWorkId || createdWorkId(receipt);
     return { status: id ? "FINALIZED · VERIFY ID" : "FINALIZED · ID UNKNOWN",
       ...(id ? {candidateWorkId:id} : {}), ...audit };
   }
