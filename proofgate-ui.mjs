@@ -71,6 +71,8 @@ async function checkPrReadiness(config,target){
 
 let lastWork = null;
 let busy = false;
+let connectedAccount = "";
+let authorizedAccounts = [];
 function signerAllowed(method,work,account){
  if(method==="create_work")return true;
  if(!work || !account)return false;
@@ -447,8 +449,6 @@ $("workPickWallet").addEventListener("click",async()=>{
 });
 generateRubric();
 
-let connectedAccount="";
-let authorizedAccounts=[];
 function setAccounts(accounts){
  authorizedAccounts=(Array.isArray(accounts)?accounts:[]).filter(a=>/^0x[a-fA-F0-9]{40}$/.test(a));
  const el=$("walletAccount");el.replaceChildren();
