@@ -7,8 +7,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --test tests/proofgate-web.test.mjs",
-    "verify": "npm run build && npm test",
-    "test:legacy": "node --test tests/discovery.test.mjs tests/offline.test.mjs tests/ui-flow.test.mjs"
+    "verify": "npm run build && npm test"
   },
   "engines": {
     "node": ">=20"
