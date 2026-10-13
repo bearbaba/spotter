@@ -42,3 +42,15 @@ export function finalizedReceipt(receipt) {
   // Missing or unfamiliar execution results must be investigated, never marked successful.
   return "PENDING";
 }
+
+/** A pending write blocks only its own work, except unresolved creation. */
+export function unresolvedTransactionBlocks(records, method, workId) {
+  if(!Array.isArray(records))return false;
+  return records.some(entry=>{
+    if(!entry || entry.status!=="PENDING" || entry.method==="recovered transaction")return false;
+    if(entry.method==="create_work")return true;
+    // A known pending creation prevents another creation, but other work must remain usable.
+    if(method==="create_work")return false;
+    return Boolean(entry.workId && String(entry.workId)===String(workId));
+  });
+}
