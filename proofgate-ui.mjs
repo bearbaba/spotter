@@ -2,7 +2,7 @@ import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
-import { outstandingReceipts, verifyStoredReceipts } from "./transaction-tracker.mjs";
+import { outstandingReceipts, verifyStoredReceipts, compactHistory } from "./transaction-tracker.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
@@ -11,8 +11,16 @@ const $ = id => document.getElementById(id);
 const client = createClient({chain:studionet,endpoint:ENDPOINT,account:ZERO});
 const KEY = "spotter.work.pending";
 const HISTORY_KEY = "spotter.work.history.v1";
-const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x.filter(e=>e && /^0x[0-9a-fA-F]{64}$/.test(e.hash||"")).slice(0,100):[];}catch{return [];}};
-function remember(entry){const records=history();const i=records.findIndex(x=>x.hash.toLowerCase()===entry.hash.toLowerCase());if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
+const history = () => {try{return compactHistory(JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"));}catch{return [];}};
+function remember(entry){
+ if(!/^0x[0-9a-fA-F]{64}$/.test(entry?.hash||""))throw Error("Cannot save invalid transaction hash.");
+ const records=history();
+ const i=records.findIndex(x=>x.hash.toLowerCase()===entry.hash.toLowerCase());
+ const old=i>=0?records.splice(i,1)[0]:{};
+ records.unshift({...old,...entry});
+ localStorage.setItem(HISTORY_KEY,JSON.stringify(compactHistory(records)));
+ renderHistory();
+}
 function renderHistory(){
  const root=$("workHistory");if(!root)return;root.replaceChildren();
  const rows=history();
@@ -167,14 +175,7 @@ async function read() {
   const work = parseWork(raw);
   if (!work || work.id !== id) throw Error("Finalized work record not found or response invalid.");
   render(work);
-  const p=pending();
-  // A latest-final on-chain record corroborates creation even when the RPC receipt tracker stalls.
-  if(p?.method==="create_work" && work.client?.toLowerCase()===p.account?.toLowerCase() && work.owner?.toLowerCase()===p.owner?.toLowerCase() && work.repository?.toLowerCase()===p.repository?.toLowerCase() && String(work.pr_number)===String(p.pr)){
-    remember({...p,status:"FINALIZED · ON-CHAIN VERIFIED",workId:work.id});
-    sessionStorage.removeItem(KEY);refreshPending();
-    note("Work #"+work.id+" is recorded in latest-final contract state. Previous create transaction tracking reconciled.");
-    void findMine();
-  }
+
 }
 async function wallet() {
   if (!window.ethereum?.request) throw Error("MetaMask is required for contract writes.");
@@ -286,8 +287,13 @@ async function checkTransaction(){
  const scopedNote=(message,error=false)=>{if(p.method==="create_work" || String(p.workId)===$("workId").value.trim())note(message,error);};
  checkInProgress=true;$("workCheck").disabled=true;
  try{
-  const receipt=await client.getTransaction({hash:p.hash}); // Read persisted chain state once; periodic checks handle pending transactions.
-  if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return; // latest-final Work state already resolved tracking
+  const receipt=await client.getTransaction({hash:p.hash}); // Read-only chain verification.
+  if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return; // Another task resolved this hash.
+  const returnedHash=receipt?.hash??receipt?.txId??receipt?.id;
+  if(returnedHash && String(returnedHash).toLowerCase()!==p.hash.toLowerCase()){
+   scopedNote("RPC returned a different transaction hash. Outcome remains unverified; no retry or signature.",true);
+   return;
+  }
   const status=finalizedReceipt(receipt);
   if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
   if(status!=="FINALIZED"){scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
@@ -497,26 +503,7 @@ async function findMine(){
  if(connectedAccount.toLowerCase()!==lookupAccount)return; // another wallet selection superseded this scan
  display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
- // Reconcile persistent browser HISTORY separately from session transaction tracking.
- // Use latest-final contract reads, and never equate a matching work record with a finalized receipt.
- for(const entry of history().filter(x=>x.method==="create_work" && x.status==="PENDING")){
-   const matches=found.filter(w=>w.client?.toLowerCase()===entry.account?.toLowerCase() && w.owner?.toLowerCase()===entry.owner?.toLowerCase() && w.repository?.toLowerCase()===entry.repository?.toLowerCase() && String(w.pr_number)===String(entry.pr));
-   if(matches.length===1){
-     const work=matches[0];
-     remember({...entry,status:"WORK VERIFIED ON-CHAIN",workId:work.id});
-     const session=pending();
-     if(session?.hash?.toLowerCase()===entry.hash?.toLowerCase()){
-       sessionStorage.removeItem(KEY);
-       refreshPending();
-     }
-   }
- }
- const unresolved=pending();
- if(unresolved?.method==="create_work"){
-   const confirmed=found.filter(w=>w.client?.toLowerCase()===unresolved.account?.toLowerCase() && w.owner?.toLowerCase()===unresolved.owner?.toLowerCase() && w.repository?.toLowerCase()===unresolved.repository?.toLowerCase() && String(w.pr_number)===String(unresolved.pr));
-   // Only auto-reconcile an unambiguous agreement, never infer a Work ID from an arbitrary PR.
-   if(confirmed.length===1){const w=confirmed[0];remember({...unresolved,status:"ON-CHAIN VERIFIED",workId:w.id});sessionStorage.removeItem(KEY);refreshPending();$("workId").value=w.id;render(w);}
- }
+ // Work records are displayed, never used to infer an unrelated transaction hash succeeded.
  if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[found.length-1].id;void read().catch(e=>note(e.message,true));}
  for(const work of found.reverse()){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
