@@ -53,6 +53,8 @@ function render(work) {
   $("workOutput").textContent = JSON.stringify(work,null,2);
   $("workOutput").hidden = false;
   const state = work.state || "UNKNOWN";
+  const summary=$("workSummary");if(summary){summary.replaceChildren();const tag=document.createElement("span");tag.className="work-state";tag.textContent=state;const heading=document.createElement("strong");heading.textContent="Work #"+work.id+" · "+work.owner+"/"+work.repository+" · PR #"+work.pr_number;const detail=document.createElement("p");detail.textContent=work.explanation || (state==="OPEN"?"Created and ready for the assigned worker.":state==="SUBMITTED"?"Submitted for GenLayer verification.":state==="CERTIFIED"?"Acceptance certificate recorded on-chain.":"Review the evidence and contract state.");summary.append(tag,heading,detail);}
+  const helper=$("workNextHelp");if(helper)helper.textContent=state==="OPEN"?"Only the assigned worker can submit this work.":state==="SUBMITTED"||state==="REVIEW"?"Run GenLayer evaluation to check the locked GitHub evidence.":state==="ACCEPTED"?"The client or worker can issue the on-chain acceptance certificate.":state==="CERTIFIED"?"Completed. No further blockchain action is needed.":"Read the finalized state to see available actions.";
   note("Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
   syncButtons();
 }
@@ -261,8 +263,9 @@ async function connectAccount(){
 }
 async function findMine(){
  const display=$("walletWorks");
- if(!connectedAccount){display.textContent="Connect MetaMask to find your work.";return;}
- display.textContent="Reading work records from GenLayer…";
+ const primary=$("workPrimaryList");
+ if(!connectedAccount){display.textContent="Connect MetaMask to find your work.";if(primary)primary.textContent="Connect MetaMask to load your work.";return;}
+ display.textContent="Reading work records from GenLayer…";if(primary)primary.textContent="Loading your work…";
  const found=[];
  let missed=0,checked=0;
  // Bounded scan: no indexer exists in the current contract.
@@ -276,14 +279,14 @@ async function findMine(){
      if([work.client,work.worker].some(x=>typeof x==="string"&&x.toLowerCase()===connectedAccount.toLowerCase()))found.push(work);
    }catch(e){display.textContent="Could not finish reading on-chain work. Try Refresh my work.";return;}
  }
- display.replaceChildren();
+ display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
  for(const work of found.reverse()){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
   btn.textContent="Work #"+work.id+" · "+work.state+" · PR #"+work.pr_number+" ↗";
   btn.style.margin="4px";
   btn.addEventListener("click",()=>{$("workId").value=work.id;render(work);});
-  display.append(btn);
+  display.append(btn);if(primary){const visible=btn.cloneNode(true);visible.addEventListener("click",()=>{$("workId").value=work.id;render(work);document.querySelector("#work-app")?.scrollIntoView({behavior:"smooth",block:"start"});});primary.append(visible);}
  }
 }
 $("walletAccount").addEventListener("change",()=>{showAccount($("walletAccount").value);void findMine();});
