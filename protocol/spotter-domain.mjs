@@ -21,12 +21,21 @@ export function transition(x,event,actor,now){
  let n={...x};
  const client=actor===x.client,worker=actor===x.worker;
  switch(event){
+ case "CANCEL_DRAFT":
+   assert(client&&x.work==="DRAFT"&&x.escrow==="UNFUNDED","only client can cancel an unfunded draft");
+   n.work="CANCELLED";break;
  case "FUND_CONFIRMED":
    assert(client&&x.work==="DRAFT"&&x.escrow==="UNFUNDED","only client can fund draft");
    n.work="FUNDED";n.escrow="LOCKED";break;
  case "START":
    assert(worker&&x.work==="FUNDED"&&x.escrow==="LOCKED","only worker can start funded work");
    n.work="ACTIVE";break;
+ case "EXPIRE_UNSTARTED":
+   assert(client&&x.work==="FUNDED"&&x.escrow==="LOCKED"&&now>x.deadline,"only client can expire unstarted work after deadline");
+   n.work="SETTLED";n.escrow="REFUNDABLE";break;
+ case "EXPIRE_UNSUBMITTED":
+   assert(client&&x.work==="ACTIVE"&&x.escrow==="LOCKED"&&now>x.deadline,"only client can expire unsubmitted work after deadline");
+   n.work="SETTLED";n.escrow="REFUNDABLE";break;
  case "SUBMIT":
    assert(worker&&x.work==="ACTIVE"&&now<=x.deadline,"submission not allowed");
    n.work="SUBMITTED";break;
