@@ -12,7 +12,7 @@ const KEY = "spotter.work.pending";
 const HISTORY_KEY = "spotter.work.history.v1";
 const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x:[];}catch{return [];}};
 function remember(entry){const records=history();const i=records.findIndex(x=>x.hash===entry.hash);if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
-function renderHistory(){const root=$("workHistory");if(!root)return;root.replaceChildren();const rows=history();if(!rows.length){root.textContent="No transactions recorded in this browser.";return;}for(const p of rows){const item=document.createElement("div");item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";const label=document.createElement("span");label.textContent=p.method+" · "+(p.status||"PENDING")+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";item.append(label,link);root.append(item);}}
+function renderHistory(){const root=$("workHistory");if(!root)return;root.replaceChildren();const rows=history();if(!rows.length){root.textContent="No transactions recorded in this browser.";return;}for(const p of rows){const item=document.createElement("div");item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";const label=document.createElement("span");const active=pending()?.hash?.toLowerCase()===p.hash?.toLowerCase();const state=p.status==="PENDING"&&!active?"UNVERIFIED LOCAL HISTORY":(p.status||"UNVERIFIED");label.textContent=p.method+" · "+state+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";item.append(label,link);root.append(item);}}
 
 
 let prReadSequence=0;
@@ -48,10 +48,10 @@ function signerAllowed(method,work,account){
  return true;
 }
 function syncButtons() {
-  const blocked = busy || Boolean(pending());
+  const blocked = busy;
   for (const button of document.querySelectorAll("[data-work-method]")) {
     const method = button.dataset.workMethod;
-    button.disabled = blocked || (method !== "create_work" && (!lastWork || lastWork.id !== $("workId").value.trim() || !workActionAllowed(method,lastWork.state) || !signerAllowed(method,lastWork,connectedAccount)));
+    button.disabled = blocked || transactionBlocks(method) || (method !== "create_work" && (!lastWork || lastWork.id !== $("workId").value.trim() || !workActionAllowed(method,lastWork.state) || !signerAllowed(method,lastWork,connectedAccount)));
   }
   $("workRead").disabled = busy;
 }
@@ -64,10 +64,16 @@ function note(message, error = false) {
 function pending() {
   try { return JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch { return null; }
 }
+function transactionBlocks(method){
+ const p=pending();if(!p)return false;
+ if(method==="create_work"||p.method==="create_work")return true;
+ return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
+}
 function refreshPending() {
   const p = pending();
-  $("workPending").hidden = !p;
-  if (p) {
+  const relevant=p && (p.method==="create_work" || String(p.workId)===$("workId").value.trim());
+  $("workPending").hidden = !relevant;
+  if (relevant) {
     $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
     $("workClear").hidden = false;
     $("workCheck").hidden = false;
@@ -88,7 +94,7 @@ function render(work) {
   const summary=$("workSummary");if(summary){summary.replaceChildren();const tag=document.createElement("span");tag.className="work-state";tag.textContent=state;const heading=document.createElement("strong");heading.textContent="Work #"+work.id+" · "+work.owner+"/"+work.repository+" · PR #"+work.pr_number;const detail=document.createElement("p");detail.textContent=work.explanation || (state==="OPEN"?"Created and ready for the assigned worker.":state==="SUBMITTED"?"Submitted for GenLayer verification.":state==="CERTIFIED"?"Acceptance certificate recorded on-chain.":"Review the evidence and contract state.");summary.append(tag,heading,detail);}
   const helper=$("workNextHelp");if(helper)helper.textContent=state==="OPEN"?"Only the assigned worker can submit this work.":state==="SUBMITTED"||state==="REVIEW"?"Run GenLayer evaluation to check the locked GitHub evidence.":state==="ACCEPTED"?"The client or worker can issue the on-chain acceptance certificate.":state==="CERTIFIED"?"Completed. No further blockchain action is needed.":"Read the finalized state to see available actions.";
   note("Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
-  syncButtons();
+  refreshPending();
   if(state==="SUBMITTED"||state==="REVIEW")void checkPrReadiness({owner:work.owner,repository:work.repository,branch:work.target_branch,number:work.pr_number,requiredLabel:work.required_label},"workPrPreflight");
   else preflightView("workPrPreflight",null,state==="CERTIFIED"?"Certification recorded on-chain.":state==="ACCEPTED"?"Accepted on-chain. Ready for certificate issuance.":"GitHub readiness check will appear once submitted.");
 }
@@ -136,7 +142,7 @@ function args(method) {
   return [worker,owner,repo,branch,Number(pr),label,rubric];
 }
 async function act(method) {
-  if (busy || pending()) throw Error("Resolve the existing transaction first; duplicate submissions are disabled.");
+  if (busy || transactionBlocks(method)) throw Error("Resolve the transaction pending for this work before signing again.");
   const callArgs = args(method);
   const account = await wallet();
   if(method!=="create_work" && !signerAllowed(method,lastWork,account))throw Error("Wrong signing wallet. This action requires the nominated worker address "+lastWork?.worker+". Choose that wallet in the header before submitting.");
