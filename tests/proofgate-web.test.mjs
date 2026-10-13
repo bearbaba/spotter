@@ -17,3 +17,12 @@ test("transition guard fails closed",()=>{
  assert.equal(workActionAllowed("evaluate","REVIEW"),true);
  assert.equal(workActionAllowed("evaluate","CERTIFIED"),false);
 });
+
+import { readFileSync } from "node:fs";
+test("official page serves only certified-work interface",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ assert.match(html,/id="work-app"/);
+ assert.match(html,/id="certified-work"/);
+ assert.doesNotMatch(html,/id="workspace"|src="\.\/app\.mjs|0x730143dF831778569e15975Ef44dFDeCB668609b/);
+ assert.match(html,/0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7/);
+});
