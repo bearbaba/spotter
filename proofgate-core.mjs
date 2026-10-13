@@ -43,14 +43,18 @@ export function finalizedReceipt(receipt) {
   return "PENDING";
 }
 
-/** A pending write blocks only its own work, except unresolved creation. */
+/** Prevent duplicate submissions without freezing unrelated work. */
 export function unresolvedTransactionBlocks(records, method, workId) {
   if(!Array.isArray(records))return false;
   return records.some(entry=>{
-    if(!entry || entry.status!=="PENDING" || entry.method==="recovered transaction")return false;
-    if(entry.method==="create_work")return true;
-    // A known pending creation prevents another creation, but other work must remain usable.
-    if(method==="create_work")return false;
+    if(!entry || entry.method==="recovered transaction")return false;
+    if(entry.method==="create_work"){
+      // Even after a successful create receipt, do not recreate while its Work ID
+      // is unknown or awaiting independent contract readback.
+      const outstanding=["PENDING","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID","WORK VERIFIED ON-CHAIN","ON-CHAIN VERIFIED"];
+      return method==="create_work" && outstanding.includes(entry.status);
+    }
+    if(entry.status!=="PENDING" || method==="create_work")return false;
     return Boolean(entry.workId && String(entry.workId)===String(workId));
   });
 }
