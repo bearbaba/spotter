@@ -56,9 +56,9 @@ Timeout proposals require both named parties; a non-cooperating counterparty can
 - Merge commit: `080afca461de824fa7d1bf173f73c4b4df3c349e`.
 - Evidence digest: `e3a62a3c772e33717d5a01d7b08d987e43460d843961f872fb7cbffc3073ff6c`.
 - Rubric result reports concrete Studionet MetaMask network configuration (RPC endpoint, chain ID, explicit user approval).
-- This readback is **user-supplied evidence**. The final deployed contract address, issuance transaction hash and source-to-deployment match have not yet been independently verified; do not cite earlier instance addresses as this certified instance.
+- This readback is **user-supplied evidence**. User identified final Studio contract as `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`, but issuance transaction-to-contract linkage and source-to-deployment match have not yet been independently verified; do not cite earlier instance addresses as this certified instance.
 - `CERTIFIED` represents work verification, **not** an escrow deposit, payment, or audited automatic disbursement.
 
 ### Submitted transaction link awaiting Explorer confirmation
 - User-provided transaction URL: https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599
-- Verification pending: Explorer details could not be fetched automatically; confirm `To` (contract address), `Method`, `Status`, and GenVM execution result before labeling this an on-chain certificate issuance.
+- User-supplied latest Studio contract: https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7\n- Verification pending: Explorer details could not be fetched automatically; confirm `To` matches `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`, `Method` is `issue_acceptance`, `Status` is FINALIZED, and GenVM execution is SUCCESS before labeling this transaction an on-chain certificate issuance.
