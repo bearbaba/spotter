@@ -95,9 +95,19 @@ class ProofGate(gl.Contract):
         return work_id
 
     @gl.public.write
+    def submit_for_review(self, work_id: str) -> None:
+        rec = self.works[work_id]
+        if rec.state != "OPEN":
+            raise Exception("work cannot be submitted again")
+        if rec.worker != gl.message.sender_address:
+            raise Exception("only nominated worker can submit")
+        rec.state = "SUBMITTED"
+        self.works[work_id] = rec
+
+    @gl.public.write
     def evaluate(self, work_id: str) -> None:
         record = gl.storage.copy_to_memory(self.works[work_id])
-        if record.state not in ("OPEN", "REVIEW"):
+        if record.state not in ("SUBMITTED", "REVIEW"):
             raise Exception("work already decided")
         url = canonical_api_url(record.owner, record.repository, int(record.pr_number))
         owner, repository, branch, number = record.owner, record.repository, record.target_branch, int(record.pr_number)
