@@ -222,24 +222,30 @@ function generateRubric() {
   $("workGenerateRubric").hidden = !rubricEdited;
   $("workRubricHelp").textContent=result ? (rubricEdited?"You edited the criteria. Regenerate only if you want to replace your text.":"Suggested criteria ready. You can edit before signing.") : "Enter GitHub owner, repository, target branch and PR number to prepare criteria.";
 }
-$("workPrUrl").addEventListener("change",async()=>{
- const value=$("workPrUrl").value.trim();if(!value)return;
- let url;try{url=new URL(value);}catch{$("workRubricHelp").textContent="Paste a valid public GitHub pull request URL.";return;}
+let loadingPrUrl="";
+async function loadPrUrl(){
+ const value=$("workPrUrl").value.trim();if(!value||value===loadingPrUrl)return;
+ let url;try{url=new URL(value);}catch{return;}
  const match=url.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/);
- if(url.hostname!=="github.com"||!match){$("workRubricHelp").textContent="Use a GitHub PR link like https://github.com/owner/repo/pull/123";return;}
+ if(url.hostname!=="github.com"||!match)return;
+ loadingPrUrl=value;
  const [,owner,repository,number]=match;
  $("workOwner").value=owner;$("workRepo").value=repository;$("workPr").value=number;
+ $("workRubricHelp").textContent="Loading GitHub PR #"+number+"…";
  try{
   const response=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+number,{headers:{Accept:"application/vnd.github+json"}});
   if(!response.ok)throw Error("GitHub API returned "+response.status);
   const pr=await response.json();
   if(pr.base?.repo?.full_name?.toLowerCase()!==(owner+"/"+repository).toLowerCase())throw Error("PR target repository does not match.");
+  if($("workPrUrl").value.trim()!==value)return;
   $("workBranch").value=pr.base.ref;
   suggestionVersion++;generateRubric();
   await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
-  $("workRubricHelp").textContent="GitHub link loaded. Check the criteria and worker wallet, then sign Create work once.";
- }catch(e){$("workRubricHelp").textContent="Repository and PR number filled; verify the target branch manually. "+String(e.message||e);}
-});
+  $("workRubricHelp").textContent="GitHub PR loaded. Verify the worker address and acceptance criteria before signing.";
+ }catch(e){$("workRubricHelp").textContent="PR number filled. Check target branch manually: "+String(e.message||e);loadingPrUrl="";}
+}
+$("workPrUrl").addEventListener("input",()=>{void loadPrUrl();});
+$("workPrUrl").addEventListener("change",()=>{void loadPrUrl();});
 $("workRubric").addEventListener("input",()=>{rubricEdited=true;generateRubric();});
 $("workGenerateRubric").addEventListener("click",()=>{rubricEdited=false;generateRubric();});
 for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"]) {
