@@ -18,4 +18,6 @@ for (const name of ["app.mjs", "spotter-core.mjs", "jobs-browser.mjs"]) {
 }
 mkdirSync(resolve(root, "dist"), { recursive: true });
 for (const file of files) copyFileSync(resolve(root, file), resolve(root, "dist", file));
-console.log("Static build OK: dist/index.html + 3 JS modules; no external install needed.");
+mkdirSync(resolve(root, "dist", "v2"), { recursive: true });
+copyFileSync(resolve(root, "v2", "index.html"), resolve(root, "dist", "v2", "index.html"));
+console.log("Static build OK: V1 legacy explorer and V2 preview included.");
