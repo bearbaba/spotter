@@ -80,7 +80,7 @@ function signerAllowed(method,work,account){
  return true;
 }
 function syncButtons() {
-  const blocked = busy;
+  const blocked = busy || preparingSignature;
   for (const button of document.querySelectorAll("[data-work-method]")) {
     const method = button.dataset.workMethod;
     const stageValid=method==="create_work" || (lastWork && lastWork.id===$("workId").value.trim() && workActionAllowed(method,lastWork.state));
@@ -199,21 +199,35 @@ function args(method) {
   if (rubric.trim().length < 16 || rubric.length > 500 || label.length > 64) throw Error("Write specific acceptance requirements (16–500 characters); labels must be 64 characters or less.");
   return [worker,owner,repo,branch,Number(pr),label,rubric];
 }
+let preparingSignature=false;
 async function act(method) {
-  if (busy || transactionBlocks(method)) throw Error("Resolve the transaction pending for this work before signing again.");
-  if(method!=="create_work"){
-    const id=$("workId").value.trim();
-    const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
-    const current=parseWork(raw);
-    if(!current||current.id!==id||!workActionAllowed(method,current.state)){
-      if(current)render(current);
-      throw Error("Work state changed on-chain; action canceled without a wallet signature. Read the latest Work state.");
+  // Reserve this tab's write slot *before* any awaited RPC or wallet operation.
+  // Rapid clicks cannot open competing MetaMask prompts while preparation runs.
+  if(busy || preparingSignature || transactionBlocks(method))throw Error("A write is already being prepared or an earlier transaction is unresolved. Check receipt status before signing.");
+  preparingSignature=true;
+  syncButtons();
+  let callArgs, account;
+  try {
+    if(method!=="create_work"){
+      const id=$("workId").value.trim();
+      const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
+      const current=parseWork(raw);
+      if(!current || current.id!==id || !workActionAllowed(method,current.state)){
+        if(current)render(current);
+        throw Error("Work state changed on-chain; action canceled without a wallet signature. Read the latest Work state.");
+      }
+      lastWork=current;
     }
-    lastWork=current;
+    callArgs=args(method);
+    account=await wallet();
+    if(method!=="create_work" && !signerAllowed(method,lastWork,account))
+      throw Error("Wrong signing wallet. This action requires the nominated worker or an authorized participant.");
+    // Another tab may have updated the local history while this request was preparing.
+    if(transactionBlocks(method))throw Error("An unresolved write appeared during preparation. No new signature requested.");
+  } finally {
+    preparingSignature=false;
+    syncButtons();
   }
-  const callArgs = args(method);
-  const account = await wallet();
-  if(method!=="create_work" && !signerAllowed(method,lastWork,account))throw Error("Wrong signing wallet. This action requires the nominated worker address "+lastWork?.worker+". Choose that wallet in the header before submitting.");
   busy=true;
   syncButtons();
   note("Waiting for MetaMask approval. No transaction has been confirmed yet.");
@@ -222,21 +236,26 @@ async function act(method) {
     const writer=createClient({chain:studionet,endpoint:ENDPOINT,account,provider:window.ethereum});
     const result=await writer.writeContract({address:ADDRESS,functionName:method,args:callArgs,value:0n});
     const hash=transactionHash(result);
-    if (!hash) throw Error("Wallet response did not contain a recognized transaction hash; inspect wallet history before retrying.");
+    if(!hash)throw Error("Wallet response did not contain a recognized transaction hash; inspect wallet history before retrying.");
     const entry={hash,method,account,created:Date.now(),status:"PENDING",workId:method==="create_work"?"":callArgs[0],owner:method==="create_work"?callArgs[1]:"",repository:method==="create_work"?callArgs[2]:"",pr:method==="create_work"?String(callArgs[4]):""};
-    sessionStorage.setItem(KEY,JSON.stringify(entry));remember(entry);
+    sessionStorage.setItem(KEY,JSON.stringify(entry));
+    remember(entry);
     refreshPending();
-    note("Transaction sent. Open the Explorer link below and wait until FINALIZED. Then read the current Work state. Never send an unresolved transaction twice.");
+    note("Transaction sent. Follow the Explorer transaction until FINALIZED and verify the contract state. Do not resend an unresolved write.");
   } catch(e) {
     const message=String(e?.shortMessage||e?.message||e);
-    if(/rate.limit|429|too many requests|eth_sendRawTransaction/i.test(message)) {
-      note("Studionet RPC is rate limiting transaction submissions. The wallet request may have reached the network even though this page received no transaction hash. Check MetaMask Activity and re-read Work #"+(method==="create_work"?"(new)":callArgs[0])+" before considering another signature. Do NOT immediately resend.",true);
-    } else if(e?.code===4001 || /user rejected|user denied/i.test(message)) {
+    if(/rate.limit|429|too many requests|eth_sendRawTransaction/i.test(message)){
+      note("Studionet RPC reported a submission problem; it may still have reached the network. Inspect MetaMask Activity and re-read the Work. Never resend blindly.",true);
+    }else if(e?.code===4001 || /user rejected|user denied/i.test(message)){
       note("Signature rejected in MetaMask; no transaction hash was recorded.");
-    } else {
-      note("Transaction submission returned an error; inspect MetaMask Activity before retrying. "+message.slice(0,180),true);
+    }else{
+      note("Submission returned an error. Inspect MetaMask Activity before retrying. "+message.slice(0,180),true);
     }
-  } finally {busy=false;refreshPending();syncButtons();}
+  } finally {
+    busy=false;
+    refreshPending();
+    syncButtons();
+  }
 }
 $("workRead").addEventListener("click",async()=>{try {await read();}catch(e){note(e.message,true);}});
 $("workExample").addEventListener("click",async()=>{ $("workId").value="1";lastWork=null;syncButtons();try {await read();}catch(e){note(e.message,true);} });
