@@ -245,11 +245,11 @@ async function checkTransaction(){
  const scopedNote=(message,error=false)=>{if(p.method==="create_work" || String(p.workId)===$("workId").value.trim())note(message,error);};
  checkInProgress=true;$("workCheck").disabled=true;
  try{
-  const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"FINALIZED",interval:2500,retries:2});
+  const receipt=await client.getTransaction({hash:p.hash}); // Read persisted chain state once; periodic checks handle pending transactions.
   if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return; // latest-final Work state already resolved tracking
   const status=finalizedReceipt(receipt);
   if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
-  if(status!=="FINALIZED"){scopedNote("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
+  if(status!=="FINALIZED"){scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
   if(p.method==="create_work"){
     const id=createdWorkId(receipt);
     if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});return;}
