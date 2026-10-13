@@ -101,6 +101,7 @@ async function act(method) {
   } finally {busy=false;refreshPending();syncButtons();}
 }
 $("workRead").addEventListener("click",async()=>{try {await read();}catch(e){note(e.message,true);}});
+$("workExample").addEventListener("click",async()=>{ $("workId").value="1";lastWork=null;syncButtons();try {await read();}catch(e){note(e.message,true);} });
 for(const button of document.querySelectorAll("[data-work-method]")) {
   button.addEventListener("click",async()=>{try {await act(button.dataset.workMethod);}catch(e){note(e.message,true);}});
 }
