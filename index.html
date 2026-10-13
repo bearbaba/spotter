@@ -196,6 +196,36 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <p style="font-size:12px;margin:16px 0 0">ProofGate certification is live on testnet; escrow settlement and payouts are not connected. No GEN payment occurred in this certificate transaction.</p>
   </section>
 
+<section class="certified" id="work-app" aria-labelledby="workAppHeading">
+  <div class="eyebrow">GENLAYER STUDIONET · REAL ON-CHAIN TRANSACTIONS</div>
+  <h2 id="workAppHeading">Work certification workspace</h2>
+  <p>Create a GitHub PR work agreement, submit it for review, request GenLayer evaluation, and issue a certificate only after acceptance. Each write needs a separate MetaMask approval. No escrow or payment.</p>
+  <div class="workspace">
+    <div class="panel">
+      <h3>Create a work agreement</h3>
+      <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /></div>
+      <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" placeholder="bearbaba" /></div>
+      <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" placeholder="spotter" /></div>
+      <div class="field"><label for="workBranch">Target branch</label><input id="workBranch" value="main" /></div>
+      <div class="field"><label for="workPr">Pull request number</label><input id="workPr" inputmode="numeric" placeholder="24" /></div>
+      <div class="field"><label for="workLabel">Required PR label (optional)</label><input id="workLabel" placeholder="Leave blank if none" /></div>
+      <div class="field"><label for="workRubric">Acceptance requirements</label><textarea id="workRubric" placeholder="State concrete, auditable acceptance requirements"></textarea></div>
+      <button type="button" class="btn btn-primary" data-work-method="create_work">Create on-chain work ↗</button>
+      <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
+    </div>
+    <div class="panel">
+      <h3>Inspect and advance work</h3>
+      <div class="field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" value="1" /></div>
+      <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button>
+      <div class="action-row"><button type="button" class="btn" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn" data-work-method="evaluate" disabled>Run GenLayer evaluation</button><button type="button" class="btn" data-work-method="issue_acceptance" disabled>Issue certification</button></div>
+      <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
+      <pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre>
+      <p id="workPending" class="notice pending" hidden></p>
+      <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear resolved transaction tracking</button>
+      <p class="hint">After signing, wait for FINALIZED in Studio / Explorer. A submitted transaction is not automatically a successful final state. Never retry an unresolved write.</p>
+    </div>
+  </div>
+</section>
 <main id="workspace">
     <div class="section-head"><div><div class="eyebrow">YOUR WORKSPACE</div><h2>Verify a public claim</h2></div><p>Wallet approval only for blockchain writes</p></div>
     <div class="resume-hint"><span>Already started a verification?</span><button id="openActivityBtn" class="resume-link" type="button">Find and continue your work ↗</button></div>
@@ -339,5 +369,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 <script type="module" src="./app.mjs?v=spotter-20261012-wallet-onboarding"></script>
+<script type="module" src="./proofgate-ui.mjs"></script>
 </body>
 </html>
