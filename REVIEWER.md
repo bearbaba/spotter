@@ -2,15 +2,15 @@
 
 **Official website:** https://bearbaba.github.io/spotter/  
 **Network:** GenLayer Studionet (chain ID 61999)  
-**ProofGate V2 contract:** `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`  
+**Spotter work contract:** `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`  
 **Studio:** https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7  
 **Certificate transaction:** https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599  
-**V2 source:** https://github.com/bearbaba/spotter/blob/main/contracts/proofgate.py  
-**V2 development and tests:** https://github.com/bearbaba/spotter/pull/25  
+**Contract source:** https://github.com/bearbaba/spotter/blob/main/contracts/proofgate.py  
+**Development and tests:** https://github.com/bearbaba/spotter/pull/25  
 
 ## Concrete workflow and consequence
 
-ProofGate V2 verifies completion of a **specific assigned software contribution**, not whether an arbitrary webpage contains certain text. A client creates a work record that fixes the worker, GitHub owner/repository, target branch, PR number and acceptance rubric. The worker submits it for review. GenLayer checks a trusted, canonical GitHub API route for that exact PR, validates its merge into the agreed branch and evaluates whether the title and description substantiate the qualitative rubric. A successful result produces an on-chain **ACCEPTED** state. Authorized participants can then issue an on-chain **CERTIFIED** acceptance record.
+Spotter work contract verifies completion of a **specific assigned software contribution**, not whether an arbitrary webpage contains certain text. A client creates a work record that fixes the worker, GitHub owner/repository, target branch, PR number and acceptance rubric. The worker submits it for review. GenLayer checks a trusted, canonical GitHub API route for that exact PR, validates its merge into the agreed branch and evaluates whether the title and description substantiate the qualitative rubric. A successful result produces an on-chain **ACCEPTED** state. Authorized participants can then issue an on-chain **CERTIFIED** acceptance record.
 
 **The consequential outcome is work certification.** This permits an auditable acceptance decision in the work lifecycle and prevents issuing a valid certificate for work that has not reached ACCEPTED. Certification is **not** a payment, token transfer, escrow disbursement or production guarantee.
 
@@ -42,9 +42,9 @@ Read-only reproduction: import the contract into GenLayer Studio, call `get_work
 
 The readback and transaction details were supplied by the operator; deployed-source parity, independent negative live cases and hashes for all earlier positive transitions have not yet been documented.
 
-## Website boundaries
+## Official Spotter application
 
-https://bearbaba.github.io/spotter/ is the **single official website**. It features the genuine ProofGate V2 certification and links directly to the deployed contract and transaction. Its interactive public-URL verification workspace currently runs the **older Spotter V1** contract `0x730143dF831778569e15975Ef44dFDeCB668609b`. It is **not** the ProofGate V2 work-creation interface. Do not present a V1 HIT/MISS/DEAD job as V2 work certification.
+The only public application is https://bearbaba.github.io/spotter/. It uses the deployed work-certification contract at `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`. The read-only certified Work #1 result and the work lifecycle interface are available on this website. All state-changing actions require explicit wallet authorization; live browser wallet completion has not yet been independently verified.
 
 ## What is implemented versus planned
 
