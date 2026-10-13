@@ -12,7 +12,38 @@ const KEY = "spotter.work.pending";
 const HISTORY_KEY = "spotter.work.history.v1";
 const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x:[];}catch{return [];}};
 function remember(entry){const records=history();const i=records.findIndex(x=>x.hash===entry.hash);if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
-function renderHistory(){const root=$("workHistory");if(!root)return;root.replaceChildren();const rows=history();if(!rows.length){root.textContent="No transactions recorded in this browser.";return;}for(const p of rows){const item=document.createElement("div");item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";const label=document.createElement("span");const active=pending()?.hash?.toLowerCase()===p.hash?.toLowerCase();const state=p.status==="PENDING"&&!active?"UNVERIFIED LOCAL HISTORY":(p.status||"UNVERIFIED");label.textContent=p.method+" · "+state+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";item.append(label,link);root.append(item);}}
+function renderHistory(){
+ const root=$("workHistory");if(!root)return;root.replaceChildren();
+ const rows=history();
+ const selected=$("workId")?.value.trim()||lastWork?.id||"";
+ const current=selected?rows.filter(p=>String(p.workId)===String(selected)):rows;
+ const previous=selected?rows.filter(p=>String(p.workId)!==String(selected)):[];
+ const draw=(target,records)=>{
+   for(const p of records){
+     const item=document.createElement("div");
+     item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";
+     const label=document.createElement("span");
+     const active=pending()?.hash?.toLowerCase()===p.hash?.toLowerCase();
+     const status=p.status==="PENDING"&&!active?"UNVERIFIED LOCAL HISTORY":(p.status||"UNVERIFIED");
+     label.textContent=p.method+" · "+status+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();
+     const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);
+     link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";
+     item.append(label,link);target.append(item);
+   }
+ };
+ if(selected){
+   const intro=document.createElement("p");intro.textContent="Browser transactions for Work #"+selected+" only.";root.append(intro);
+ }
+ if(current.length)draw(root,current);else {
+   const empty=document.createElement("p");empty.textContent="No browser transactions for this work. On-chain state is shown above.";root.append(empty);
+ }
+ if(previous.length){
+   const details=document.createElement("details");
+   const summary=document.createElement("summary");summary.textContent="Older / other work transaction history ("+previous.length+")";
+   const note=document.createElement("p");note.textContent="These are browser records, not verified chain results. Their statuses do not block the selected work.";
+   details.append(summary,note);draw(details,previous);root.append(details);
+ }
+}
 
 
 let prReadSequence=0;
@@ -88,6 +119,7 @@ function refreshPending() {
 }
 function render(work) {
   lastWork = work;
+  renderHistory();
   $("workOutput").textContent = JSON.stringify(work,null,2);
   $("workOutput").hidden = false;
   const state = work.state || "UNKNOWN";
