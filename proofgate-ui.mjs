@@ -112,3 +112,32 @@ $("workClear").addEventListener("click",()=>{
   note("Local tracking cleared. Read finalized Work state before another write.");
 });
 refreshPending();
+
+let rubricEdited = false;
+function generateRubric() {
+  const owner=$("workOwner").value.trim(), repo=$("workRepo").value.trim(), branch=$("workBranch").value.trim(), pr=$("workPr").value.trim();
+  const requiredLabel=$("workLabel").value.trim();
+  if (!/^[A-Za-z0-9-]{1,39}$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo) || !branch || !/^[1-9][0-9]*$/.test(pr)) {
+    $("workRubric").value="";
+    $("workRubricHelp").textContent="Enter GitHub owner, repository, target branch and PR number to generate requirements.";
+    return;
+  }
+  const rubric="The pull request #"+pr+" in "+owner+"/"+repo+" must be merged into "+branch+". Its title and description must give concrete details of the change delivered and explain how the agreed work is fulfilled."+(requiredLabel?" The PR must have label "+requiredLabel+".":"");
+  $("workRubric").value=rubric.slice(0,500);
+  $("workRubricHelp").textContent="Automatically prepared from your work details. Review or edit before signing; this agreement becomes immutable.";
+}
+$("workRubric").addEventListener("input",()=>{rubricEdited=true;});
+$("workGenerateRubric").addEventListener("click",()=>{rubricEdited=false;generateRubric();});
+for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"]) {
+  $(id).addEventListener("input",()=>{if (!rubricEdited) generateRubric(); else $("workRubricHelp").textContent="Work details changed. Press Regenerate requirements to synchronize the edited agreement.";});
+}
+$("workPickWallet").addEventListener("click",async()=>{
+  try {
+    if(!window.ethereum?.request) throw Error("Install or unlock MetaMask first.");
+    const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
+    if(!/^0x[a-fA-F0-9]{40}$/.test(accounts?.[0]||"")) throw Error("No valid MetaMask account selected.");
+    $("workWorker").value=accounts[0];
+    note("Worker address selected. You can change it before signing.");
+  } catch(e){note(e.message,true);}
+});
+generateRubric();
