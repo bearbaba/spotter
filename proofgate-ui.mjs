@@ -37,7 +37,7 @@ function render(work) {
   note("Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
   for (const button of document.querySelectorAll("[data-work-method]")) {
     const method = button.dataset.workMethod;
-    button.disabled = !workActionAllowed(method,state) || Boolean(pending()) || busy;
+    button.disabled = (method !== "create_work" && !workActionAllowed(method,state)) || Boolean(pending()) || busy;
   }
 }
 async function read() {
