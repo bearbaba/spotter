@@ -437,7 +437,8 @@ test("secondary history loads only when explicitly opened and never signs", asyn
 
 test("verification workspace remains ahead of collapsed Activity & history in the DOM", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  assert.match(html, /href="#workspace">Start verification/);
+  assert.match(html, /href="#work-app">Open work workspace/);
+  assert.ok(html.indexOf('id="work-app"') < html.indexOf('<main id="workspace">'));
   assert.ok(html.indexOf('<main id="workspace">') > 0);
   const workspaceEnd=html.indexOf("</main>");
   const activity=html.indexOf('id="jobs"');
