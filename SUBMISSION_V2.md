@@ -13,7 +13,7 @@ Source branch: `feat/proofgate-v2-contract-foundation`
 - Clearly marked non-financial V2 user-interface preview at `v2/index.html`.
 
 ## Non-negotiable remaining requirements before claiming an on-chain product
-1. **Positive lifecycle observed:** a newer ProofGate V2 Studio instance returned Work ID `1` with state `CERTIFIED` after `create_work`, `submit_for_review`, `evaluate`, and `issue_acceptance`, as reported via `get_work`. The latest deployment address and finalized transaction hashes are still needed to independently link and verify this claim. Earlier `0x87E73676c37c1fb506126c12DF49FA22E3CB8867` only has the separately linked finalized `create_work` evidence below.
+1. **Positive lifecycle proven by supplied Studio evidence:** Work ID `1` is `CERTIFIED` on GenLayer Studio contract `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`; supplied Explorer details show `issue_acceptance("1")` finalized and succeeded. Deployed-source parity and other lifecycle transaction references still need independent verification.
 2. Perform one authentic positive and one negative verification with independent wallets and recorded finalized transaction references.
 3. Wire a verified GenVM finality proof into the EVM contract. **Manual verifier signer is not GenLayer consensus.** Until then do not describe payment as automated by AI consensus.
 4. Deploy the Solidity vault only with test assets on a confirmed compatible chain; record address, chain ID, compiler/artifact hash, test transaction receipts, balances, double-withdrawal rejection, and failure cases.
@@ -21,8 +21,8 @@ Source branch: `feat/proofgate-v2-contract-foundation`
 6. Replace the V2 marketplace preview fixtures with authenticated indexer reads and backed transaction receipts. A preview screenshot does not prove a live work market.
 7. Supply the actual video showing deployed V2 behavior and all URLs, transaction IDs, network configuration and evidence to the submission reviewer.
 
-## Honest submission summary (editable after genuine testnet evidence exists)
-Spotter V2 is rebuilding web-evidence verification into a milestone-based, dispute-aware work protocol. The repo provides GenLayer ProofGate V2 source and adversarial tests, a Foundry-tested native-asset escrow prototype, JS state/accounting models and a responsive preview. The payment architecture is **not yet deployed end-to-end**: the bridge between finalized GenLayer outcomes and Solidity escrow remains a required security milestone. This repository is offered as verifiable implementation progress, not a representation of completed real-money custody.
+## Submission summary (evidence-aligned)
+Spotter V2 is a GenLayer work-verification protocol. Its deployed ProofGate V2 has completed a positive end-to-end certification test on Studionet: GitHub PR evidence was checked against a locked policy, the work was accepted, and on-chain acceptance was issued. The repo also provides ProofGate source and adversarial tests, a Foundry-tested native-asset escrow prototype, JS state/accounting models, and a responsive preview. The payment architecture is **not yet deployed end-to-end**: the bridge between finalized GenLayer outcomes and Solidity escrow remains a required security milestone. This repository is offered as verifiable implementation progress, not a representation of completed real-money custody.
 
 ## Commands
 ```bash
@@ -34,8 +34,8 @@ python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
 
 ## Video checklist
 - Open GitHub at PR #25 and show green JS/Python and Solidity CI tied to a concrete SHA.
-- Explain difference between existing V1 historical Explorer and undeployed V2 ProofGate.
-- Show actual V2 Studio deployment and finalized transactions **only if performed**.
+- Explain difference between existing V1 historical Explorer and deployed V2 ProofGate certification.
+- Show deployed V2 Studio contract, Work #1 CERTIFIED readback, and the finalized certification receipt.
 - Walk through Solidity tests and clearly identify the manual verifier trust model.
 - Show V2 preview as preview; do not imply the sample marketplace is live.
 - State the remaining finality bridge and production security blockers.
