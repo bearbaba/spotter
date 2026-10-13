@@ -47,5 +47,5 @@ test("Spotter boots without a wallet or browser transaction",()=>{
  assert.ok(listeners.has("workRead:click"));
  assert.ok(listeners.has("createWorkAction:click"));
  assert.equal(writeButton.disabled,false);
- assert.equal(element("walletCurrent").textContent,"Wallet not connected");
+ assert.ok(listeners.has("walletConnect:click"));
 });
