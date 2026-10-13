@@ -156,6 +156,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 
 /* Wide desktop canvas for the two-column workspace */
 @media(min-width:1100px){.shell{max-width:none;width:100%;padding-left:clamp(24px,3vw,64px);padding-right:clamp(24px,3vw,64px)}.work-product{max-width:none;width:100%;margin-inline:0}.work-product .work-two-columns{grid-template-columns:minmax(320px,0.8fr) minmax(0,1.5fr);gap:clamp(20px,2vw,36px)}.work-product .work-left-column .work-my-list{min-height:480px}.work-product .work-track-panel{padding:clamp(24px,2vw,38px)!important}}
+
+/* Readable agreement form independent from full-width dashboard */
+.work-product #workCreateSection{max-width:100%;}.work-product #workCreateSection>.work-create-panel{width:min(100%,860px);max-width:860px;margin:20px auto 0;padding:clamp(18px,2vw,30px);box-sizing:border-box}.work-product #workCreateSection .field{max-width:100%}.work-product #workCreateSection input,.work-product #workCreateSection textarea{width:100%;max-width:100%;box-sizing:border-box}.work-product #workCreateSection .work-create-panel>h3{margin-top:0}@media(min-width:1400px){.work-product #workCreateSection>.work-create-panel{width:min(75vw,860px)}}@media(max-width:760px){.work-product #workCreateSection>.work-create-panel{width:100%;padding:16px;margin-top:14px}}
 </style>
 </head>
 <body>
