@@ -54,3 +54,22 @@ Once a *new V2 contract is deployed*, demonstrate separate testnet work orders:
 | GitHub API unavailable / mismatched data | Only the contract-derived GitHub endpoint is fetched | `REVIEW`; no certification, can retry |
 
 **These are planned verification scenarios, not executed V2 on-chain transactions yet.** Check current GitHub PR metadata again just before running tests. The owner/repo/branch/PR values are immutable per work order; a different URL cannot be substituted through the user interface.
+
+## Release-quality gates (must pass before deploying / resubmitting)
+
+**Architecture decision still open:** this prototype verifies GitHub PR *merge metadata* only. A merge status is not a meaningful AI assessment of work quality, and a GenLayer consensus wrapper around deterministic fields may still fail the steward's requirement for a consequential, contested judgment. V2 must name an enforceable, bounded acceptance rubric requiring GenLayer evaluation of evidence that cannot be verified with an ordinary GitHub status check, or honestly narrow claims to a merge-attestation system. The decision must be documented and tested before deployment.
+
+**Contract/consensus**
+- Validate GenVM compatibility for HTTP response handling, Python helper functions invoked inside nondeterministic collection, and exact `strict_eq` semantics. Offline mocked tests alone are insufficient.
+- Fail closed for missing/inconsistent metadata, non-200 responses, HTML/redirects, API rate limits, and consensus parsing failure. Do not certify on partial evidence.
+- Decide finality explicitly: an unmerged PR before a defined deadline must not be irreversibly rejected; REVIEW retry rules and timeout/grace-period policy must be implemented and adversarially tested.
+- Prevent unbounded state transitions and unauthorized submissions or issuance. Distinguish acceptance from certification, and guarantee final verdicts cannot be overwritten.
+- Do not claim that a merge proves the worker wallet owns the GitHub identity, the code is correct, or a bounty/payment exists.
+
+**Proof and review**
+- Add unit tests for identity spoofing, malformed API payloads, mismatched target, wrong branch, non-merged PR, deadline edge cases, and caller permissions; supplement them with live Studio transactions.
+- Capture actual V2 ACCEPTED→CERTIFIED and rejected/bad-source cases, with exact contract address, source commit, transaction hashes, timestamps, and `get_work` reads.
+- Only then integrate the V2 frontend; use clear English text and accurate pending/failed/finalized wallet states, avoiding inferred transaction success.
+- Record a fresh V2 demo with wallet approvals and public read-only reviewer paths. Synchronize README, reviewer guide, repository branch, deployment source, website, and submission links.
+
+**No-go rule:** Any missing live V2 transaction evidence, undocumented mutable trust assumption, incompatible GenVM behavior, or contradictory reviewer documentation blocks release. V1 remains the public production demo until all gates pass.
