@@ -143,12 +143,12 @@ $("workFetchPr").addEventListener("click",async()=>{
    const data=await response.json();
    if(revision!==suggestionVersion)return;
    if(String(data.number)!==pr || data.base?.ref!==branch || String(data.base?.repo?.full_name||"").toLowerCase()!==(owner+"/"+repo).toLowerCase()) throw Error("PR details do not match the selected repository or target branch.");
-   const title=String(data.title||"").replace(/\\s+/g," ").trim().slice(0,130);
-   const description=String(data.body||"").replace(/[#*_\x60>]/g," ").replace(/\\s+/g," ").trim().slice(0,170);
+   const title=String(data.title||"").replace(/\s+/g," ").trim().slice(0,130);
+   const description=String(data.body||"").replace(/[#*_\x60>]/g," ").replace(/\s+/g," ").trim().slice(0,170);
    const prefix=criteriaBase();
    const suggested=(prefix+" Work described by PR: "+title+"."+(description?" Description: "+description+".":"")).slice(0,500);
    if(rubricEdited && !window.confirm("Replace your edited acceptance criteria with a suggestion based on public PR text?"))return;
-   rubricEdited=false;$("workRubric").value=suggested;generateRubric();
+   rubricEdited=false;generateRubric();
    $("workRubric").value=suggested;
    $("workRubricHelp").textContent="Suggested using public PR text. Review carefully: the PR description is not independently verified.";
  }catch(e){if(revision===suggestionVersion)$("workRubricHelp").textContent=e.message+" You can use the automatically prepared criteria instead.";}
