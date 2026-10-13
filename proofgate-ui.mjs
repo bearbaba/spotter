@@ -117,6 +117,7 @@ async function wallet() {
   const accounts = await window.ethereum.request({method:"eth_accounts"});
   const selected = connectedAccount || "";
   if (!/^0x[a-fA-F0-9]{40}$/.test(selected) || !accounts.some(a=>a.toLowerCase()===selected.toLowerCase())) throw Error("Select and authorize the signing wallet using Connect wallet before signing.");
+  if(accounts[0]?.toLowerCase()!==selected.toLowerCase())throw Error("MetaMask active signing account does not match the wallet selected in Spotter. Switch the active account in MetaMask and reconnect before signing.");
   return selected;
 }
 function args(method) {
@@ -189,7 +190,7 @@ async function checkTransaction(){
  if(!p||checkInProgress)return;
  checkInProgress=true;$("workCheck").disabled=true;
  try{
-  const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"ACCEPTED",interval:2500,retries:2});
+  const receipt=await client.waitForTransactionReceipt({hash:p.hash,status:"FINALIZED",interval:2500,retries:2});
   const status=finalizedReceipt(receipt);
   if(status==="FAILED"){remember({...p,status:"FAILED"});note("Transaction failed. Inspect Explorer before considering another attempt.",true);return;}
   if(status!=="FINALIZED"){note("Transaction still awaiting FINALIZED. Tracking continues without another signature.");return;}
@@ -336,6 +337,7 @@ async function findMine(){
  const display=$("walletWorks");
  const primary=$("workPrimaryList");
  if(!connectedAccount){display.textContent="Connect MetaMask to find your work.";if(primary)primary.textContent="Connect MetaMask to load your work.";return;}
+ const lookupAccount=connectedAccount.toLowerCase();
  display.textContent="Reading work records from GenLayer…";if(primary)primary.textContent="Loading your work…";
  const found=[];
  let missed=0,checked=0;
@@ -347,9 +349,10 @@ async function findMine(){
      checked++;
      if(!work){missed++;if(missed>=5 && id>5)break;continue;}
      missed=0;
-     if([work.client,work.worker].some(x=>typeof x==="string"&&x.toLowerCase()===connectedAccount.toLowerCase()))found.push(work);
-   }catch(e){display.textContent="Could not finish reading on-chain work. Try Refresh my work.";return;}
+     if([work.client,work.worker].some(x=>typeof x==="string"&&x.toLowerCase()===lookupAccount))found.push(work);
+   }catch(e){if(connectedAccount.toLowerCase()===lookupAccount){display.textContent="Could not finish reading on-chain work. Try Refresh my work.";if(primary)primary.textContent="GitHub/GenLayer read unavailable. Refresh my work to retry.";}return;}
  }
+ if(connectedAccount.toLowerCase()!==lookupAccount)return; // another wallet selection superseded this scan
  display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
  // Reconcile persistent browser HISTORY separately from session transaction tracking.
@@ -386,5 +389,5 @@ $("walletConnect").addEventListener("click",()=>{connectAccount().catch(e=>note(
 $("workFindMine").addEventListener("click",()=>{findMine().catch(e=>note(e.message,true));});
 if(window.ethereum?.request){
  window.ethereum.request({method:"eth_accounts"}).then(a=>{if(a?.length){setAccounts(a);void findMine();}}).catch(()=>{});
- window.ethereum.on?.("accountsChanged",a=>{setAccounts(a);void findMine();});
+ window.ethereum.on?.("accountsChanged",a=>{setAccounts(a);lastWork=null;$("workId").value="";syncButtons();void findMine();});
 }
