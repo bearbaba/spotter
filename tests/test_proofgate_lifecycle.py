@@ -147,6 +147,20 @@ class LifecycleTests(unittest.TestCase):
         self.p.evaluate(self.ident)
         self.assertEqual(self.p.works[self.ident].state, "ACCEPTED")
 
+    def test_locked_label_prevents_certification_without_approved_evidence(self):
+        self.p.works[self.ident].required_label = "accepted-work"
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(self.ident)
+        self.p.evaluate(self.ident)
+        self.assertEqual(self.p.works[self.ident].state, "REVIEW")
+        with self.assertRaisesRegex(Exception, "not accepted"):
+            self.p.issue_acceptance(self.ident)
+        data = github_pr()
+        data["labels"] = [{"name": "accepted-work"}]
+        DummyGL.response = APIResponse(200, data)
+        self.p.evaluate(self.ident)
+        self.assertEqual(self.p.works[self.ident].state, "ACCEPTED")
+
     def test_policy_is_frozen_in_work_record(self):
         rec = self.p.works[self.ident]
         self.assertEqual((rec.owner, rec.repository, rec.target_branch, rec.pr_number),
