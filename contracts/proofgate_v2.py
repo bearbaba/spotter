@@ -23,6 +23,23 @@ class Work:
     evidence_digest: str
     merge_commit: str
 
+
+def normalize_address(value) -> Address:
+    """Normalize GenVM-decoded addresses before storing typed Address fields."""
+    if isinstance(value, Address):
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        if value < 0 or value >= 1 << 160:
+            raise Exception("invalid address integer")
+        return Address("0x" + format(value, "040x"))
+    if isinstance(value, (bytes, bytearray)):
+        if len(value) != 20:
+            raise Exception("invalid address bytes")
+        return Address(bytes(value))
+    if isinstance(value, str):
+        return Address(value)
+    raise Exception("invalid address type")
+
 def github_identifier(text: str) -> bool:
     return bool(text) and len(text) <= 100 and all(
         c.isascii() and (c.isalnum() or c in "-_.") for c in text
@@ -102,12 +119,14 @@ class ProofGate(gl.Contract):
             raise Exception("invalid required label")
         if len(acceptance_rubric) > 500 or (acceptance_rubric and len(acceptance_rubric.strip()) < 16):
             raise Exception("invalid acceptance rubric")
+        worker = normalize_address(worker)
+        client = normalize_address(gl.message.sender_address)
         if worker == Address("0x0000000000000000000000000000000000000000"):
             raise Exception("worker required")
         work_id = str(int(self.next_id))
         self.next_id = u32(int(self.next_id) + 1)
         self.works[work_id] = Work(
-            client=gl.message.sender_address, worker=worker, owner=owner,
+            client=client, worker=worker, owner=owner,
             repository=repository, target_branch=target_branch, required_label=required_label, acceptance_rubric=acceptance_rubric, pr_number=u32(int(pr_number)),
             state="OPEN", explanation="", evidence_digest="", merge_commit=""
         )
@@ -118,7 +137,7 @@ class ProofGate(gl.Contract):
         rec = self.works[work_id]
         if rec.state != "OPEN":
             raise Exception("work cannot be submitted again")
-        if rec.worker != gl.message.sender_address:
+        if rec.worker != normalize_address(gl.message.sender_address):
             raise Exception("only nominated worker can submit")
         rec.state = "SUBMITTED"
         self.works[work_id] = rec
