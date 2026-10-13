@@ -13,7 +13,7 @@ Source branch: `feat/proofgate-v2-contract-foundation`
 - Clearly marked non-financial V2 user-interface preview at `v2/index.html`.
 
 ## Non-negotiable remaining requirements before claiming an on-chain product
-1. Deploy **ProofGate V2** to the appropriate GenLayer test network; verify on-chain source and constructor details. The existing V1 contract is not proof of a V2 deployment.
+1. **Partially verified:** ProofGate V2 deployed on GenLayer Studio at `0x87E73676c37c1fb506126c12DF49FA22E3CB8867`; the `create_work` call finalized successfully and returned Work ID `1`. Deployed source parity and remaining lifecycle still require verification.
 2. Perform one authentic positive and one negative verification with independent wallets and recorded finalized transaction references.
 3. Wire a verified GenVM finality proof into the EVM contract. **Manual verifier signer is not GenLayer consensus.** Until then do not describe payment as automated by AI consensus.
 4. Deploy the Solidity vault only with test assets on a confirmed compatible chain; record address, chain ID, compiler/artifact hash, test transaction receipts, balances, double-withdrawal rejection, and failure cases.
@@ -42,3 +42,11 @@ python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
 
 ## Security caveat about arbitration liveness
 Timeout proposals require both named parties; a non-cooperating counterparty can still leave assets locked. This is intentional fail-closed behavior and **not** a complete, audited fallback arbitration design.
+
+## On-chain evidence — October 13, 2026
+- Contract: `0x87E73676c37c1fb506126c12DF49FA22E3CB8867`
+- Transaction: https://explorer-studio.genlayer.com/tx/0x65b86d44151be68adc9459702763916f642d7678d6c4953eb82a7ac208b955fe
+- Status: **FINALIZED**, consensus **Accepted**, GenVM execution **SUCCESS**.
+- Method: `create_work` for `bearbaba/spotter` PR #24 targeting `main`; work ID returned `"1"`.
+- Transaction value: 0 GEN. This demonstrates work registration, **not** escrow funding or proof acceptance.
+- Still required: finalized `submit_for_review`, `evaluate`, `issue_acceptance`, negative authorization tests and an authenticated escrow bridge.
