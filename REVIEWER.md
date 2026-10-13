@@ -48,7 +48,7 @@ The only public application is https://bearbaba.github.io/spotter/. It uses the 
 
 ## What is implemented versus planned
 
-Implemented and tested: V2 contract logic, offline negative policy and authorization regressions, a positive on-chain certificate result, and a Foundry-tested Solidity escrow **prototype** on the V2 branch.
+Implemented and tested: current work-certification contract logic, offline negative policy and authorization regressions, a positive on-chain certificate result, and a Foundry-tested Solidity escrow **prototype** on a separate development branch.
 
 Not yet deployed or demonstrated: an authenticated GenLayer-to-EVM finality bridge, escrow settlement triggered by a proof, a live indexed work marketplace, independent on-chain negative tests, or real-value custody. The Solidity prototype currently uses a permissioned verifier, not a trustless bridge.
 
@@ -60,4 +60,4 @@ python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
 forge build && forge test -vvv
 ```
 
-The Python ProofGate tests are on `main`; the Foundry escrow prototype currently remains on the development branch. Run `npm run verify` and the Python tests from `main`; run `forge` on the development branch until escrow code is integrated. The existing web-evidence UI has not yet been replaced by an integrated work-creation interface.
+The work-certification Python tests and unified work interface are on `main`. The Foundry escrow prototype remains on a separate development branch and is not part of the official website. Browser wallet transaction completion must still be independently verified.
