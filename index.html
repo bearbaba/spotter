@@ -216,7 +216,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     <div class="panel">
       <h3>2. Track and verify</h3>
       <div class="field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" value="1" /></div>
-      <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button>
+      <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button><button id="workExample" type="button" class="btn btn-subtle btn-small" style="margin-left:8px">See real certified Work #1</button>
       <div class="action-row"><button type="button" class="btn" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn" data-work-method="evaluate" disabled>Run GenLayer evaluation</button><button type="button" class="btn" data-work-method="issue_acceptance" disabled>Issue certification</button></div>
       <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
       <pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre>
@@ -226,7 +226,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     </div>
   </div>
 </section>
-<main id="workspace">
+<details id="legacyExplorerIntro" style="margin:20px auto;max-width:1192px;padding:0 26px"><summary style="cursor:pointer;color:#9db4b5">More tools · Public webpage verification (experimental)</summary><p style="color:#9db4b5">The classic web-source verification tool remains available below. It is separate from software work certification above.</p></details><main id="workspace">
     <div class="section-head"><div><div class="eyebrow">YOUR WORKSPACE</div><h2>Verify a public claim</h2></div><p>Wallet approval only for blockchain writes</p></div>
     <div class="resume-hint"><span>Already started a verification?</span><button id="openActivityBtn" class="resume-link" type="button">Find and continue your work ↗</button></div>
     <div class="stepbar" aria-label="Verification workflow" id="workflowSteps">
