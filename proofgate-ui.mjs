@@ -100,12 +100,13 @@ function pending() {
 }
 function transactionBlocks(method){
  const p=pending();if(!p)return false;
+ if(p.method==="recovered transaction")return false;
  if(method==="create_work"||p.method==="create_work")return true;
  return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
 }
 function refreshPending() {
   const p = pending();
-  const relevant=p && (p.method==="create_work" || String(p.workId)===$("workId").value.trim());
+  const relevant=p && (p.method==="create_work" || p.method==="recovered transaction" || String(p.workId)===$("workId").value.trim());
   $("workPending").hidden = !relevant;
   if (relevant) {
     $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
@@ -250,6 +251,11 @@ async function checkTransaction(){
   const status=finalizedReceipt(receipt);
   if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
   if(status!=="FINALIZED"){scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
+  if(p.method==="recovered transaction"){
+    remember({...p,status:"FINALIZED (RECEIPT VERIFIED)"});
+    sessionStorage.removeItem(KEY);refreshPending();
+    scopedNote("Recovered transaction FINALIZED; read its Work ID to verify the contract state.");return;
+  }
   if(p.method==="create_work"){
     const id=createdWorkId(receipt);
     if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});return;}
@@ -269,6 +275,11 @@ async function checkTransaction(){
  finally{checkInProgress=false;$("workCheck").disabled=false;}
 }
 $("workCheck").addEventListener("click",checkTransaction);
+// Restore unresolved hashes from durable history after a browser restart. Read-only; never replay writes.
+if(!pending()){
+ const unresolved=history().find(x=>x.status==="PENDING" && /^0x[0-9a-fA-F]{64}$/.test(x.hash||""));
+ if(unresolved)sessionStorage.setItem(KEY,JSON.stringify(unresolved));
+}
 const previousPending=pending();
 if(previousPending?.hash && !history().some(x=>x.hash===previousPending.hash))remember({...previousPending,status:"PENDING",created:previousPending.created||previousPending.time||Date.now()});
 renderHistory();
