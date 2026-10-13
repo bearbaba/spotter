@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory } from "./transaction-tracker.mjs";
+import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
@@ -204,6 +205,9 @@ function args(method) {
 }
 let preparingSignature=false;
 async function act(method) {
+ return withExclusiveWriteLock(navigator?.locks,CHAIN+":"+ADDRESS,()=>performAct(method));
+}
+async function performAct(method) {
   // Reserve this tab's write slot *before* any awaited RPC or wallet operation.
   // Rapid clicks cannot open competing MetaMask prompts while preparation runs.
   if(busy || preparingSignature || transactionBlocks(method))throw Error("A write is already being prepared or an earlier transaction is unresolved. Check receipt status before signing.");
