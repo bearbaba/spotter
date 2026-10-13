@@ -5,7 +5,7 @@
 **ProofGate V2 contract:** `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`  
 **Studio:** https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7  
 **Certificate transaction:** https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599  
-**V2 source:** https://github.com/bearbaba/spotter/blob/feat/proofgate-v2-contract-foundation/contracts/proofgate_v2.py  
+**V2 source:** https://github.com/bearbaba/spotter/blob/main/contracts/proofgate.py  
 **V2 development and tests:** https://github.com/bearbaba/spotter/pull/25  
 
 ## Concrete workflow and consequence
@@ -16,7 +16,7 @@ ProofGate V2 verifies completion of a **specific assigned software contribution*
 
 ## Enforced evidence boundary in contract source
 
-The V2 Intelligent Contract `contracts/proofgate_v2.py` on the V2 development branch:
+The Spotter Intelligent Contract `contracts/proofgate.py` on the main branch:
 
 - Constructs the canonical URL `https://api.github.com/repos/{owner}/{repository}/pulls/{pr_number}` from the locked work fields; a worker cannot substitute a self-selected evidence URL.
 - Validates returned PR number, repository identity, target branch, merge status and required label (when configured); invalid evidence does not progress to ACCEPTED.
@@ -60,4 +60,4 @@ python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
 forge build && forge test -vvv
 ```
 
-The ProofGate V2 Python tests and Foundry files are on `feat/proofgate-v2-contract-foundation`. Run these commands from that branch; `main` presently contains the V1 website and documentation.
+The Python ProofGate tests are on `main`; the Foundry escrow prototype currently remains on the development branch. Run `npm run verify` and the Python tests from `main`; run `forge` on the development branch until escrow code is integrated. The existing web-evidence UI has not yet been replaced by an integrated work-creation interface.
