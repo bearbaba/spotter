@@ -21,7 +21,7 @@ class TreeMap(dict):
 
 class APIResponse:
     def __init__(self, status, content):
-        self.status_code = status
+        self.status = status
         self.body = json.dumps(content).encode("utf8")
 
 class DummyGL:
