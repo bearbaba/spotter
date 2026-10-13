@@ -34,7 +34,11 @@ export function createdWorkId(receipt) {
 export function finalizedReceipt(receipt) {
   const status=String(receipt?.statusName??receipt?.status??"").toUpperCase();
   const execution=String(receipt?.txExecutionResultName??receipt?.executionResult??"").toUpperCase();
-  if(/FAIL|ERROR|CANCEL|REVERT/.test(status+" "+execution))return "FAILED";
-  if(status==="FINALIZED" && (!execution || /SUCCESS|FINISHED_WITH_RETURN|ACCEPTED/.test(execution)))return "FINALIZED";
+  // Consensus finality alone is not proof that contract execution succeeded.
+  if(/CANCEL|REVERT|FAIL|ERROR/.test(status))return "FAILED";
+  if(status!=="FINALIZED")return "PENDING";
+  if(/FINISHED_WITH_ERROR|TIMEOUT|NONDET_DISAGREE|DETERMINISTIC_VIOLATION|FAIL|ERROR|REVERT/.test(execution))return "FAILED";
+  if(/FINISHED_WITH_RETURN|SUCCESS/.test(execution))return "FINALIZED";
+  // Missing or unfamiliar execution results must be investigated, never marked successful.
   return "PENDING";
 }
