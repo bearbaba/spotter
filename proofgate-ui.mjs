@@ -340,6 +340,20 @@ async function findMine(){
  }
  display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
+ // Reconcile persistent browser HISTORY separately from session transaction tracking.
+ // Use latest-final contract reads, and never equate a matching work record with a finalized receipt.
+ for(const entry of history().filter(x=>x.method==="create_work" && x.status==="PENDING")){
+   const matches=found.filter(w=>w.client?.toLowerCase()===entry.account?.toLowerCase() && w.owner?.toLowerCase()===entry.owner?.toLowerCase() && w.repository?.toLowerCase()===entry.repository?.toLowerCase() && String(w.pr_number)===String(entry.pr));
+   if(matches.length===1){
+     const work=matches[0];
+     remember({...entry,status:"WORK VERIFIED ON-CHAIN",workId:work.id});
+     const session=pending();
+     if(session?.hash?.toLowerCase()===entry.hash?.toLowerCase()){
+       sessionStorage.removeItem(KEY);
+       refreshPending();
+     }
+   }
+ }
  const unresolved=pending();
  if(unresolved?.method==="create_work"){
    const confirmed=found.filter(w=>w.client?.toLowerCase()===unresolved.account?.toLowerCase() && w.owner?.toLowerCase()===unresolved.owner?.toLowerCase() && w.repository?.toLowerCase()===unresolved.repository?.toLowerCase() && String(w.pr_number)===String(unresolved.pr));
