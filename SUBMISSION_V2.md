@@ -58,3 +58,7 @@ Timeout proposals require both named parties; a non-cooperating counterparty can
 - Rubric result reports concrete Studionet MetaMask network configuration (RPC endpoint, chain ID, explicit user approval).
 - This readback is **user-supplied evidence**. The final deployed contract address, issuance transaction hash and source-to-deployment match have not yet been independently verified; do not cite earlier instance addresses as this certified instance.
 - `CERTIFIED` represents work verification, **not** an escrow deposit, payment, or audited automatic disbursement.
+
+### Submitted transaction link awaiting Explorer confirmation
+- User-provided transaction URL: https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599
+- Verification pending: Explorer details could not be fetched automatically; confirm `To` (contract address), `Method`, `Status`, and GenVM execution result before labeling this an on-chain certificate issuance.
