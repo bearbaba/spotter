@@ -199,13 +199,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   <div class="workspace">
     <div class="panel">
       <h3>1. Set up the task</h3>
-      <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /></div>
-      <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" placeholder="bearbaba" /></div>
-      <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" placeholder="spotter" /></div>
+      <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /><button id="workPickWallet" type="button" class="btn btn-subtle btn-small">Use selected MetaMask account</button><p class="hint">Choose your account in MetaMask, or enter a different worker address.</p></div>
+      <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" value="bearbaba" placeholder="bearbaba" /></div>
+      <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" value="spotter" placeholder="spotter" /></div>
       <div class="field"><label for="workBranch">Target branch</label><input id="workBranch" value="main" /></div>
       <div class="field"><label for="workPr">Pull request number</label><input id="workPr" inputmode="numeric" placeholder="24" /></div>
       <div class="field"><label for="workLabel">Required PR label (optional)</label><input id="workLabel" placeholder="Leave blank if none" /></div>
-      <div class="field"><label for="workRubric">Acceptance requirements</label><textarea id="workRubric" placeholder="State concrete, auditable acceptance requirements"></textarea></div>
+      <div class="field"><label for="workRubric">Acceptance requirements</label><textarea id="workRubric" rows="5" maxlength="500" placeholder="Automatically prepared from the repository, branch and PR"></textarea><button id="workGenerateRubric" type="button" class="btn btn-subtle btn-small">Regenerate requirements</button><p id="workRubricHelp" class="hint">Generated automatically. Review and edit these conditions before creating an immutable on-chain agreement.</p></div>
       <button type="button" class="btn btn-primary" data-work-method="create_work">Create on-chain work ↗</button>
       <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
     </div>
