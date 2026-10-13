@@ -2,6 +2,7 @@ import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
+import { outstandingReceipts, verifyStoredReceipts } from "./transaction-tracker.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
@@ -10,8 +11,8 @@ const $ = id => document.getElementById(id);
 const client = createClient({chain:studionet,endpoint:ENDPOINT,account:ZERO});
 const KEY = "spotter.work.pending";
 const HISTORY_KEY = "spotter.work.history.v1";
-const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x:[];}catch{return [];}};
-function remember(entry){const records=history();const i=records.findIndex(x=>x.hash===entry.hash);if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
+const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x.filter(e=>e && /^0x[0-9a-fA-F]{64}$/.test(e.hash||"")).slice(0,100):[];}catch{return [];}};
+function remember(entry){const records=history();const i=records.findIndex(x=>x.hash.toLowerCase()===entry.hash.toLowerCase());if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
 function renderHistory(){
  const root=$("workHistory");if(!root)return;root.replaceChildren();
  const rows=history();
@@ -110,7 +111,8 @@ function transactionBlocks(method){
 function refreshPending() {
   const p = pending();
   const relevant=p && (p.method==="create_work" || p.method==="recovered transaction" || String(p.workId)===$("workId").value.trim());
-  $("workPending").hidden = !relevant;
+  const oldPending=history().find(e=>e.status==="PENDING" && e.workId && String(e.workId)===$("workId").value.trim());
+  $("workPending").hidden = !relevant && !oldPending;
   if (relevant) {
     $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
     $("workClear").hidden = false;
@@ -118,6 +120,7 @@ function refreshPending() {
     $("workTxLink").hidden = false;
     $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
   } else {
+    if(oldPending)$("workPending").textContent="An older browser transaction for this Work is still unverified ("+oldPending.hash.slice(0,12)+"…). Read-only receipt recovery is running. Do not send a duplicate transaction.";
     $("workClear").hidden = true;
     $("workCheck").hidden = true;
     $("workTxLink").hidden = true;
@@ -287,6 +290,28 @@ async function checkTransaction(){
  }catch(e){if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return;scopedNote("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
  finally{checkInProgress=false;$("workCheck").disabled=false;}
 }
+// Audit all old browser hashes, not just the single transaction from sessionStorage.
+// A failed RPC lookup preserves prior state and must never authorize a retry.
+let historyScanRunning=false;
+let historyScanCursor=0;
+async function verifyHistoricalReceipts(){
+ if(historyScanRunning || document.visibilityState!=="visible")return;
+ const activeHash=pending()?.hash?.toLowerCase();
+ const candidates=outstandingReceipts(history()).filter(entry=>entry.hash.toLowerCase()!==activeHash);
+ if(!candidates.length)return;
+ historyScanRunning=true;
+ try {
+  const result=await verifyStoredReceipts(candidates,hash=>client.getTransaction({hash}),{limit:3,offset:historyScanCursor});
+  historyScanCursor=result.remaining?(historyScanCursor+result.inspected.length)%result.remaining:0;
+  for(const item of result.inspected){
+   if(!item.update)continue; // pending, unrecognized or RPC unavailable: no inferred result
+   const current=history().find(e=>e.hash.toLowerCase()===item.hash.toLowerCase());
+   if(!current || !outstandingReceipts([current]).length)continue;
+   remember({...current,...item.update});
+  }
+  refreshPending(); // A finalized historical hash must release the correct action lock.
+ } finally {historyScanRunning=false;}
+}
 $("workCheck").addEventListener("click",checkTransaction);
 // Restore unresolved hashes from durable history after a browser restart. Read-only; never replay writes.
 if(!pending()){
@@ -296,14 +321,22 @@ if(!pending()){
 const previousPending=pending();
 if(previousPending?.hash && !history().some(x=>x.hash===previousPending.hash))remember({...previousPending,status:"PENDING",created:previousPending.created||previousPending.time||Date.now()});
 renderHistory();
-setInterval(()=>{if(pending() && document.visibilityState==="visible")void checkTransaction();},15000);
+setInterval(()=>{if(document.visibilityState==="visible"){if(pending())void checkTransaction();void verifyHistoricalReceipts();}},15000);
 if(pending())void checkTransaction();
+void verifyHistoricalReceipts();
 $("workClear").addEventListener("click",()=>{
   const p=pending();if(!p)return;
   note("Manual transaction resolution is disabled for safety. Use Check transaction confirmation or inspect Explorer; unverified results must not be marked successful.");
   void checkTransaction();
 });
 refreshPending();
+window.addEventListener("storage",event=>{
+ if(event.key!==HISTORY_KEY)return;
+ const p=pending();
+ const stored=p&&history().find(e=>e.hash.toLowerCase()===p.hash.toLowerCase());
+ if(stored&&stored.status!=="PENDING")sessionStorage.removeItem(KEY);
+ renderHistory();refreshPending();
+});
 
 let rubricEdited = false;
 let suggestionVersion = 0;
