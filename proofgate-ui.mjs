@@ -120,7 +120,7 @@ function refreshPending() {
   $("workPending").hidden = !relevant && !oldPending;
   if (relevant) {
     $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
-    $("workClear").hidden = false;
+    $("workClear").hidden = true; // Manual receipt overrides are disabled; keep the legacy control hidden.
     $("workCheck").hidden = false;
     $("workTxLink").hidden = false;
     $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
