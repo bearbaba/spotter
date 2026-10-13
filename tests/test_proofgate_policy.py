@@ -87,6 +87,12 @@ class ProofGatePolicyTests(unittest.TestCase):
         payload["labels"] = [{"name": "accepted-work"}, "malformed"]
         self.assertEqual(verify_api_payload(payload, "bearbaba", "spotter", 24, "main", "accepted-work")["state"], "REVIEW")
 
+    def test_safe_qualitative_failure_diagnostics(self):
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertIn('type(err).__name__[:45]', source)
+        self.assertIn('rec.client != normalize_address(gl.message.sender_address)', source)
+        self.assertNotIn('rec.client != gl.message.sender_address', source)
+
     def test_genvm_web_response_uses_documented_status_field(self):
         source = SOURCE.read_text(encoding="utf-8")
         self.assertEqual(source.count("response.status != 200"), 2)
