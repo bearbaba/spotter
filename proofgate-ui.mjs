@@ -142,6 +142,8 @@ async function checkTransaction(){
  finally{checkInProgress=false;$("workCheck").disabled=false;}
 }
 $("workCheck").addEventListener("click",checkTransaction);
+const previousPending=pending();
+if(previousPending?.hash && !history().some(x=>x.hash===previousPending.hash))remember({...previousPending,status:"PENDING",created:previousPending.created||previousPending.time||Date.now()});
 renderHistory();
 setInterval(()=>{if(pending() && document.visibilityState==="visible")void checkTransaction();},15000);
 if(pending())void checkTransaction();
