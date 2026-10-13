@@ -211,7 +211,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     </div>
     <div class="panel">
       <h3>2. Track and verify</h3>
-      <div class="field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" value="1" /></div>
+      <div class="field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" placeholder="Automatically selected after creation" /><p class="hint">Your new Work ID will appear here once the finalized contract result is verified.</p></div>
       <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button><button id="workExample" type="button" class="btn btn-subtle btn-small" style="margin-left:8px">See real certified Work #1</button>
       <div class="action-row"><button type="button" class="btn" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn" data-work-method="evaluate" disabled>Run GenLayer evaluation</button><button type="button" class="btn" data-work-method="issue_acceptance" disabled>Issue certification</button></div>
       <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
@@ -222,7 +222,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
         <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
         <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
       </div>
-      <p class="hint">After signing, check the Explorer transaction until it is FINALIZED, then read Work again. The next action unlocks only when the contract state permits it.</p>
+      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p><details open class="work-history"><summary>Transaction history · This browser</summary><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
     </div>
   </div>
 </section>
