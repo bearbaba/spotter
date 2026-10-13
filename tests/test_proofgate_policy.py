@@ -82,6 +82,9 @@ class ProofGatePolicyTests(unittest.TestCase):
         self.assertIn("gl.eq_principle.strict_eq(collect)",text)
         self.assertIn('if rec.state != "ACCEPTED":',text)
         self.assertNotIn("def submit_url(",text)
+        self.assertIn("def submit_for_review(",text)
+        self.assertIn('if rec.worker != gl.message.sender_address:',text)
+        self.assertIn('if record.state not in ("SUBMITTED", "REVIEW"):',text)
 
 if __name__ == "__main__":
     unittest.main()
