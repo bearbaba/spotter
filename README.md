@@ -13,7 +13,6 @@ Work #1 reached **CERTIFIED** for [bearbaba/spotter PR #24](https://github.com/b
 - Work contract source: [contracts/proofgate.py](./contracts/proofgate.py).
 - Acceptance/evidence policy and limitations: [REVIEWER.md](./REVIEWER.md).
 - Frontend: [index.html](./index.html), [proofgate-ui.mjs](./proofgate-ui.mjs), [proofgate-core.mjs](./proofgate-core.mjs).
-- The prior webpage classification experiment is retained in repository history and supporting files for regression/reference. It is **not loaded by the official website**.
 
 ## Verification
 
