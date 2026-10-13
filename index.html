@@ -216,8 +216,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <div class="action-row"><button type="button" class="btn" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn" data-work-method="evaluate" disabled>Run GenLayer evaluation</button><button type="button" class="btn" data-work-method="issue_acceptance" disabled>Issue certification</button></div>
       <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
       <pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre>
-      <p id="workPending" class="notice pending" hidden></p><a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Check transaction on Explorer ↗</a>
-      <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear resolved transaction tracking</button>
+      <p id="workPending" class="notice pending" hidden></p>
+      <div class="work-pending-actions" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:14px 0">
+        <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a>
+        <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
+        <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
+      </div>
       <p class="hint">After signing, check the Explorer transaction until it is FINALIZED, then read Work again. The next action unlocks only when the contract state permits it.</p>
     </div>
   </div>
