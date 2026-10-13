@@ -117,15 +117,28 @@ function refreshPending() {
   }
   syncButtons();
 }
+function reconcileProgress(work){
+ const p=pending();
+ if(!p || String(p.workId)!==String(work.id))return false;
+ const advanced=p.method==="submit_for_review"&&["SUBMITTED","REVIEW","ACCEPTED","CERTIFIED"].includes(work.state)
+  || p.method==="evaluate"&&["REVIEW","ACCEPTED","CERTIFIED"].includes(work.state)
+  || p.method==="issue_acceptance"&&work.state==="CERTIFIED";
+ if(!advanced)return false;
+ // Contract is authoritative for the Work state; it is NOT a transaction receipt.
+ remember({...p,status:"WORK STATE VERIFIED ON-CHAIN (RECEIPT NOT CHECKED)",workId:work.id});
+ sessionStorage.removeItem(KEY);
+ return true;
+}
 function render(work) {
   lastWork = work;
+  const reconciled=reconcileProgress(work);
   renderHistory();
   $("workOutput").textContent = JSON.stringify(work,null,2);
   $("workOutput").hidden = false;
   const state = work.state || "UNKNOWN";
   const summary=$("workSummary");if(summary){summary.replaceChildren();const tag=document.createElement("span");tag.className="work-state";tag.textContent=state;const heading=document.createElement("strong");heading.textContent="Work #"+work.id+" · "+work.owner+"/"+work.repository+" · PR #"+work.pr_number;const detail=document.createElement("p");detail.textContent=work.explanation || (state==="OPEN"?"Created and ready for the assigned worker.":state==="SUBMITTED"?"Submitted for GenLayer verification.":state==="CERTIFIED"?"Acceptance certificate recorded on-chain.":"Review the evidence and contract state.");summary.append(tag,heading,detail);}
   const helper=$("workNextHelp");if(helper)helper.textContent=state==="OPEN"?"Only the assigned worker can submit this work.":state==="SUBMITTED"||state==="REVIEW"?"Run GenLayer evaluation to check the locked GitHub evidence.":state==="ACCEPTED"?"The client or worker can issue the on-chain acceptance certificate.":state==="CERTIFIED"?"Completed. No further blockchain action is needed.":"Read the finalized state to see available actions.";
-  note("Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
+  note(reconciled?"Work #"+work.id+" is "+state+" on latest-final chain state. Previous transaction tracker reconciled to the Work state (receipt outcome not independently verified).":"Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
   refreshPending();
   if(state==="SUBMITTED"||state==="REVIEW")void checkPrReadiness({owner:work.owner,repository:work.repository,branch:work.target_branch,number:work.pr_number,requiredLabel:work.required_label},"workPrPreflight");
   else preflightView("workPrPreflight",null,state==="CERTIFIED"?"Certification recorded on-chain.":state==="ACCEPTED"?"Accepted on-chain. Ready for certificate issuance.":"GitHub readiness check will appear once submitted.");
