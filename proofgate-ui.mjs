@@ -1,3 +1,4 @@
+import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt } from "./proofgate-core.mjs";
@@ -12,6 +13,29 @@ const HISTORY_KEY = "spotter.work.history.v1";
 const history = () => {try{const x=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");return Array.isArray(x)?x:[];}catch{return [];}};
 function remember(entry){const records=history();const i=records.findIndex(x=>x.hash===entry.hash);if(i>=0)records[i]={...records[i],...entry};else records.unshift(entry);localStorage.setItem(HISTORY_KEY,JSON.stringify(records.slice(0,100)));renderHistory();}
 function renderHistory(){const root=$("workHistory");if(!root)return;root.replaceChildren();const rows=history();if(!rows.length){root.textContent="No transactions recorded in this browser.";return;}for(const p of rows){const item=document.createElement("div");item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";const label=document.createElement("span");label.textContent=p.method+" · "+(p.status||"PENDING")+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";item.append(label,link);root.append(item);}}
+
+
+let prReadSequence=0;
+function preflightView(target,result,notice=""){
+  const el=$(target);if(!el)return;
+  el.replaceChildren();const title=document.createElement("strong");title.textContent=notice||(result?.ready?"GitHub checks passed":"GitHub checks need attention");el.append(title);
+  if(result?.checks){const list=document.createElement("ul");for(const check of result.checks){const item=document.createElement("li");item.className=check.ok?"ok":"notready";item.textContent=(check.ok?"✓ ":"○ ")+check.text;list.append(item);}el.append(list);}
+  const footer=document.createElement("p");footer.textContent="Read-only preview. The deployed GenLayer contract makes the authoritative decision.";el.append(footer);
+}
+async function checkPrReadiness(config,target){
+  const revision=++prReadSequence;
+  preflightView(target,null,"Checking GitHub PR…");
+  try{
+    const {owner,repository,branch,number,requiredLabel}=config;
+    if(!/^[a-zA-Z0-9-]{1,39}$/.test(owner)||!/^[a-zA-Z0-9_.-]{1,100}$/.test(repository)||!/^[1-9][0-9]*$/.test(String(number)))throw Error("Enter a valid repository and PR number first.");
+    const url="https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+encodeURIComponent(number);
+    const response=await fetch(url,{headers:{Accept:"application/vnd.github+json"},cache:"no-store"});
+    if(!response.ok)throw Error("GitHub API returned "+response.status+". Try again later.");
+    const result=inspectPullRequest(await response.json(),config);
+    if(revision===prReadSequence)preflightView(target,result);
+    return result;
+  }catch(e){if(revision===prReadSequence)preflightView(target,null,String(e?.message||e));return null;}
+}
 
 let lastWork = null;
 let busy = false;
@@ -57,6 +81,8 @@ function render(work) {
   const helper=$("workNextHelp");if(helper)helper.textContent=state==="OPEN"?"Only the assigned worker can submit this work.":state==="SUBMITTED"||state==="REVIEW"?"Run GenLayer evaluation to check the locked GitHub evidence.":state==="ACCEPTED"?"The client or worker can issue the on-chain acceptance certificate.":state==="CERTIFIED"?"Completed. No further blockchain action is needed.":"Read the finalized state to see available actions.";
   note("Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
   syncButtons();
+  if(state==="SUBMITTED"||state==="REVIEW")void checkPrReadiness({owner:work.owner,repository:work.repository,branch:work.target_branch,number:work.pr_number,requiredLabel:work.required_label},"workPrPreflight");
+  else preflightView("workPrPreflight",null,state==="CERTIFIED"?"Certification recorded on-chain.":state==="ACCEPTED"?"Accepted on-chain. Ready for certificate issuance.":"GitHub readiness check will appear once submitted.");
 }
 async function read() {
   const id = $("workId").value.trim();
@@ -201,6 +227,7 @@ $("workGenerateRubric").addEventListener("click",()=>{rubricEdited=false;generat
 for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"]) {
   $(id).addEventListener("input",()=>{suggestionVersion++;generateRubric();});
 }
+$("createCheckPr").addEventListener("click",()=>{void checkPrReadiness({owner:$("workOwner").value.trim(),repository:$("workRepo").value.trim(),branch:$("workBranch").value.trim(),number:$("workPr").value.trim(),requiredLabel:$("workLabel").value.trim()},"createPrPreflight");});
 $("workFetchPr").addEventListener("click",async()=>{
  const owner=$("workOwner").value.trim(),repo=$("workRepo").value.trim(),pr=$("workPr").value.trim(),branch=$("workBranch").value.trim();
  if(!criteriaBase()) { $("workRubricHelp").textContent="Enter the GitHub repository, target branch and PR number first.";return; }
