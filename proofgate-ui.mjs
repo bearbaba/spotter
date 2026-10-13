@@ -340,6 +340,12 @@ async function findMine(){
  }
  display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
+ const unresolved=pending();
+ if(unresolved?.method==="create_work"){
+   const confirmed=found.filter(w=>w.client?.toLowerCase()===unresolved.account?.toLowerCase() && w.owner?.toLowerCase()===unresolved.owner?.toLowerCase() && w.repository?.toLowerCase()===unresolved.repository?.toLowerCase() && String(w.pr_number)===String(unresolved.pr));
+   // Only auto-reconcile an unambiguous agreement, never infer a Work ID from an arbitrary PR.
+   if(confirmed.length===1){const w=confirmed[0];remember({...unresolved,status:"ON-CHAIN VERIFIED",workId:w.id});sessionStorage.removeItem(KEY);refreshPending();$("workId").value=w.id;render(w);}
+ }
  if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[found.length-1].id;void read().catch(e=>note(e.message,true));}
  for(const work of found.reverse()){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
