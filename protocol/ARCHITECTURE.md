@@ -14,7 +14,7 @@ Goal: full verifiable work marketplace; no cosmetic minimum-viable-only cap. Del
 `spotter-domain.mjs` is a PURE JavaScript executable state model, not a deployed contract or custodial escrow. It proves preliminary invariants in offline tests: worker cannot start unfunded work, client must fund, only worker submits, unknown accounts cannot challenge, OPEN disputes block settlement, and terminal PAID/REFUNDED cannot repeat.
 
 ### Important design gaps before ANY funds
-- The model now enforces a bounded 1-hour to 7-day challenge window and blocks premature release/refund, but still lacks timeout/cancellation, a liveness path for disputes without an arbitrator response, and confirmation-depth handling. Verifier and arbitrator identities are explicit in the model, but caller authentication must be implemented in deployed contracts.
+- The model now enforces a bounded 1-hour to 7-day challenge window and blocks premature release/refund, now includes draft cancellation and a client-initiated refund eligibility path for funded work that was never started or submitted by the immutable deadline. It still lacks a deployed value-transfer mechanism, an independent fallback when parties cannot agree, and confirmation-depth handling. Verifier and arbitrator identities are explicit in the model, but caller authentication must be implemented in deployed contracts.
 - Never assume an escrowed token can be transferred on GenLayer Studionet until token standard compatibility, wallet receipts and balances are tested.
 - Locking/releasing funds MUST only happen on chain. These state transitions do not prove transfers or conservation of balances.
 - An AI verdict is provisional until the dispute window closes and any challenge resolves. Implement that gate before escrow code.
@@ -29,3 +29,12 @@ A verifier's ACCEPTED/REJECTED decision records `decidedAt`; settlement is block
 
 ## Non-negotiable limitations of fallback (October 2026)
 The timeout model deliberately prefers **no unauthorized transfer** to a potentially unfair default payout. This is not sufficient for real custody: two uncooperative parties can deadlock even after the arbitrator misses a deadline. Before assets may be entrusted to Spotter, design, test and independently review an explicit additional arbitration/fallback path with bounded authority and timelocks. The test model consumes a caller-supplied `now`; an actual contract must rely on authenticated chain time or a trusted and documented time source. Tests do not authorize live fund transfer.
+
+
+## Deadline and cancellation policy (offline model; added October 13, 2026)
+- `CANCEL_DRAFT` is a client-only, terminal action allowed only before funding; there is no refund claim because the escrow was never funded.
+- `EXPIRE_UNSTARTED` is client-only, strictly after the signed milestone deadline, if funded work has not started.
+- `EXPIRE_UNSUBMITTED` is client-only, strictly after the deadline, if work has started but the worker has not submitted. This makes the deadline a firm submission cutoff, not a grace period.
+- Both expiry paths make escrow `REFUNDABLE` but do **not** move tokens; only a subsequent client-specific `REFUND_CONFIRMED` models final refund accounting. Once submitted by the deadline, expiry is unavailable even if verification is delayed.
+- These actions rely on the immutable milestone deadline and actor/time arguments in offline tests; an eventual on-chain implementation must derive both from authenticated execution, make any intended grace period explicit, and verify actual balance changes before reporting funds returned.
+- Cancellation after submission, administrator emergency controls, fees, partial payments, chain reorganization and custody risk remain future protocol work. Never label this model as production escrow.
