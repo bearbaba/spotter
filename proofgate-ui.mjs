@@ -70,9 +70,10 @@ async function wallet() {
   if (!window.ethereum?.request) throw Error("MetaMask is required for contract writes.");
   const chain = await window.ethereum.request({method:"eth_chainId"});
   if (Number.parseInt(String(chain),16) !== CHAIN) throw Error("Select GenLayer Studionet (61999) in MetaMask before signing.");
-  const accounts = await window.ethereum.request({method:"eth_requestAccounts"});
-  if (!Array.isArray(accounts) || !/^0x[a-fA-F0-9]{40}$/.test(accounts[0] || "")) throw Error("Valid wallet not connected.");
-  return accounts[0];
+  const accounts = await window.ethereum.request({method:"eth_accounts"});
+  const selected = connectedAccount || "";
+  if (!/^0x[a-fA-F0-9]{40}$/.test(selected) || !accounts.some(a=>a.toLowerCase()===selected.toLowerCase())) throw Error("Select and authorize the signing wallet using Connect wallet before signing.");
+  return selected;
 }
 function args(method) {
   if (method !== "create_work") {
@@ -97,6 +98,7 @@ async function act(method) {
   syncButtons();
   note("Waiting for MetaMask approval. No transaction has been confirmed yet.");
   try {
+    note("Selected signing account: "+account.slice(0,6)+"…"+account.slice(-4)+". Confirm this exact address in MetaMask.");
     const writer=createClient({chain:studionet,endpoint:ENDPOINT,account,provider:window.ethereum});
     const result=await writer.writeContract({address:ADDRESS,functionName:method,args:callArgs,value:0n});
     const hash=transactionHash(result);
@@ -222,17 +224,26 @@ $("workPickWallet").addEventListener("click",async()=>{
 generateRubric();
 
 let connectedAccount="";
+let authorizedAccounts=[];
+function setAccounts(accounts){
+ authorizedAccounts=(Array.isArray(accounts)?accounts:[]).filter(a=>/^0x[a-fA-F0-9]{40}$/.test(a));
+ const el=$("walletAccount");el.replaceChildren();
+ for(const a of authorizedAccounts){const o=document.createElement("option");o.value=a;o.textContent=a.slice(0,6)+"…"+a.slice(-4);el.append(o);}
+ el.hidden=authorizedAccounts.length<2;
+ if(!authorizedAccounts.some(a=>a.toLowerCase()===connectedAccount.toLowerCase()))connectedAccount=authorizedAccounts[0]||"";
+ el.value=connectedAccount;showAccount(connectedAccount);
+}
 function showAccount(addr){
  connectedAccount=addr||"";
  $("walletCurrent").textContent=addr?addr.slice(0,6)+"…"+addr.slice(-4):"Wallet not connected";
- $("walletConnect").textContent=addr?"Switch account":"Connect wallet";
+ $("walletConnect").textContent=addr?"Manage wallets":"Connect wallet";
 }
 async function connectAccount(){
  if(!window.ethereum?.request)throw Error("MetaMask is not available.");
  const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
  const addr=accounts?.[0]||"";
  if(!/^0x[0-9a-fA-F]{40}$/.test(addr))throw Error("Select a valid account in MetaMask.");
- showAccount(addr);
+ setAccounts(accounts);
  await findMine();
 }
 async function findMine(){
@@ -262,9 +273,10 @@ async function findMine(){
   display.append(btn);
  }
 }
+$("walletAccount").addEventListener("change",()=>{showAccount($("walletAccount").value);void findMine();});
 $("walletConnect").addEventListener("click",()=>{connectAccount().catch(e=>note(e.message,true));});
 $("workFindMine").addEventListener("click",()=>{findMine().catch(e=>note(e.message,true));});
 if(window.ethereum?.request){
- window.ethereum.request({method:"eth_accounts"}).then(a=>{if(a?.[0]){showAccount(a[0]);void findMine();}}).catch(()=>{});
- window.ethereum.on?.("accountsChanged",a=>{showAccount(a?.[0]||"");void findMine();});
+ window.ethereum.request({method:"eth_accounts"}).then(a=>{if(a?.length){setAccounts(a);void findMine();}}).catch(()=>{});
+ window.ethereum.on?.("accountsChanged",a=>{setAccounts(a);void findMine();});
 }
