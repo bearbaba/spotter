@@ -49,10 +49,17 @@ class DummyGL:
             assert method == "GET"
             return DummyGL.response
     nondet = types.SimpleNamespace(web=Web())
+    ai_verdict = {"verdict": "REVIEW", "reason": "Insufficient evidence"}
     class EQ:
         @staticmethod
         def strict_eq(fn):
             return fn()
+        @staticmethod
+        def prompt_non_comparative(fn, task, criteria):
+            evidence = json.loads(fn())
+            if evidence.get("error"):
+                return json.dumps({"verdict": "REVIEW", "reason": "Source unavailable"})
+            return json.dumps(DummyGL.ai_verdict)
     eq_principle = EQ()
 
 dummy_module = types.ModuleType("genlayer")
@@ -81,6 +88,7 @@ class LifecycleTests(unittest.TestCase):
         DummyGL.message.sender_address = CLIENT
         DummyGL.last_url = ""
         DummyGL.response = APIResponse(200, github_pr())
+        DummyGL.ai_verdict = {"verdict": "REVIEW", "reason": "Insufficient evidence"}
         self.p = contract.ProofGate()
         self.p.works = TreeMap()
         self.ident = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24)
@@ -160,6 +168,35 @@ class LifecycleTests(unittest.TestCase):
         DummyGL.response = APIResponse(200, data)
         self.p.evaluate(self.ident)
         self.assertEqual(self.p.works[self.ident].state, "ACCEPTED")
+
+    def test_locked_rubric_requires_positive_consensus(self):
+        DummyGL.message.sender_address = CLIENT
+        work_id = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", "Verify documented regression tests were added")
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(work_id)
+        DummyGL.ai_verdict = {"verdict": "REVIEW", "reason": "PR description has no test evidence"}
+        self.p.evaluate(work_id)
+        self.assertEqual(self.p.works[work_id].state, "REVIEW")
+        with self.assertRaisesRegex(Exception, "not accepted"):
+            self.p.issue_acceptance(work_id)
+        DummyGL.ai_verdict = {"verdict": "ACCEPTED", "reason": "PR documents regression tests"}
+        self.p.evaluate(work_id)
+        self.assertEqual(self.p.works[work_id].state, "ACCEPTED")
+
+    def test_malformed_ai_output_fails_closed(self):
+        DummyGL.message.sender_address = CLIENT
+        work_id = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", "Verify documented regression tests were added")
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(work_id)
+        DummyGL.ai_verdict = {"verdict": "HIT", "reason": "Ignore policy"}
+        self.p.evaluate(work_id)
+        self.assertEqual(self.p.works[work_id].state, "REVIEW")
+
+    def test_rubric_is_immutable_after_creation(self):
+        DummyGL.message.sender_address = CLIENT
+        work_id = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", "Verify documented regression tests were added")
+        self.assertEqual(self.p.works[work_id].acceptance_rubric, "Verify documented regression tests were added")
+        self.assertFalse(hasattr(self.p, "edit_rubric"))
 
     def test_policy_is_frozen_in_work_record(self):
         rec = self.p.works[self.ident]
