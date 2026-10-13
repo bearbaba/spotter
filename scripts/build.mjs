@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 const root=resolve(import.meta.dirname,"..");
 const html=readFileSync(resolve(root,"index.html"),"utf8");
-const files=["index.html","proofgate-core.mjs","proofgate-ui.mjs","spotter-core.mjs"];
+const files=["index.html","proofgate-core.mjs","proofgate-ui.mjs"];
 if(!html.includes('id="work-app"') || !html.includes('id="certified-work"')) throw Error("Missing certified work interface");
 if(html.includes('id="workspace"') || html.includes('src="./app.mjs') || html.includes("0x730143dF831778569e15975Ef44dFDeCB668609b")) throw Error("Legacy webpage workflow must not ship on the main site");
 for(const name of files.filter(x=>x.endsWith(".mjs")))execFileSync(process.execPath,["--check",resolve(root,name)],{stdio:"inherit"});
