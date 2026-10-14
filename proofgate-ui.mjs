@@ -2,7 +2,7 @@ import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
-import { outstandingReceipts, verifyStoredReceipts, compactHistory } from "./transaction-tracker.mjs";
+import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
 const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
 const ENDPOINT = "https://studio.genlayer.com/api";
@@ -117,7 +117,7 @@ function transactionBlocks(method){
  if(!p)return false;
  if(p.method==="recovered transaction")return false;
  const stored=history().find(e=>e.hash.toLowerCase()===p.hash.toLowerCase());
- if(stored && stored.status!=="PENDING")return false;
+ if(stored && !["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(stored.status))return false;
  if(p.method==="create_work")return method==="create_work";
  if(method==="create_work")return false;
  return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
@@ -125,16 +125,17 @@ function transactionBlocks(method){
 function refreshPending() {
   const p = pending();
   const relevant=p && (p.method==="create_work" || p.method==="recovered transaction" || String(p.workId)===$("workId").value.trim());
-  const oldPending=history().find(e=>e.status==="PENDING" && e.workId && String(e.workId)===$("workId").value.trim());
+  const oldPending=history().find(e=>["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(e.status) && e.workId && String(e.workId)===$("workId").value.trim());
   $("workPending").hidden = !relevant && !oldPending;
   if (relevant) {
-    $("workPending").textContent = "Transaction awaiting confirmation: " + p.method + " / " + p.hash + ". Check wallet and Explorer; only clear after FINALIZED or confirmed failure.";
+    const tracked=history().find(entry=>entry.hash.toLowerCase()===String(p.hash).toLowerCase());
+    $("workPending").textContent = (tracked?.status==="FINALIZED · EXECUTION UNVERIFIED"?"Consensus FINALIZED; GenVM result unverified: ":"Transaction awaiting confirmation: ") + p.method + " / " + p.hash + ". Never sign again until independently resolved.";
     $("workClear").hidden = true; // Manual receipt overrides are disabled; keep the legacy control hidden.
     $("workCheck").hidden = false;
     $("workTxLink").hidden = false;
     $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
   } else {
-    if(oldPending)$("workPending").textContent="An older browser transaction for this Work is still unverified ("+oldPending.hash.slice(0,12)+"…). Read-only receipt recovery is running. Do not send a duplicate transaction.";
+    if(oldPending)$("workPending").textContent="A prior transaction for this Work has an unverified execution ("+oldPending.hash.slice(0,12)+"…). Read-only recovery continues. Never send a duplicate.";
     $("workClear").hidden = true;
     $("workCheck").hidden = true;
     $("workTxLink").hidden = true;
@@ -291,7 +292,7 @@ async function checkTransaction(){
  const scopedNote=(message,error=false)=>{if(p.method==="create_work" || String(p.workId)===$("workId").value.trim())note(message,error);};
  checkInProgress=true;$("workCheck").disabled=true;
  try{
-  const receipt=await client.getTransaction({hash:p.hash}); // Read-only chain verification.
+  const receipt=await getVerifiedReceipt(hash=>client.getTransaction({hash}),fetch,ENDPOINT,{...p,contract:ADDRESS}); // Read-only GenLayer SDK + raw RPC.
   if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return; // Another task resolved this hash.
   const returnedHash=receipt?.hash??receipt?.txId??receipt?.id;
   if(returnedHash && String(returnedHash).toLowerCase()!==p.hash.toLowerCase()){
@@ -300,7 +301,8 @@ async function checkTransaction(){
   }
   const status=finalizedReceipt(receipt);
   if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
-  if(status!=="FINALIZED"){scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
+  if(status==="FINALIZED_UNVERIFIED"){remember({...p,status:"FINALIZED · EXECUTION UNVERIFIED"});refreshPending();scopedNote("Consensus FINALIZED but GenVM execution result is still unverified. Read-only recovery continues. Never sign a duplicate.",true);return;}
+   if(status!=="FINALIZED"){scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
   if(p.method==="recovered transaction"){
     remember({...p,status:"FINALIZED (RECEIPT VERIFIED)"});
     sessionStorage.removeItem(KEY);refreshPending();
@@ -335,7 +337,8 @@ async function verifyHistoricalReceipts(){
  if(!candidates.length)return;
  historyScanRunning=true;
  try {
-  const result=await verifyStoredReceipts(candidates,hash=>client.getTransaction({hash}),{limit:3,offset:historyScanCursor});
+  const byHash=new Map(candidates.map(entry=>[entry.hash.toLowerCase(),entry]));
+   const result=await verifyStoredReceipts(candidates,hash=>getVerifiedReceipt(tx=>client.getTransaction({hash:tx}),fetch,ENDPOINT,{...byHash.get(hash.toLowerCase()),contract:ADDRESS}),{limit:3,offset:historyScanCursor});
   historyScanCursor=result.remaining?(historyScanCursor+result.inspected.length)%result.remaining:0;
   for(const item of result.inspected){
    if(!item.update)continue; // pending, unrecognized or RPC unavailable: no inferred result
@@ -359,7 +362,7 @@ async function verifyHistoricalReceipts(){
 $("workCheck").addEventListener("click",checkTransaction);
 // Restore unresolved hashes from durable history after a browser restart. Read-only; never replay writes.
 if(!pending()){
- const unresolved=history().find(x=>x.status==="PENDING" && /^0x[0-9a-fA-F]{64}$/.test(x.hash||""));
+ const unresolved=history().find(x=>["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(x.status) && /^0x[0-9a-fA-F]{64}$/.test(x.hash||""));
  if(unresolved)sessionStorage.setItem(KEY,JSON.stringify(unresolved));
 }
 const previousPending=pending();
