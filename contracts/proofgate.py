@@ -237,11 +237,15 @@ class ProofGate(gl.Contract):
                 if not isinstance(ai, dict) or ai.get("verdict") not in ("ACCEPTED", "REVIEW"):
                     raise ValueError("invalid qualitative verdict")
                 reason = ai.get("reason")
-                if not isinstance(reason, str) or not reason.strip() or len(reason) > 200:
+                # Validation applies to the untrusted AI payload, not to the
+                # 200-character storage/display field. A valid verdict must not
+                # become REVIEW only because the explanation is 201+ characters.
+                # Still fail closed for absent, non-string or unbounded output.
+                if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
                     raise ValueError("invalid qualitative reason")
                 if ai["verdict"] == "REVIEW":
                     state = "REVIEW"
-                report["reason"] = ("Rubric assessment: " + reason)[:200]
+                report["reason"] = ("Rubric assessment: " + reason.strip())[:200]
             except Exception as err:
                 state = "REVIEW"
                 # Expose the failure category, never untrusted exception text or proof data.
