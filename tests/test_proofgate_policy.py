@@ -5,9 +5,9 @@ import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "contracts" / "proofgate.py"
 tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
-names = {"github_identifier", "branch_identifier", "canonical_api_url", "verify_api_payload"}
+names = {"github_identifier", "branch_identifier", "canonical_api_url", "verify_api_payload", "parse_qualitative_result"}
 functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
-policy = {}
+policy = {"json": __import__("json")}
 exec(compile(ast.Module(body=functions, type_ignores=[]), str(SOURCE), "exec"), policy)
 canonical_api_url = policy["canonical_api_url"]
 verify_api_payload = policy["verify_api_payload"]
@@ -23,6 +23,19 @@ def example(merged=True, repo="bearbaba/spotter", number=24, branch="main", url=
         "merge_commit_sha": "a"*40 if merged else None}
 
 class ProofGatePolicyTests(unittest.TestCase):
+    def test_v3_ai_decoder_preserves_verdict_for_long_explanation(self):
+        import json
+        parser = policy["parse_qualitative_result"]
+        decision = {"verdict": "ACCEPTED", "reason": "A" * 222}
+        self.assertEqual(parser(decision), decision)
+        self.assertEqual(parser(json.dumps(decision)), decision)
+        self.assertEqual(parser(json.dumps(json.dumps(decision))), decision)
+        for invalid in [None, 1, [], "Not JSON", {"verdict": "ACCEPTED", "reason": ""},
+                        {"verdict": "ACCEPTED", "reason": "x" * 2001},
+                        {"verdict": "NO", "reason": "Should not pass"}]:
+            with self.subTest(invalid=str(invalid)[:24]), self.assertRaises(Exception):
+                parser(invalid)
+
     def test_canonical_api_fixed(self):
         self.assertEqual(canonical_api_url("bearbaba", "spotter", 24),
             "https://api.github.com/repos/bearbaba/spotter/pulls/24")
