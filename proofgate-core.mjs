@@ -31,16 +31,32 @@ export function createdWorkId(receipt) {
   }
   return "";
 }
+/**
+ * SDK and raw GenLayer RPC receipts may expose either symbolic or numeric
+ * GenVM execution results. NEVER mistake consensus finality for execution.
+ * Official ITransactions vote codes: 0 NotVoted, 1 FinishedWithReturn,
+ * 2 FinishedWithError, 3 Timeout, 4 NondetDisagree, 5 DeterministicViolation.
+ */
 export function finalizedReceipt(receipt) {
-  const status=String(receipt?.statusName??receipt?.status??"").toUpperCase();
-  const execution=String(receipt?.txExecutionResultName??receipt?.executionResult??"").toUpperCase();
-  // Consensus finality alone is not proof that contract execution succeeded.
+  if(!receipt || typeof receipt!=="object")return "PENDING";
+  const status=String(receipt.statusName??receipt.status??"").toUpperCase();
+  const name=String(receipt.txExecutionResultName??receipt.executionResult??"").toUpperCase();
   if(/CANCEL|REVERT|FAIL|ERROR/.test(status))return "FAILED";
   if(status!=="FINALIZED")return "PENDING";
-  if(/FINISHED_WITH_ERROR|TIMEOUT|NONDET_DISAGREE|DETERMINISTIC_VIOLATION|FAIL|ERROR|REVERT/.test(execution))return "FAILED";
-  if(/FINISHED_WITH_RETURN|SUCCESS/.test(execution))return "FINALIZED";
-  // Missing or unfamiliar execution results must be investigated, never marked successful.
-  return "PENDING";
+  const codeValue=receipt.txExecutionResult;
+  const code=typeof codeValue==="number" || typeof codeValue==="string" && /^\\d+$/.test(codeValue)
+    ? Number(codeValue):NaN;
+  const knownSuccess=/FINISHED_WITH_RETURN|SUCCESS/.test(name);
+  const knownFailure=/FINISHED_WITH_ERROR|TIMEOUT|NONDET_DISAGREE|DETERMINISTIC_VIOLATION|FAIL|ERROR|REVERT/.test(name);
+  const numericSuccess=code===1;
+  const numericFailure=[2,3,4,5].includes(code);
+  // If a backend returns contradicting execution fields, do not invent success.
+  if((knownSuccess && numericFailure)||(knownFailure && numericSuccess))return "FINALIZED_UNVERIFIED";
+  if(knownFailure||numericFailure)return "FAILED";
+  if(knownSuccess||numericSuccess)return "FINALIZED";
+  // Finalization is confirmed, but execution is not. Keep the transaction
+  // locked while inspecting a second read-only RPC source.
+  return "FINALIZED_UNVERIFIED";
 }
 
 /** Prevent duplicate submissions without freezing unrelated work. */
