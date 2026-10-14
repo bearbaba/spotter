@@ -103,7 +103,7 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(self.p.get_work_count(), "2")
 
     def test_onchain_rubric_is_mandatory(self):
-        for rubric in ["", "  ", "too short", "x" * 501]:
+        for rubric in ["", "  ", "too short", "x" * 501, " " * 501 + "valid acceptance criteria"]:
             with self.subTest(length=len(rubric)):
                 with self.assertRaisesRegex(Exception, "acceptance rubric required"):
                     self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", rubric)
