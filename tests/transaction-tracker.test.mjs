@@ -36,7 +36,7 @@ test("read-only batch verifies success and failure without mistaking RPC failure
 test("pending and unfamiliar finalized execution never claim success",()=>{
  const entry={hash:hash("d"),method:"evaluate"};
  assert.equal(receiptResolution(entry,receipt("PENDING","NOT_VOTED",entry.hash)),null);
- assert.equal(receiptResolution(entry,receipt("FINALIZED","UNRECOGNIZED",entry.hash)),null);
+ assert.equal(receiptResolution(entry,receipt("FINALIZED","UNRECOGNIZED",entry.hash)).status,"FINALIZED · EXECUTION UNVERIFIED");
  assert.equal(receiptResolution(entry,receipt("FINALIZED","FINISHED_WITH_RETURN",hash("e"))),null);
 });
 
