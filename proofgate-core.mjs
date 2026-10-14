@@ -44,7 +44,7 @@ export function finalizedReceipt(receipt) {
   if(/CANCEL|REVERT|FAIL|ERROR/.test(status))return "FAILED";
   if(status!=="FINALIZED")return "PENDING";
   const codeValue=receipt.txExecutionResult;
-  const code=typeof codeValue==="number" || typeof codeValue==="string" && /^\\d+$/.test(codeValue)
+  const code=typeof codeValue==="number" || typeof codeValue==="string" && /^\d+$/.test(codeValue)
     ? Number(codeValue):NaN;
   const knownSuccess=/FINISHED_WITH_RETURN|SUCCESS/.test(name);
   const knownFailure=/FINISHED_WITH_ERROR|TIMEOUT|NONDET_DISAGREE|DETERMINISTIC_VIOLATION|FAIL|ERROR|REVERT/.test(name);
