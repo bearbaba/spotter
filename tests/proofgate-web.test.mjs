@@ -36,8 +36,8 @@ test("receipt must report FINALIZED before success",()=>{
 });
 
 test("receipt watcher fails closed on incomplete and negative executions",()=>{
- assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"PENDING");
- assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NOT_VOTED"}),"PENDING");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"FINALIZED_UNVERIFIED");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NOT_VOTED"}),"FINALIZED_UNVERIFIED");
  assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"TIMEOUT"}),"FAILED");
  assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NONDET_DISAGREE"}),"FAILED");
  assert.equal(finalizedReceipt({statusName:"PENDING",txExecutionResultName:"FINISHED_WITH_RETURN"}),"PENDING");
