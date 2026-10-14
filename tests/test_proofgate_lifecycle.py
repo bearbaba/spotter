@@ -94,6 +94,14 @@ class LifecycleTests(unittest.TestCase):
         self.ident = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", "PR must document verifiable regression test evidence")
 
     def test_v3_fresh_storage_and_version(self):
+        empty = contract.ProofGate()
+        empty.works = TreeMap()
+        self.assertEqual(empty.get_work_count(), "0")
+        self.assertEqual(empty.get_work("1"), "{}")
+        first = empty.create_work(WORKER, "bearbaba", "spotter", "main", 24, "",
+                                  "Specific proof requirements for a fresh work")
+        self.assertEqual(first, "1")
+        self.assertEqual(empty.get_work_count(), "1")
         self.assertEqual(self.p.get_version(), "3.0.0")
         self.assertEqual(self.p.get_work_count(), "1")
         self.assertEqual(json.loads(self.p.get_work(self.ident))["contract_version"], "3.0.0")
@@ -167,6 +175,18 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(self.p.works[self.ident].state, "CERTIFIED")
         with self.assertRaisesRegex(Exception, "already decided"):
             self.p.evaluate(self.ident)
+
+    def test_unrelated_wallet_may_evaluate_but_cannot_issue_certificate(self):
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(self.ident)
+        DummyGL.message.sender_address = OUTSIDER
+        self.p.evaluate(self.ident)
+        self.assertEqual(self.p.works[self.ident].state, "ACCEPTED")
+        with self.assertRaisesRegex(Exception, "only participants"):
+            self.p.issue_acceptance(self.ident)
+        DummyGL.message.sender_address = CLIENT
+        self.p.issue_acceptance(self.ident)
+        self.assertEqual(self.p.works[self.ident].state, "CERTIFIED")
 
     def test_unmerged_never_certifies(self):
         DummyGL.response = APIResponse(200, github_pr(merged=False))
