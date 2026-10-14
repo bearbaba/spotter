@@ -49,7 +49,7 @@ class DummyGL:
             assert method == "GET"
             return DummyGL.response
     nondet = types.SimpleNamespace(web=Web())
-    ai_verdict = {"verdict": "REVIEW", "reason": "Insufficient evidence"}
+    ai_verdict = {"verdict": "ACCEPTED", "reason": "PR descriptions demonstrate agreed implementation"}
     class EQ:
         @staticmethod
         def strict_eq(fn):
@@ -88,10 +88,51 @@ class LifecycleTests(unittest.TestCase):
         DummyGL.message.sender_address = CLIENT
         DummyGL.last_url = ""
         DummyGL.response = APIResponse(200, github_pr())
-        DummyGL.ai_verdict = {"verdict": "REVIEW", "reason": "Insufficient evidence"}
+        DummyGL.ai_verdict = {"verdict": "ACCEPTED", "reason": "PR descriptions demonstrate agreed implementation"}
         self.p = contract.ProofGate()
         self.p.works = TreeMap()
-        self.ident = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24)
+        self.ident = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", "PR must document verifiable regression test evidence")
+
+    def test_v3_fresh_storage_and_version(self):
+        self.assertEqual(self.p.get_version(), "3.0.0")
+        self.assertEqual(self.p.get_work_count(), "1")
+        self.assertEqual(json.loads(self.p.get_work(self.ident))["contract_version"], "3.0.0")
+        self.assertEqual(self.p.get_work("999"), "{}")
+        self.p.create_work(WORKER, "bearbaba", "spotter", "main", 25, "",
+                           "Second contribution with explicit acceptance rubric")
+        self.assertEqual(self.p.get_work_count(), "2")
+
+    def test_onchain_rubric_is_mandatory(self):
+        for rubric in ["", "  ", "too short", "x" * 501]:
+            with self.subTest(length=len(rubric)):
+                with self.assertRaisesRegex(Exception, "acceptance rubric required"):
+                    self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", rubric)
+        self.assertEqual(self.p.get_work_count(), "1")
+
+    def test_digest_changes_when_rubric_or_checked_evidence_changes(self):
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(self.ident)
+        self.p.evaluate(self.ident)
+        self.assertEqual(self.p.works[self.ident].state, "ACCEPTED")
+        digest = self.p.works[self.ident].evidence_digest
+        self.assertEqual(len(digest), 64)
+        DummyGL.message.sender_address = CLIENT
+        second = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "",
+                                    "An independent and different acceptance rubric")
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(second)
+        self.p.evaluate(second)
+        self.assertNotEqual(self.p.works[second].evidence_digest, digest)
+        DummyGL.message.sender_address = CLIENT
+        third = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "",
+                                   "PR must document verifiable regression test evidence")
+        updated = github_pr()
+        updated["title"] = "Changed checked PR title evidence"
+        DummyGL.response = APIResponse(200, updated)
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(third)
+        self.p.evaluate(third)
+        self.assertNotEqual(self.p.works[third].evidence_digest, digest)
 
     def test_worker_only_submission(self):
         DummyGL.message.sender_address = OUTSIDER
