@@ -183,6 +183,53 @@ class LifecycleTests(unittest.TestCase):
         self.p.evaluate(work_id)
         self.assertEqual(self.p.works[work_id].state, "ACCEPTED")
 
+    def test_work3_ai_accepted_with_222_character_reason_is_not_rejected(self):
+        # GenLayer Explorer Work #3 (PR #26) showed a valid ACCEPTED verdict
+        # followed by this 222-character reason. The old 200-char validation
+        # raised ValueError and incorrectly stored REVIEW.
+        reason = (
+            "The title and description provide concrete evidence for the regression "
+            "tests, specifically covering merged/unmerged checks, repository and "
+            "branch validation, labels, and invalid evidence handling as required "
+            "by the rubric."
+        )
+        self.assertEqual(len(reason), 222)
+        DummyGL.message.sender_address = CLIENT
+        work_id = self.p.create_work(
+            WORKER, "bearbaba", "spotter", "main", 24, "",
+            "PR must describe merged/unmerged checks and invalid evidence tests",
+        )
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(work_id)
+        DummyGL.ai_verdict = {"verdict": "ACCEPTED", "reason": reason}
+        self.p.evaluate(work_id)
+        saved = self.p.works[work_id]
+        self.assertEqual(saved.state, "ACCEPTED")
+        self.assertTrue(saved.explanation.startswith("Rubric assessment: "))
+        self.assertLessEqual(len(saved.explanation), 200)
+        self.assertEqual(saved.merge_commit, "a" * 40)
+        DummyGL.message.sender_address = CLIENT
+        self.p.issue_acceptance(work_id)
+        self.assertEqual(self.p.works[work_id].state, "CERTIFIED")
+
+    def test_unbounded_or_invalid_ai_reason_stays_review(self):
+        DummyGL.message.sender_address = CLIENT
+        work_id = self.p.create_work(
+            WORKER, "bearbaba", "spotter", "main", 24, "",
+            "PR must describe verified regression tests",
+        )
+        DummyGL.message.sender_address = WORKER
+        self.p.submit_for_review(work_id)
+        for bad_reason in ["x" * 2001, "", "   ", None, 42]:
+            with self.subTest(reason=str(bad_reason)[:16]):
+                DummyGL.ai_verdict = {"verdict": "ACCEPTED", "reason": bad_reason}
+                self.p.evaluate(work_id)
+                saved = self.p.works[work_id]
+                self.assertEqual(saved.state, "REVIEW")
+                self.assertEqual(saved.merge_commit, "")
+                with self.assertRaisesRegex(Exception, "not accepted"):
+                    self.p.issue_acceptance(work_id)
+
     def test_malformed_ai_output_fails_closed(self):
         DummyGL.message.sender_address = CLIENT
         work_id = self.p.create_work(WORKER, "bearbaba", "spotter", "main", 24, "", "Verify documented regression tests were added")
