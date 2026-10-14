@@ -133,7 +133,8 @@ class ProofGate(gl.Contract):
             raise Exception("invalid target branch")
         if required_label and (len(required_label) > 64 or not all(c.isascii() and (c.isalnum() or c in "-_.") for c in required_label)):
             raise Exception("invalid required label")
-        if not isinstance(acceptance_rubric, str) or not 16 <= len(acceptance_rubric.strip()) <= 500:
+        if (not isinstance(acceptance_rubric, str) or len(acceptance_rubric) > 500
+            or len(acceptance_rubric.strip()) < 16):
             raise Exception("acceptance rubric required (16-500 characters)")
         worker = normalize_address(worker)
         client = normalize_address(gl.message.sender_address)
