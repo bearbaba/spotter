@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {outstandingReceipts,receiptResolution,verifyStoredReceipts,compactHistory} from "../transaction-tracker.mjs";
+import {outstandingReceipts,receiptResolution,verifyStoredReceipts,compactHistory,getVerifiedReceipt} from "../transaction-tracker.mjs";
 import {unresolvedTransactionBlocks} from "../proofgate-core.mjs";
 const hash=n=>"0x"+n.repeat(64);
 const receipt=(name,outcome,txId)=>({statusName:name,txExecutionResultName:outcome,txId});
@@ -84,4 +84,52 @@ test("verified Work readback may release create guard without claiming receipt s
  assert.equal(unresolvedTransactionBlocks([entry],"create_work",""),false);
  assert.equal(unresolvedTransactionBlocks([{...entry,status:"ON-CHAIN VERIFIED"}],"create_work",""),false);
  assert.equal(unresolvedTransactionBlocks([{...entry,status:"FINALIZED · VERIFY ID"}],"create_work",""),true);
+});
+
+const clientHash="0x83c361db8590599f2bb833ec2772785700a7de7b5603b9ae4e1ea23229a91b33";
+const contract="0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
+const ownerWallet="0x4C7cb73aC8F8999af21cfc9fF4cF2333a9508Dcb";
+const item={hash:clientHash,method:"evaluate",workId:"3",account:ownerWallet,contract,status:"PENDING"};
+
+test("Work #3 regression: finalized SDK receipt lacking execution uses verified raw RPC result",async()=>{
+ let requested;
+ const result=await getVerifiedReceipt(
+   async id=>({id,statusName:"FINALIZED",txExecutionResultName:"NOT_DECIDED"}),
+   async (endpoint,options)=>{
+     assert.equal(endpoint,"https://studio.genlayer.com/api");
+     requested=JSON.parse(options.body);
+     return {ok:true,json:async()=>({jsonrpc:"2.0",id:1,result:{
+       id:clientHash,statusName:"Finalized",txExecutionResult:1,
+       recipient:contract,sender:ownerWallet
+     }})};
+   },
+   "https://studio.genlayer.com/api",item
+ );
+ assert.equal(requested.method,"gen_getTransactionReceipt");
+ assert.deepEqual(requested.params,[{txId:clientHash}]);
+ assert.equal(receiptResolution(item,result).status,"FINALIZED (RECEIPT VERIFIED)");
+});
+
+test("raw RPC cannot resolve different hash, signer, contract, or unsuccessful execution",async()=>{
+ for(const bad of [
+   {id:hash("b"),sender:ownerWallet,recipient:contract},
+   {id:clientHash,sender:"0x"+"f".repeat(40),recipient:contract},
+   {id:clientHash,sender:ownerWallet,recipient:"0x"+"a".repeat(40)},
+ ]){
+  const sdk={id:clientHash,statusName:"FINALIZED",txExecutionResultName:"NOT_DECIDED"};
+  const found=await getVerifiedReceipt(async()=>sdk,async()=>({ok:true,json:async()=>({result:{...bad,statusName:"Finalized",txExecutionResult:1}})}),"rpc",item);
+  assert.equal(found,sdk);
+  assert.equal(receiptResolution(item,found).status,"FINALIZED · EXECUTION UNVERIFIED");
+ }
+ const fail=await getVerifiedReceipt(async()=>({id:clientHash,statusName:"FINALIZED",txExecutionResultName:"NOT_DECIDED"}),
+  async()=>({ok:true,json:async()=>({result:{id:clientHash,statusName:"Finalized",txExecutionResult:2}})}),"rpc",item);
+ assert.equal(receiptResolution(item,fail).status,"FAILED (GENVM)");
+});
+
+test("unverified finalized receipt stays in history and blocks duplicate evaluate",()=>{
+ const record={...item,status:"FINALIZED · EXECUTION UNVERIFIED"};
+ assert.equal(unresolvedTransactionBlocks([record],"evaluate","3"),true);
+ assert.equal(unresolvedTransactionBlocks([record],"evaluate","2"),false);
+ assert.equal(outstandingReceipts([record]).length,1);
+ assert.equal(compactHistory([record,...Array.from({length:120},(_,i)=>({hash:"0x"+i.toString(16).padStart(64,"0"),status:"FINALIZED",created:i+2}))]).length,101);
 });
