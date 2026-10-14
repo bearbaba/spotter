@@ -1,0 +1,14 @@
+{
+  "chain": "GenLayer Studionet",
+  "chainId": 61999,
+  "contractName": "ProofGate",
+  "version": "3.0.0",
+  "source": "contracts/proofgate.py",
+  "sourceBranch": "feat/spotter-v3-fresh-contract",
+  "status": "NOT_DEPLOYED",
+  "address": null,
+  "deployTxHash": null,
+  "verifiedSourceCommit": null,
+  "verifiedSourceSha256": null,
+  "productionCutover": false
+}
