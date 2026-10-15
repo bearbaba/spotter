@@ -223,6 +223,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .work-product .work-hash-recovery button{margin-top:8px}
 .work-product .work-hash-recovery p{font-size:12px;margin:6px 0}
 @media(max-width:520px){.work-product .work-create-panel .work-advanced-fields{grid-template-columns:1fr}}
+
+/* Transaction monitoring is contextual; an empty tx panel never occupies the canvas. */
+.work-product #workTxPanel[hidden]{display:none!important}
+.work-product #workTxPanel{border-color:#4e877a;background:#0f2b27;padding:15px 18px}
+.work-product #workTxPanel h3{font-size:16px;margin:0 0 7px}
+.work-product #workTxPanel p{font-size:12px;overflow-wrap:anywhere}
+.work-product #workTxPanel .work-pending-actions{flex-direction:row!important;flex-wrap:wrap;gap:8px!important;margin:8px 0!important;align-items:center!important}
+.work-product .work-hash-recovery{padding:14px 0 0;border-top:1px solid #28514d;margin:14px 0 0}
 </style>
 </head>
 <body>
@@ -274,19 +282,16 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 </div>
   </div>
   <aside class="work-right-column" aria-label="Create agreement and transaction tools">
-    <div class="work-right-intro"><div class="eyebrow">MANAGE ACTIONS</div><h3>New agreement &amp; transactions</h3><p>Create a work agreement or track transaction hashes. Your existing work and its decisions stay on the left.</p></div>
-    <section class="work-tx-panel" aria-label="Active transaction status">
-   <h3>Active transaction</h3>
-   <p class="hint">If you submit an on-chain action, its transaction hash and Explorer link appear here. Status checks never request a second signature.</p>
-<p id="workPending" class="notice pending" hidden></p>
-      <div class="work-pending-actions" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:14px 0">
-        <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a>
-        <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
-        <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
-      </div>
-      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p>
-   <div class="field" class="work-hash-recovery"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div>
-<div class="work-tx-proof"><span class="work-tx-label">V3 Work #1 certificate example</span><a href="https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0" target="_blank" rel="noopener noreferrer" class="work-tx-hash">0x614e11c3…c310b0 ↗</a></div>
+    <div class="work-right-intro"><div class="eyebrow">MANAGE ACTIONS</div><h3>Create new work</h3><p>Start with a GitHub pull request. Transaction tools are available when needed.</p></div>
+    <section id="workTxPanel" class="work-tx-panel" aria-label="Current transaction status" role="status" hidden>
+  <h3>Transaction in progress</h3>
+  <p id="workPending" class="notice pending" hidden></p>
+  <div class="work-pending-actions">
+    <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>View transaction in Explorer ↗</a>
+    <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check status ↻</button>
+    <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Check recorded transaction status</button>
+  </div>
+  <p class="hint">Read-only checks. Never resend an unresolved transaction.</p>
 </section>
 <details id="workCreateSection" class="work-create-section" open>
  <summary><span>Create a new work agreement</span><span class="work-panel-hint">GitHub PR · contributor · acceptance criteria</span></summary>
@@ -307,10 +312,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </details>
   <details class="work-readiness"><summary><span>GitHub verification</span><span class="work-panel-hint">Checks are repeated before signing</span></summary><div id="createPrPreflight" class="work-preflight" role="status" aria-live="polite">Paste a GitHub PR URL first.</div><button id="createCheckPr" type="button" class="btn btn-subtle btn-small">Check GitHub readiness</button></details>
   <button type="button" class="btn btn-primary work-create-submit" data-work-method="create_work">Create on-chain work ↗</button>
-  <p class="hint">GitHub evidence is checked before MetaMask approval. Sign only once; track the hash above.</p>
+  <p class="hint">GitHub evidence is checked before MetaMask approval. Sign only once. Any pending transaction will appear automatically above this form.</p>
  </div>
 </details>
-<details class="work-history"><summary><span>Transaction hashes &amp; recovery</span><span class="work-panel-hint">Review, open, or recover a transaction on Explorer</span></summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
+<details class="work-history"><summary><span>Transaction hashes &amp; recovery</span><span class="work-panel-hint">Review, open, or recover a transaction on Explorer</span></summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p><div class="work-hash-recovery field">
+  <label for="workImportHash">Recover a transaction by hash</label>
+  <input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false" />
+  <button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button>
+  <p class="hint">Read-only lookup; never signs or resends a transaction.</p>
+</div></details>
   </aside>
 </div>
 </section>
@@ -334,6 +344,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 
-<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-compact-create"></script>
+<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-contextual-tx"></script>
 </body>
 </html>
