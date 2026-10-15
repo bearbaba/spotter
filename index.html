@@ -201,6 +201,28 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
  @media(max-width:900px){.work-product .work-two-columns{grid-template-columns:minmax(0,1fr)}}
  @media(max-width:650px){.work-product .work-right-column .work-create-section,.work-product .work-right-column .work-history,.work-product .work-right-column .work-tx-panel{padding:15px}.work-product .work-right-intro{padding:16px}}
 
+
+/* Three-field creation with compact advanced settings and always-visible hashes. */
+.work-product .work-right-column .work-create-section>.work-create-panel{width:100%;max-width:none;margin:14px 0 0;padding:0;border:0;background:transparent;box-shadow:none}
+.work-product .work-right-column .work-create-section{padding:19px 21px}
+.work-product .work-create-panel>.field{margin:0 0 15px}
+.work-product .work-create-panel>.field .hint{margin:5px 0;font-size:12px;line-height:1.45}
+.work-product .work-create-panel #workWorker{margin-bottom:8px}
+.work-product .work-create-panel textarea{min-height:105px}
+.work-product .work-rubric-actions{margin:8px 0 0;gap:8px}
+.work-product .work-create-panel details.work-advanced,.work-product .work-create-panel details.work-readiness{padding:12px 13px;margin:11px 0;border:1px solid #32534d;border-radius:11px;background:#0b1b1a}
+.work-product .work-create-panel details.work-advanced>summary,.work-product .work-create-panel details.work-readiness>summary{font-size:13px}
+.work-product .work-create-panel .work-advanced-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;margin:14px 0}
+.work-product .work-create-panel .work-advanced-fields .field{margin:0;min-width:0}
+.work-product .work-create-panel .work-advanced-fields .field input{padding:10px 12px}
+.work-product .work-create-panel .work-readiness #createPrPreflight{max-height:215px;overflow:auto}
+.work-product .work-create-panel .work-create-submit{display:block;width:100%;margin-top:15px}
+.work-product .work-hash-recovery{border-top:1px solid #28514d;padding-top:14px;margin:14px 0}
+.work-product .work-hash-recovery label{display:block;font-weight:700;margin-bottom:6px}
+.work-product .work-hash-recovery input{max-width:100%;width:100%;box-sizing:border-box}
+.work-product .work-hash-recovery button{margin-top:8px}
+.work-product .work-hash-recovery p{font-size:12px;margin:6px 0}
+@media(max-width:520px){.work-product .work-create-panel .work-advanced-fields{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -253,19 +275,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </div>
   <aside class="work-right-column" aria-label="Create agreement and transaction tools">
     <div class="work-right-intro"><div class="eyebrow">MANAGE ACTIONS</div><h3>New agreement &amp; transactions</h3><p>Create a work agreement or track transaction hashes. Your existing work and its decisions stay on the left.</p></div>
-    <details id="workCreateSection" class="work-create-section"><summary><span>Create a new work agreement</span><span class="work-panel-hint">Start with a GitHub PR and assign a contributor</span></summary>    <div class="panel work-create-panel">
-      <h3>Create a work agreement</h3><div class="field"><label for="workPrUrl">GitHub pull request URL</label><input id="workPrUrl" type="url" autocomplete="off" placeholder="https://github.com/owner/repository/pull/123" /><p class="hint">Paste a public GitHub PR link. Repository, branch, PR number and suggested criteria will be prepared automatically.</p></div>
-      <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /><button id="workPickWallet" type="button" class="btn btn-subtle btn-small">Use selected MetaMask account</button><p class="hint">Choose your account in MetaMask, or enter a different worker address.</p></div>
-      <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" value="bearbaba" placeholder="bearbaba" /></div>
-      <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" value="spotter" placeholder="spotter" /></div>
-      <div class="field"><label for="workBranch">Target branch</label><input id="workBranch" value="main" /></div>
-      <div class="field"><label for="workPr">Pull request number</label><input id="workPr" inputmode="numeric" placeholder="24" /></div>
-      <div class="field"><label for="workLabel">Required PR label (optional)</label><input id="workLabel" placeholder="Leave blank if none" /></div>
-      <div id="createPrPreflight" class="work-preflight" role="status" aria-live="polite">Enter a GitHub PR number, then check its status before signing.</div><button id="createCheckPr" type="button" class="btn btn-subtle btn-small">Check GitHub readiness</button><div class="field"><label for="workRubric">Acceptance criteria</label><p class="hint">Suggested from your GitHub pull request. Edit before creating the work; these conditions are fixed on-chain.</p><textarea id="workRubric" rows="5" maxlength="500" placeholder="Enter a PR number to prepare criteria"></textarea><div class="action-row"><button id="workFetchPr" type="button" class="btn btn-subtle btn-small">Use GitHub PR details</button><button id="workGenerateRubric" type="button" class="btn btn-subtle btn-small" hidden>Regenerate criteria</button></div><p id="workRubricHelp" class="hint" role="status" aria-live="polite">Enter a PR number to prepare criteria.</p></div>
-      <button type="button" class="btn btn-primary" data-work-method="create_work">Create on-chain work ↗</button>
-      <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
-    </div>
-</details>
     <section class="work-tx-panel" aria-label="Active transaction status">
    <h3>Active transaction</h3>
    <p class="hint">If you submit an on-chain action, its transaction hash and Explorer link appear here. Status checks never request a second signature.</p>
@@ -276,9 +285,32 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
         <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
       </div>
       <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p>
-   <div class="work-tx-proof"><span class="work-tx-label">V3 Work #1 certificate example</span><a href="https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0" target="_blank" rel="noopener noreferrer" class="work-tx-hash">0x614e11c3…c310b0 ↗</a></div>
+   <div class="field" class="work-hash-recovery"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div>
+<div class="work-tx-proof"><span class="work-tx-label">V3 Work #1 certificate example</span><a href="https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0" target="_blank" rel="noopener noreferrer" class="work-tx-hash">0x614e11c3…c310b0 ↗</a></div>
 </section>
-    <details class="work-history" open><summary><span>Transaction hashes &amp; recovery</span><span class="work-panel-hint">Review, open, or recover a transaction on Explorer</span></summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
+<details id="workCreateSection" class="work-create-section" open>
+ <summary><span>Create a new work agreement</span><span class="work-panel-hint">GitHub PR · contributor · acceptance criteria</span></summary>
+ <div class="work-create-panel">
+  <div class="field"><label for="workPrUrl">GitHub pull request URL</label><input id="workPrUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://github.com/owner/repository/pull/123" /><p class="hint">Paste a public PR to automatically prepare repository, branch and PR number.</p></div>
+  <div class="field"><label for="workWorker">Contributor wallet address</label><input id="workWorker" autocomplete="off" spellcheck="false" placeholder="0x…" /><button id="workPickWallet" type="button" class="btn btn-subtle btn-small">Use selected MetaMask account</button><p class="hint">Enter the wallet of the person who will submit this Work. Review it before signing.</p></div>
+  <div class="field"><label for="workRubric">Acceptance criteria</label><textarea id="workRubric" rows="4" maxlength="500" placeholder="What exactly must the contributor deliver and prove?"></textarea><div class="action-row work-rubric-actions"><button id="workFetchPr" type="button" class="btn btn-subtle btn-small">Suggest from GitHub PR</button><button id="workGenerateRubric" type="button" class="btn btn-subtle btn-small" hidden>Reset suggestion</button></div><p id="workRubricHelp" class="hint" role="status" aria-live="polite">Paste a PR to prepare criteria, then edit them before signing.</p></div>
+  <details id="workAdvancedSection" class="work-advanced">
+   <summary><span>Advanced settings</span><span class="work-panel-hint">Repository, branch, PR number and optional label</span></summary>
+   <div class="work-advanced-fields">
+    <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" placeholder="Detected from PR URL" autocomplete="off" /></div>
+    <div class="field"><label for="workRepo">GitHub repository</label><input id="workRepo" placeholder="Detected from PR URL" autocomplete="off" /></div>
+    <div class="field"><label for="workBranch">Target branch</label><input id="workBranch" placeholder="Detected from GitHub" autocomplete="off" /></div>
+    <div class="field"><label for="workPr">Pull request number</label><input id="workPr" inputmode="numeric" placeholder="Detected from PR URL" /></div>
+    <div class="field"><label for="workLabel">Required PR label (optional)</label><input id="workLabel" placeholder="Leave blank if none" /></div>
+   </div>
+   <p class="hint">This policy will be locked on-chain. The owner, repository and PR number must match the URL.</p>
+  </details>
+  <details class="work-readiness"><summary><span>GitHub verification</span><span class="work-panel-hint">Checks are repeated before signing</span></summary><div id="createPrPreflight" class="work-preflight" role="status" aria-live="polite">Paste a GitHub PR URL first.</div><button id="createCheckPr" type="button" class="btn btn-subtle btn-small">Check GitHub readiness</button></details>
+  <button type="button" class="btn btn-primary work-create-submit" data-work-method="create_work">Create on-chain work ↗</button>
+  <p class="hint">GitHub evidence is checked before MetaMask approval. Sign only once; track the hash above.</p>
+ </div>
+</details>
+<details class="work-history"><summary><span>Transaction hashes &amp; recovery</span><span class="work-panel-hint">Review, open, or recover a transaction on Explorer</span></summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
   </aside>
 </div>
 </section>
@@ -302,6 +334,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 
-<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-two-panel-layout"></script>
+<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-compact-create"></script>
 </body>
 </html>
