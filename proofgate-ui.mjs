@@ -141,21 +141,33 @@ function transactionBlocks(method){
 }
 function refreshPending() {
   const p = pending();
-  const relevant=p && (p.method==="create_work" || p.method==="recovered transaction" || String(p.workId)===$("workId").value.trim());
-  const oldPending=history().find(e=>["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(e.status) && e.workId && String(e.workId)===$("workId").value.trim());
-  $("workPending").hidden = !relevant && !oldPending;
-  if (relevant) {
-    const tracked=history().find(entry=>entry.hash.toLowerCase()===String(p.hash).toLowerCase());
-    $("workPending").textContent = (tracked?.status==="FINALIZED · EXECUTION UNVERIFIED"?"Consensus FINALIZED; GenVM result unverified: ":"Transaction awaiting confirmation: ") + p.method + " / " + p.hash + ". Never sign again until independently resolved.";
-    $("workClear").hidden = true; // Manual receipt overrides are disabled; keep the legacy control hidden.
-    $("workCheck").hidden = false;
-    $("workTxLink").hidden = false;
-    $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
-  } else {
-    if(oldPending)$("workPending").textContent="A prior transaction for this Work has an unverified execution ("+oldPending.hash.slice(0,12)+"…). Read-only recovery continues. Never send a duplicate.";
-    $("workClear").hidden = true;
-    $("workCheck").hidden = true;
-    $("workTxLink").hidden = true;
+  // Never sacrifice transaction safety for a clean idle UI: an unresolved
+  // receipt remains visible even after switching Work or refreshing the tab.
+  const unresolved = history().find(entry =>
+    ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status)
+    && /^0x[0-9a-fA-F]{64}$/.test(entry.hash||"")
+  );
+  const active = p?.hash ? p : unresolved;
+  const panel = $("workTxPanel");
+  panel.hidden = !active;
+  $("workPending").hidden = !active;
+  $("workClear").hidden = true; // Never offer manual "success" overrides.
+  $("workCheck").hidden = !p;
+  $("workTxLink").hidden = !active;
+  if(active){
+    const status = history().find(entry=>entry.hash.toLowerCase()===active.hash.toLowerCase())?.status;
+    const prefix=status==="FINALIZED · EXECUTION UNVERIFIED"
+      ? "Consensus FINALIZED; execution unverified"
+      : status==="FINALIZED · ID UNKNOWN" || status==="FINALIZED · VERIFY ID"
+      ? "Work ID verification required"
+      : "Unresolved transaction";
+    $("workPending").textContent =
+      prefix+": "+(active.method||"transaction")+" / "+active.hash+
+      ". Check Explorer before any repeat submission.";
+    $("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(active.hash);
+  }else{
+    $("workPending").textContent="";
+    $("workTxLink").removeAttribute("href");
   }
   syncButtons();
 }
