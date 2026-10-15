@@ -1,3 +1,15 @@
+export function parseWorkCount(raw) {
+  // GenLayer Studio and the JS SDK may return a number, a numeric string,
+  // or JSON-encoded / doubly encoded strings. Reject malformed/unbounded IDs.
+  let value=raw;
+  for(let i=0;i<3 && typeof value==="string";i++) {
+    const item=value.trim();
+    if(/^(0|[1-9]\d*)$/.test(item)) {value=Number(item);break;}
+    try {value=JSON.parse(item);} catch {return null;}
+  }
+  return Number.isSafeInteger(value) && value>=0 && value<=1000000000 ? value : null;
+}
+
 export function parseWork(raw) {
   let value=raw;
   for(let i=0;i<3;i++) {

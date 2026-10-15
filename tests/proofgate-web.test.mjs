@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWork,workActionAllowed,createdWorkId,finalizedReceipt } from "../proofgate-core.mjs";
+import { parseWork,parseWorkCount,workActionAllowed,createdWorkId,finalizedReceipt } from "../proofgate-core.mjs";
 test("work readback unwraps JSON encoded string",()=>{
  const raw=JSON.stringify(JSON.stringify({id:"1",state:"CERTIFIED",owner:"bearbaba"}));
  assert.deepEqual(parseWork(raw),{id:"1",state:"CERTIFIED",owner:"bearbaba"});
@@ -67,6 +67,16 @@ test("V3 app keeps browser transactions scoped to its contract and avoids legacy
  assert.match(ui,/const SCOPE = CHAIN \+ ":" \+ ADDRESS\.toLowerCase\(\)/);
  assert.match(ui,/spotter\.work\.history\.v2/);
  assert.match(ui,/functionName:"get_work_count"/);
+ assert.match(ui,/parseWorkCount\(countRaw\)/);
  assert.doesNotMatch(ui,/for\(let id=1;id<=100;id\+\+\)/);
  assert.match(ui,/work\.contract_version !== "3\.0\.0"/);
+});
+
+test("V3 Work count unwraps actual Studio and SDK numeric readbacks safely",()=>{
+ for(const [raw,expected] of [
+  [0,0], [1,1], ["0",0], ["1",1], ['"0"',0], ['"1"',1],
+  [JSON.stringify(JSON.stringify("5")),5], ["100",100], [1000000000,1000000000],
+ ]) assert.equal(parseWorkCount(raw),expected,"readback "+JSON.stringify(raw));
+ for(const raw of [null,undefined,{},[],"","foo","-1","1.1",1.25,-1,1000000001,"01",true])
+  assert.equal(parseWorkCount(raw),null,"invalid count "+JSON.stringify(raw));
 });

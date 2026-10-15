@@ -1,7 +1,7 @@
 import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, parseWorkCount, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
 const ADDRESS = "0x506205eBc1ba011707D63d8a152625baaC63002D";
@@ -503,13 +503,8 @@ async function findMine(){
    // The V3 contract exposes an authoritative sequential Work count. Never
    // guess an ID ceiling or stop after gaps that could hide assigned work.
    const countRaw=await client.readContract({address:ADDRESS,functionName:"get_work_count",args:[],transactionHashVariant:"latest-final"});
-   let count=countRaw;
-   for(let layer=0;layer<3 && typeof count==="string";layer++){
-     const value=count.trim();
-     if(/^\\d+$/.test(value)){count=Number(value);break;}
-     count=JSON.parse(value);
-   }
-   if(!Number.isSafeInteger(count) || count<0 || count>1000000000)throw Error("Invalid contract work count.");
+   const count=parseWorkCount(countRaw);
+   if(count===null)throw Error("Invalid contract work count.");
    const first=Math.max(1,count-99);
    for(let id=count;id>=first;id--){
      const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[String(id)],transactionHashVariant:"latest-final"});
@@ -523,7 +518,7 @@ async function findMine(){
  display.replaceChildren();if(primary)primary.replaceChildren();
  if(!found.length){const message="No V3 work assigned to this wallet in the latest "+checked+" records.";display.textContent=message;if(primary)primary.textContent=message;return;}
  // Work records are displayed, never used to infer an unrelated transaction hash succeeded.
- if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[found.length-1].id;void read().catch(e=>note(e.message,true));}
+ if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[0].id;void read().catch(e=>note(e.message,true));}
  for(const work of found){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
   btn.textContent="Work #"+work.id+" · "+work.state+" · PR #"+work.pr_number+" ↗";
