@@ -35,7 +35,7 @@
     "certificateTxEvidence": "Operator-provided GenLayer Explorer transaction link; the on-chain Work #1 CERTIFIED state was previously independently supplied by operator via get_work; GenVM receipt details could not be independently fetched."
   },
   "previewCutover": true,
-  "previewTarget": "Vercel Preview only. Production prohibited pending source parity, independent receipt audit, live negative tests and browser wallet smoke.",
+  "previewTarget": "Historical Preview-only release gate. V3 is currently served from Vercel Production as experimental Studionet software, with independent source parity and receipt verification still outstanding.",
   "previewBrowserSmoke": {
     "status": "PASS_OPERATOR_SCREENSHOT",
     "observedDate": "2026-10-15",
@@ -50,5 +50,19 @@
       "readOnlyRecordVisible": true
     },
     "evidence": "User-provided screenshot of the V3 Preview showing My Work and Work details; write signing, negative tests, exact deployed-source parity and independent receipt verification remain untested"
+  },
+  "siteDeployedToVercelProduction": true,
+  "siteProductionUrl": "https://spotter-weld.vercel.app/",
+  "siteProductionDeploymentId": "dpl_HuNHmVNqv5JWXfP3rBioQ7cdVFdA",
+  "siteProductionGitCommit": "b6956267a431e2feeb0c4f5205cfdd1b3aef12d5",
+  "productionCutoverMeaning": "Independent audited-source/receipt release gate, still unmet; this boolean does not describe the actual Vercel Production target.",
+  "latestDemonstration": {
+    "videoUrl": "https://youtu.be/BJSXW3iZNFM",
+    "workId": "3",
+    "state": "CERTIFIED",
+    "githubPr": 32,
+    "mergeCommit": "b6956267a431e2feeb0c4f5205cfdd1b3aef12d5",
+    "basis": "User-recorded production frontend on GenLayer Studionet and merged GitHub PR metadata",
+    "individualReceiptIndependentlyVerified": false
   }
 }

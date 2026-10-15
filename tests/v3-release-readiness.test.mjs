@@ -25,7 +25,7 @@ test("V3 schema and public interface preserve exact agreed work lifecycle",()=>{
  assert.match(source,/qualitative_evidence/);
 });
 
-test("Only a clearly flagged V3 preview can use the operator-observed contract before independent audits",()=>{
+test("Public Vercel Production can run an experimental V3 while independent source audit gate stays closed",()=>{
  assert.equal(manifest.chainId,61999);
  assert.equal(manifest.version,"3.0.0");
  assert.equal(manifest.source,"contracts/proofgate.py");
@@ -42,7 +42,16 @@ test("Only a clearly flagged V3 preview can use the operator-observed contract b
   }
   if(manifest.status==="NOT_DEPLOYED")assert.equal(manifest.deployTxHash,null);
   else assert.match(manifest.deployTxHash,/^0x[0-9a-fA-F]{64}$/);
-  assert.equal(manifest.productionCutover,false);
+  assert.equal(manifest.productionCutover,false,"independent source/receipt audit gate remains closed");
+  if(manifest.siteDeployedToVercelProduction){
+   assert.equal(manifest.siteProductionUrl,"https://spotter-weld.vercel.app/");
+   assert.match(manifest.siteProductionGitCommit,/^[a-f0-9]{40}$/);
+   assert.ok(readme.includes(manifest.siteProductionUrl));
+   assert.ok(reviewer.includes(manifest.siteProductionUrl));
+   assert.ok(readme.includes(manifest.latestDemonstration.videoUrl));
+   assert.ok(reviewer.includes(manifest.latestDemonstration.videoUrl));
+   assert.equal(manifest.latestDemonstration.individualReceiptIndependentlyVerified,false);
+  }
   if(manifest.previewCutover){
    assert.equal(manifest.status,"DEPLOYED_UNVERIFIED","Preview needs a recorded deployment candidate");
    assert.equal(manifest.versionReadback,"3.0.0");

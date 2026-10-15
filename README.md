@@ -1,6 +1,8 @@
 # Spotter V3 — Verifiable software work on GenLayer
 
-**Stage:** V3 Preview candidate (not yet promoted to Production).  
+**Stage:** Public Vercel Production app on GenLayer Studionet; experimental and **not independently source/receipt audited**.  
+**Website:** https://spotter-weld.vercel.app/  
+**Demo video (English captions):** https://youtu.be/BJSXW3iZNFM  
 **Network:** GenLayer Studionet (chain ID 61999).  
 **New work contract:** [Open GenLayer Studio](https://studio.genlayer.com/?import-contract=0x506205eBc1ba011707D63d8a152625baaC63002D) — `0x506205eBc1ba011707D63d8a152625baaC63002D`.  
 **Deployment transaction:** [Explorer](https://explorer-studio.genlayer.com/tx/0xd7f3d90b020734129699f207cab4e11b4562a3d7f5876c2903cfb69c2b2aa4b5).  
@@ -8,7 +10,23 @@
 
 Spotter locks each software contribution to a real GitHub PR, target repository/branch, optional label, nominated worker and a mandatory acceptance rubric. GenLayer independently verifies GitHub merge metadata before qualitative AI checks PR title and description. Only an ACCEPTED Work can become CERTIFIED by the assigned client or worker.
 
-## New V3 on-chain example
+## End-to-end video: Work #3 → CERTIFIED
+
+The [3-minute, English-captioned demo](https://youtu.be/BJSXW3iZNFM) follows a real
+creator and contributor using the public production website to create a Work agreement,
+submit Work #3, merge [GitHub PR #32](https://github.com/bearbaba/spotter/pull/32)
+into `main`, obtain an AI-backed ACCEPTED result, and issue a CERTIFIED Work.
+
+- **GitHub PR:** #32, merged; merge commit
+  `b6956267a431e2feeb0c4f5205cfdd1b3aef12d5`.
+- **Chain:** GenLayer Studionet 61999, contract
+  `0x506205eBc1ba011707D63d8a152625baaC63002D`.
+- **Observed finalized on-chain Work state in video:** `get_work("3") → CERTIFIED`.
+- **Verification boundary:** the video demonstrates a finalized Work state; it
+  does not independently establish receipt success for every individual tx,
+  byte-identical source/deployment parity, security audits or GEN payments.
+
+## Earlier V3 on-chain example
 
 Work #1 on **V3 (not the old contract)** was created, submitted, assessed as ACCEPTED and issued a CERTIFIED acceptance record for [bearbaba/spotter PR #26](https://github.com/bearbaba/spotter/pull/26).
 
@@ -32,4 +50,4 @@ npm run verify
 python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
 ```
 
-Spotter is experimental testnet software. A certificate records consensus-assisted acceptance, **not an audited payment, code security guarantee, GEN transfer or escrow release**. The main website remains unchanged until V3 Preview and release gates have been validated.
+Spotter is experimental testnet software. A certificate records consensus-assisted acceptance, **not an audited payment, code security guarantee, GEN transfer or escrow release**. The app is live on Vercel Production as experimental testnet software. Independent deployed-source parity and receipt audits remain open; the project's `productionCutover` manifest flag is an *audit-release gate*, not a claim that Vercel Production is unused.

@@ -1,6 +1,8 @@
 # Spotter V3 — Evidence policy and security review
 
-**Stage:** V3 Preview; Production cutover and independent source verification are not yet completed.  
+**Stage:** Public Vercel Production **live** on Studionet; independent contract-source and receipt audits remain incomplete.  
+**Website:** https://spotter-weld.vercel.app/  
+**Demo video:** https://youtu.be/BJSXW3iZNFM (English captions, Work #3)  
 **Network:** GenLayer Studionet, chain ID 61999  
 **New V3 contract:** `0x506205eBc1ba011707D63d8a152625baaC63002D`  
 **Studio:** https://studio.genlayer.com/?import-contract=0x506205eBc1ba011707D63d8a152625baaC63002D  
@@ -26,6 +28,20 @@ A successful GenLayer transaction is not inherently a successful Work evaluation
 - `evidence_digest` commits to source and locked policy, consensus-checked PR title/body, result and merge SHA, but **does not prove the GitHub implementation is secure or correct**.
 - Wrong worker cannot submit; wrong wallet cannot issue certificate; no automated GEN payments or escrow functionality exists.
 
+## Work #3 video evidence (finalized Work readback)
+
+- **Demo:** https://youtu.be/BJSXW3iZNFM
+- **GitHub PR:** https://github.com/bearbaba/spotter/pull/32
+- **Merge commit:** `b6956267a431e2feeb0c4f5205cfdd1b3aef12d5` on `main`.
+- **Observed V3 Work #3:** OPEN → SUBMITTED → ACCEPTED → CERTIFIED,
+  using separate creator/contributor wallet approvals, on the public website.
+- **Readback evidence:** browser shows Work #3 CERTIFIED after a finalized
+  contract read, as captured by the user's original operator recording.
+- **Important:** successful Work-state readback and an individual transaction's
+  GenVM execution receipt are separate evidence. Independent source-parity,
+  receipt audit, adversarial transaction tests and code-security audit are not
+  claimed.
+
 ## Operator-observed V3 Work #1 success
 
 - PR: [bearbaba/spotter #26](https://github.com/bearbaba/spotter/pull/26), merged into `main`.
@@ -41,4 +57,4 @@ A successful GenLayer transaction is not inherently a successful Work evaluation
 
 The new contract's operator-observed `get_version()` is `3.0.0`; `get_work_count()` was `0` before creating Work #1. The V3 website is a preview against that exact address, isolates browser transaction history by chain/contract, and uses the contract's work count for latest-work discovery.
 
-The source, offline contract lifecycle tests, frontend tests, deployment integrity tests and release-state checks are maintained on the V3 PR. Preview wallet E2E verification and adversarial live tests must pass before treating this as an audited production release. All actions that write chain state require explicit wallet signing.
+The public Vercel Production app uses the V3 Studionet contract and has an operator-recorded live lifecycle demo. Source, offline contract lifecycle tests, frontend tests, and deployment release checks are maintained in the repository. **Public Production does not mean independently audited Production**: deployed-source byte parity and receipt-level independent verification have not been established by these tools. Every chain write requires an explicit wallet signature.
