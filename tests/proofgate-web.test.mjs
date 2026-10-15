@@ -240,3 +240,21 @@ test("tracking starts with MetaMask approval, polls every 7 seconds, and never c
  assert.match(ui,/FINALIZED_UNVERIFIED/);
  assert.match(ui,/GenVM execution succeeded, but the updated Work record could not be read yet/);
 });
+
+test("every DOM control accessed by live transaction UI exists in the page",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ const uiIds=[...new Set([...ui.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1]))];
+ const domIds=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]));
+ for(const id of uiIds)assert.ok(domIds.has(id),"missing runtime DOM ID: "+id);
+ assert.ok(html.includes('id="walletWorks" hidden'),"legacy My Work render target remains in My Work but not history");
+});
+
+test("reloaded finalized-but-unverified tx stays explicitly uncertain, not waiting or successful",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const settledButUnknown=stored && \["FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"\]/);
+ assert.match(ui,/phase:settledButUnknown\?"unknown":"pending"/);
+ assert.match(ui,/GenLayer has finalized this transaction, but the execution outcome/);
+ assert.match(ui,/if\(!returnedHash \|\| String\(returnedHash\)\.toLowerCase\(\)!==p\.hash\.toLowerCase\(\)\)/);
+ assert.match(ui,/const view=currentMonitor \|\| \(active \?/,"terminal notices should not be overwritten by old pending entries");
+});
