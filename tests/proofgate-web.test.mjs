@@ -80,3 +80,23 @@ test("V3 Work count unwraps actual Studio and SDK numeric readbacks safely",()=>
  for(const raw of [null,undefined,{},[],"","foo","-1","1.1",1.25,-1,1000000001,"01",true])
   assert.equal(parseWorkCount(raw),null,"invalid count "+JSON.stringify(raw));
 });
+
+test("V3 workspace puts My Work and Work details left, new agreement and transactions right",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const app=html.split('id="work-app"')[1]?.split('id="certified-work"')[0]??"";
+ const left=app.split('<div class="work-left-column"')[1]?.split('<aside class="work-right-column"')[0]??"";
+ const right=app.split('<aside class="work-right-column"')[1]??"";
+ for(const id of ["workPrimaryList","workSummary","workRead","workId","workPrPreflight","workNextHelp"]){
+  assert.ok(left.includes('id="'+id+'"'),"left column must contain "+id);
+  assert.equal(right.includes('id="'+id+'"'),false,"right column must not contain "+id);
+ }
+ for(const id of ["workCreateSection","workHistory","workPending","workTxLink","workCheck","workImportHash","workImport"]){
+  assert.ok(right.includes('id="'+id+'"'),"right column must contain "+id);
+  assert.equal(left.includes('id="'+id+'"'),false,"left column must not contain "+id);
+ }
+ const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
+ for(const id of ["workCreateSection","workHistory","workSummary","workPrimaryList","workStatus","workPending","workTxLink","workImport"]){
+  assert.equal(ids.filter(x=>x===id).length,1,"no duplicated interactive DOM ID: "+id);
+ }
+ assert.ok(html.includes('@media(max-width:900px){.work-product .work-two-columns{grid-template-columns:minmax(0,1fr)}'),"mobile must stack columns");
+});

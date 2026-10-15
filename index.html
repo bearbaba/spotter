@@ -170,6 +170,37 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 @media(max-width:760px){.shell{padding-inline:16px}.work-product .work-two-columns{grid-template-columns:minmax(0,1fr)}.work-product #workCreateSection>.work-create-panel{width:100%}}
 
 .work-preflight{margin:12px 0;padding:12px 14px;border:1px solid #345753;border-radius:12px;background:#102623;color:#c9e7e1;font-size:13px;line-height:1.6}.work-preflight strong{display:block;color:#edfdf9;margin-bottom:6px}.work-preflight ul{margin:6px 0 0;padding-left:19px}.work-preflight li{margin:2px 0}.work-preflight .ok{color:#84e9c4}.work-preflight .notready{color:#ffd2a2}
+
+ /* V3 task-based two-column layout: browse/review left, create/receipts right. */
+ .work-product .work-two-columns{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:clamp(16px,2vw,26px);align-items:start}
+ .work-product .work-left-column,.work-product .work-right-column{display:flex;flex-direction:column;gap:18px;min-width:0}
+ .work-product .work-left-column .work-my-list{height:auto;min-height:0;margin:0;padding:21px}
+ .work-product .work-left-column .work-main{margin:0!important}
+ .work-product .work-left-column .work-track-panel{margin:0;width:100%}
+ .work-product .work-right-column .work-create-section,.work-product .work-right-column .work-history,.work-product .work-right-column .work-tx-panel{margin:0;min-width:0;border:1px solid #28514d;border-radius:17px;background:#0b201e;padding:21px}
+ .work-product .work-right-intro{border:1px solid #24514a;background:#0d2824;border-radius:17px;padding:20px 22px}
+ .work-product .work-right-intro h3{font:600 23px/1.3 "Space Grotesk",sans-serif;margin:7px 0 5px}
+ .work-product .work-right-intro p{font-size:13px;color:var(--muted);margin:0}
+ .work-product .work-right-column .work-create-section>.work-create-panel{width:100%;max-width:none;margin:16px 0 0;padding:16px}
+ .work-product .work-right-column .work-create-section .field{min-width:0}
+ .work-product .work-right-column .work-create-section .field input,.work-product .work-right-column .work-create-section .field textarea{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+ .work-product .work-right-column details>summary{display:flex;flex-direction:column;gap:5px;font-size:16px;line-height:1.4;list-style:none;position:relative;padding-left:17px}
+ .work-product .work-right-column details>summary::-webkit-details-marker{display:none}
+ .work-product .work-right-column details>summary:before{content:"▸";color:var(--teal);position:absolute;left:0}
+ .work-product .work-right-column details[open]>summary:before{content:"▾"}
+ .work-product .work-panel-hint{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+ .work-product .work-tx-panel h3{font-size:18px;margin:0 0 7px}
+ .work-product .work-tx-panel>.hint{font-size:12px;margin:0 0 12px}
+ .work-product .work-tx-panel .work-pending-actions{max-width:none}
+ .work-product .work-tx-proof{display:flex;flex-direction:column;gap:5px;padding-top:14px;border-top:1px solid #28514d}
+ .work-product .work-tx-label{font-size:12px;color:var(--muted)}
+ .work-product .work-tx-hash{color:var(--teal);font-size:13px;font-weight:700;overflow-wrap:anywhere}
+ .work-product .work-history #workHistory{min-width:0}
+ .work-product .work-history a{overflow-wrap:anywhere}
+ @media(min-width:1100px){.work-product .work-two-columns{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr)}.work-product .work-left-column .work-my-list{min-height:0}}
+ @media(max-width:900px){.work-product .work-two-columns{grid-template-columns:minmax(0,1fr)}}
+ @media(max-width:650px){.work-product .work-right-column .work-create-section,.work-product .work-right-column .work-history,.work-product .work-right-column .work-tx-panel{padding:15px}.work-product .work-right-intro{padding:16px}}
+
 </style>
 </head>
 <body>
@@ -205,22 +236,24 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 
   
 
-  <section class="certified work-product" id="work-app" aria-labelledby="workAppHeading"><div class="eyebrow">SPOTTER · GENLAYER STUDIONET</div><h2 id="workAppHeading">Your work, verified.</h2><p>Review work, check evidence, and certify completion on-chain. Select a work item to see the next step.</p><div class="work-two-columns"><div class="work-left-column"><section class="work-my-list"><div class="work-section-head"><div><h3>My work</h3><p>Assigned to your connected wallet</p></div></div><div id="workPrimaryList"><p class="hint">Connect MetaMask to load your work.</p></div></section></div><div class="work-right-column"><div class="work-main">    <div class="panel work-track-panel">
+  <section class="certified work-product" id="work-app" aria-labelledby="workAppHeading"><div class="eyebrow">SPOTTER · GENLAYER STUDIONET</div><h2 id="workAppHeading">Your work, verified.</h2><p>Review assigned work on the left. Create new work and track transaction hashes on the right.</p>
+<div class="work-two-columns">
+  <div class="work-left-column" aria-label="Assigned work and selected work details">
+    <section class="work-my-list"><div class="work-section-head"><div><h3>My work</h3><p>Assigned to your connected wallet</p></div></div><div id="workPrimaryList"><p class="hint">Connect MetaMask to load your work.</p></div></section>
+    <div class="work-main">    <div class="panel work-track-panel">
       <h3>Work details</h3><div id="workSummary" class="work-summary" aria-live="polite"><span class="work-state">SELECT A WORK</span><p>Connect your wallet and select a work item below, or open certified Work #1.</p></div>
       <div class="field work-id-field"><label for="workId">Work ID</label><input id="workId" inputmode="numeric" placeholder="Automatically selected after creation" /></div>
       <button id="workRead" type="button" class="btn btn-primary">Read finalized work ↗</button><button id="workExample" type="button" class="btn btn-subtle btn-small" style="margin-left:8px">See real certified Work #1</button>
       <div class="work-next"><p class="work-eyebrow">NEXT ACTION</p><div id="workPrPreflight" class="work-preflight" role="status" aria-live="polite">Select a work item to check GitHub readiness.</div><div class="action-row work-state-actions"><button type="button" class="btn btn-primary" data-work-method="submit_for_review" disabled>Submit for review</button><button type="button" class="btn btn-primary" data-work-method="evaluate" disabled>Run AI evaluation</button><button type="button" class="btn btn-primary" data-work-method="issue_acceptance" disabled>Issue certificate</button></div><p id="workNextHelp" class="hint">Select work to see what can happen next.</p></div>
       <p id="workStatus" class="notice" role="status" aria-live="polite">Read an existing work record before advancing its state.</p>
       <details class="work-technical"><summary>View complete on-chain record</summary><pre id="workOutput" class="receipt" style="white-space:pre-wrap;overflow-wrap:anywhere" hidden></pre></details>
-      <p id="workPending" class="notice pending" hidden></p>
-      <div class="work-pending-actions" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:14px 0">
-        <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a>
-        <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
-        <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
-      </div>
-      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p>
+      
     </div>
-</div></div></div><details id="workCreateSection" class="work-create-section"><summary>+ Create a new work agreement</summary>    <div class="panel work-create-panel">
+</div>
+  </div>
+  <aside class="work-right-column" aria-label="Create agreement and transaction tools">
+    <div class="work-right-intro"><div class="eyebrow">MANAGE ACTIONS</div><h3>New agreement &amp; transactions</h3><p>Create a work agreement or track transaction hashes. Your existing work and its decisions stay on the left.</p></div>
+    <details id="workCreateSection" class="work-create-section"><summary><span>Create a new work agreement</span><span class="work-panel-hint">Start with a GitHub PR and assign a contributor</span></summary>    <div class="panel work-create-panel">
       <h3>Create a work agreement</h3><div class="field"><label for="workPrUrl">GitHub pull request URL</label><input id="workPrUrl" type="url" autocomplete="off" placeholder="https://github.com/owner/repository/pull/123" /><p class="hint">Paste a public GitHub PR link. Repository, branch, PR number and suggested criteria will be prepared automatically.</p></div>
       <div class="field"><label for="workWorker">Worker wallet address</label><input id="workWorker" autocomplete="off" placeholder="0x…" /><button id="workPickWallet" type="button" class="btn btn-subtle btn-small">Use selected MetaMask account</button><p class="hint">Choose your account in MetaMask, or enter a different worker address.</p></div>
       <div class="field"><label for="workOwner">GitHub owner</label><input id="workOwner" value="bearbaba" placeholder="bearbaba" /></div>
@@ -232,7 +265,23 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
       <button type="button" class="btn btn-primary" data-work-method="create_work">Create on-chain work ↗</button>
       <p class="hint">On creation, inspect the FINALIZED transaction return value to obtain the Work ID. Every write is a real wallet transaction.</p>
     </div>
-</details><details class="work-history"><summary>Transaction history and recovery</summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details></section>
+</details>
+    <section class="work-tx-panel" aria-label="Active transaction status">
+   <h3>Active transaction</h3>
+   <p class="hint">If you submit an on-chain action, its transaction hash and Explorer link appear here. Status checks never request a second signature.</p>
+<p id="workPending" class="notice pending" hidden></p>
+      <div class="work-pending-actions" style="display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:14px 0">
+        <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>Open transaction on Explorer ↗</a>
+        <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check transaction confirmation ↻</button>
+        <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Clear tracking after confirmed resolution</button>
+      </div>
+      <p class="hint">Transactions are checked automatically. Finality may take time; no second signature will be requested for status checks.</p>
+   <div class="work-tx-proof"><span class="work-tx-label">V3 Work #1 certificate example</span><a href="https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0" target="_blank" rel="noopener noreferrer" class="work-tx-hash">0x614e11c3…c310b0 ↗</a></div>
+</section>
+    <details class="work-history" open><summary><span>Transaction hashes &amp; recovery</span><span class="work-panel-hint">Review, open, or recover a transaction on Explorer</span></summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><button type="button" id="workFindMine" class="btn btn-subtle btn-small">Refresh my work ↻</button><p class="hint">Scans work records from the deployed contract (bounded on-chain reads). No wallet signature required.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><div class="field" style="margin-top:16px"><label for="workImportHash">Recover a previous transaction by hash</label><input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false"/><button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button><p class="hint">This is a read-only recovery. Importing a hash does not prove success or create a new transaction.</p></div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p></details>
+  </aside>
+</div>
+</section>
 <section class="certified" id="certified-work" aria-labelledby="certified-heading">
     <div class="certified-row"><div class="eyebrow">CERTIFIED SOFTWARE WORK</div><span class="certified-tag">WORK #1 · CERTIFIED</span></div>
     <h2 id="certified-heading">Verified work. Enforced source policy.</h2>
@@ -253,6 +302,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 
-<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-preview"></script>
+<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-two-panel-layout"></script>
 </body>
 </html>
