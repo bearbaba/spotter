@@ -544,7 +544,7 @@ $("workCheck").addEventListener("click",checkTransaction);
 // not as an active wallet action. Never erase them or remove duplicate locks.
 if(pending() && !isRecentTransaction(pending()))sessionStorage.removeItem(KEY);
 if(!pending()){
- const unresolved=history().find(x=>x.status==="PENDING" && isRecentTransaction(x)
+ const unresolved=history().find(x=>["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(x.status) && isRecentTransaction(x)
    && /^0x[0-9a-fA-F]{64}$/.test(x.hash||""));
  if(unresolved)sessionStorage.setItem(KEY,JSON.stringify(unresolved));
 }
