@@ -5,7 +5,7 @@ export function inspectPullRequest(data,{owner,repository,branch,number,required
   const checks=[
     {ok:String(data.number)===String(number),text:"PR number matches agreement"},
     {ok:String(data.base?.repo?.full_name||"").toLowerCase()===expected,text:"Repository matches agreement"},
-    {ok:String(data.base?.repo?.html_url||"").replace(/\\/$/,"").toLowerCase()==="https://github.com/"+expected,text:"GitHub repository URL matches agreement"},
+    {ok:String(data.base?.repo?.html_url||"").replace(/\/$/,"").toLowerCase()==="https://github.com/"+expected,text:"GitHub repository URL matches agreement"},
     {ok:data.base?.ref===branch,text:"Target branch matches agreement"},
     {ok:data.merged===true && typeof data.merge_commit_sha==="string" && /^[a-fA-F0-9]{40}$/.test(data.merge_commit_sha),text:"PR merged with a recorded merge commit"},
     {ok:data.state==="closed" && typeof data.merged_at==="string" && !Number.isNaN(Date.parse(data.merged_at)),text:"PR is closed with a valid merged timestamp"},
