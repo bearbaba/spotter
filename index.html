@@ -279,6 +279,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .work-product .work-hash-list .work-hash-item{padding:9px 0;border-bottom:1px solid #29443e}
 .work-product .work-hash-list .work-hash-item a{font-size:13px;overflow-wrap:anywhere}
 @media(max-width:520px){.work-product .work-tx-steps span{flex:1 1 100%}}
+
+/* On-chain work confirmation should be legible without looking like GenVM success. */
+.work-product #workTxPanel[data-phase="confirmed"]{border-color:#477d73;background:#102c29}
+.work-product #workTxPanel[data-phase="confirmed"] .work-tx-state{color:#c7f5e6;background:#28594d}
+
 </style>
 </head>
 <body>
@@ -399,16 +404,16 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 </div>
 </section>
 <section class="certified" id="certified-work" aria-labelledby="certified-heading">
-    <div class="certified-row"><div class="eyebrow">CERTIFIED SOFTWARE WORK</div><span class="certified-tag">WORK #1 · CERTIFIED</span></div>
+    <div class="certified-row"><div class="eyebrow">CERTIFIED SOFTWARE WORK</div><span class="certified-tag" id="featuredWorkBadge" data-work-id="1">WORK #1 · CERTIFIED</span></div>
     <h2 id="certified-heading">Verified work. Enforced source policy.</h2>
-    <p>Work #1 certified merged <a href="https://github.com/bearbaba/spotter/pull/26" target="_blank" rel="noopener noreferrer">PR #26</a> on the new Spotter V3 contract on GenLayer Studionet. Verify the acceptance record, transaction, and locked GitHub evidence policy.</p>
-    <div class="certified-meta">GenLayer Studionet · ProofGate contract: <code>0x506205eBc1ba011707D63d8a152625baaC63002D</code> · Work ID: 1 · State: CERTIFIED · Version: V3</div>
+    <p id="featuredWorkDescription">Work #1 certified for merged <a id="featuredPrLink" href="https://github.com/bearbaba/spotter/pull/26" target="_blank" rel="noopener noreferrer">PR #26</a> on GenLayer Studionet. Open the certificate record and locked GitHub evidence.</p>
+    <div class="certified-meta" id="featuredWorkMeta">GenLayer Studionet · V3 contract: 0x506205eBc1ba011707D63d8a152625baaC63002D · Work ID: 1 · State: CERTIFIED</div>
     <div class="certified-actions">
       <a class="btn btn-primary" href="https://studio.genlayer.com/?import-contract=0x506205eBc1ba011707D63d8a152625baaC63002D" target="_blank" rel="noopener noreferrer">Read certified work ↗</a>
-      <a class="btn" href="https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0" target="_blank" rel="noopener noreferrer">Finalized transaction ↗</a>
+      <a class="btn" id="featuredTxLink" href="https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0" target="_blank" rel="noopener noreferrer">Inspect certificate transaction ↗</a>
       <a class="btn btn-subtle" href="https://github.com/bearbaba/spotter/pull/28" target="_blank" rel="noopener noreferrer">Inspect V3 contract source policy ↗</a>
     </div>
-    <p style="font-size:12px;margin:16px 0 0">This is a real Studionet work-certification record, not escrow or payment. The source/deploy parity and independent receipt audit remain in progress; inspect the final on-chain state in Studio.</p>
+    <p id="featuredEvidenceNote" style="font-size:12px;margin:16px 0 0">This example is based on a finalized V3 Work record, not escrow or payment. Independent receipt and source/deployment audits are separate checks.</p>
   </section>
 
 <section class="certified" id="details"><div class="eyebrow">TRANSPARENT TESTNET SOFTWARE</div><h2>Verified results, not promises.</h2><p>Spotter records accepted work on GenLayer Studionet. Work certification is live; escrow payments are not implemented. Every write requires explicit wallet approval, and every result must be checked against finalized on-chain state.</p></section>
@@ -418,6 +423,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 
-<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-live-tracking"></script>
+<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-certified-ux"></script>
 </body>
 </html>
