@@ -65,7 +65,7 @@ function preflightView(target,result,notice=""){
   const el=$(target);if(!el)return;
   el.replaceChildren();const title=document.createElement("strong");title.textContent=notice||(result?.ready?"GitHub checks passed":"GitHub checks need attention");el.append(title);
   if(result?.checks){const list=document.createElement("ul");for(const check of result.checks){const item=document.createElement("li");item.className=check.ok?"ok":"notready";item.textContent=(check.ok?"✓ ":"○ ")+check.text;list.append(item);}el.append(list);}
-  const footer=document.createElement("p");footer.textContent="Read-only preview. The deployed GenLayer contract makes the authoritative decision.";el.append(footer);
+  const footer=document.createElement("p");footer.textContent="GitHub metadata check only. The GenLayer contract determines the on-chain result.";el.append(footer);
 }
 async function checkPrReadiness(config,target){
   const revision=++prReadSequence;
@@ -223,6 +223,21 @@ function reconcileProgress(work){
  sessionStorage.removeItem(KEY);
  return true;
 }
+function updateWorkGuidance(){
+ const help=$("workNextHelp");
+ if(!help)return;
+ if(!lastWork){help.textContent="Choose a Work to see the next step.";return;}
+ const work=lastWork,account=connectedAccount.toLowerCase();
+ const contributor=Boolean(account&&work.worker?.toLowerCase()===account);
+ const creator=Boolean(account&&work.client?.toLowerCase()===account);
+ if(work.state==="OPEN")help.textContent=contributor?"You are the assigned contributor. Click Submit for review when ready.":"The assigned contributor must connect their wallet and click Submit for review.";
+ else if(work.state==="SUBMITTED")help.textContent="Once the GitHub PR is merged, run AI evaluation to check the evidence.";
+ else if(work.state==="REVIEW")help.textContent="Read the review explanation and inspect any missing evidence before evaluating again.";
+ else if(work.state==="ACCEPTED")help.textContent=creator||contributor?"You can issue the certificate. Confirm once in MetaMask.":"Only the creator or contributor can issue this certificate.";
+ else if(work.state==="CERTIFIED")help.textContent="Certification is complete on-chain. No further signature is needed.";
+ else help.textContent="Refresh Work status to see the next action.";
+}
+
 function render(work) {
   lastWork = work;
   const reconciled=reconcileProgress(work);
@@ -231,7 +246,7 @@ function render(work) {
   $("workOutput").hidden = false;
   const state = work.state || "UNKNOWN";
   const summary=$("workSummary");if(summary){summary.replaceChildren();const tag=document.createElement("span");tag.className="work-state";tag.textContent=state;const heading=document.createElement("strong");heading.textContent="Work #"+work.id+" · "+work.owner+"/"+work.repository+" · PR #"+work.pr_number;const detail=document.createElement("p");detail.textContent=work.explanation || (state==="OPEN"?"Created and ready for the assigned worker.":state==="SUBMITTED"?"Submitted for GenLayer verification.":state==="CERTIFIED"?"Acceptance certificate recorded on-chain.":"Review the evidence and contract state.");summary.append(tag,heading,detail);}
-  const helper=$("workNextHelp");if(helper)helper.textContent=state==="OPEN"?"Only the assigned worker can submit this work.":state==="SUBMITTED"||state==="REVIEW"?"Run GenLayer evaluation to check the locked GitHub evidence.":state==="ACCEPTED"?"The client or worker can issue the on-chain acceptance certificate.":state==="CERTIFIED"?"Completed. No further blockchain action is needed.":"Read the finalized state to see available actions.";
+  updateWorkGuidance();
   note(reconciled?"Work #"+work.id+" is "+state+" on latest-final chain state. Previous transaction tracker reconciled to the Work state (receipt outcome not independently verified).":"Work #" + work.id + " is " + state + ". These are contract reads, not local sample data.");
   refreshPending();
   if(state==="SUBMITTED"||state==="REVIEW")void checkPrReadiness({owner:work.owner,repository:work.repository,branch:work.target_branch,number:work.pr_number,requiredLabel:work.required_label},"workPrPreflight");
@@ -557,8 +572,11 @@ $("workPickWallet").addEventListener("click",async()=>{
     if(!window.ethereum?.request) throw Error("Install or unlock MetaMask first.");
     const accounts=await window.ethereum.request({method:"eth_requestAccounts"});
     if(!/^0x[a-fA-F0-9]{40}$/.test(accounts?.[0]||"")) throw Error("No valid MetaMask account selected.");
-    $("workWorker").value=accounts[0];
-    note("Worker address selected. You can change it before signing.");
+    const contributor=accounts[0];
+    if(connectedAccount && contributor.toLowerCase()===connectedAccount.toLowerCase()
+      && !window.confirm("This is also the creator wallet. Do you want the same wallet to be the contributor? Click Cancel to use another wallet."))return;
+    $("workWorker").value=contributor;
+    note("Contributor wallet selected. Check that this wallet belongs to the person who will submit the work.");
   } catch(e){note(e.message,true);}
 });
 generateRubric();
@@ -575,6 +593,9 @@ function showAccount(addr){
  connectedAccount=addr||"";
  $("walletCurrent").textContent=addr?addr.slice(0,6)+"…"+addr.slice(-4):"Wallet not connected";
  $("walletConnect").textContent=addr?"Manage wallets":"Connect wallet";
+ $("workSignerStatus").textContent=addr?addr.slice(0,6)+"…"+addr.slice(-4):"Not connected";
+ $("workConnectWallet").textContent=addr?"Change wallet":"Connect wallet";
+ updateWorkGuidance();
  syncButtons();
 }
 async function connectAccount(){
@@ -627,6 +648,7 @@ async function findMine(){
 }
 $("walletAccount").addEventListener("change",()=>{showAccount($("walletAccount").value);void findMine();});
 $("walletConnect").addEventListener("click",()=>{connectAccount().catch(e=>note(e.message,true));});
+$("workConnectWallet").addEventListener("click",()=>{connectAccount().catch(e=>note(e.message,true));});
 $("workFindMine").addEventListener("click",()=>{findMine().catch(e=>note(e.message,true));});
 if(window.ethereum?.request){
  window.ethereum.request({method:"eth_accounts"}).then(a=>{if(a?.length){setAccounts(a);void findMine();}}).catch(()=>{});
