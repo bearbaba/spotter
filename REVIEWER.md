@@ -1,63 +1,44 @@
-# Spotter — GenLayer work verification and evidence policy
+# Spotter V3 — Evidence policy and security review
 
-**Official website:** https://bearbaba.github.io/spotter/  
-**Network:** GenLayer Studionet (chain ID 61999)  
-**Spotter work contract:** `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`  
-**Studio:** https://studio.genlayer.com/?import-contract=0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7  
-**Certificate transaction:** https://explorer-studio.genlayer.com/tx/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599  
-**Contract source:** https://github.com/bearbaba/spotter/blob/main/contracts/proofgate.py  
-**Development and tests:** https://github.com/bearbaba/spotter/pull/25  
+**Stage:** V3 Preview; Production cutover and independent source verification are not yet completed.  
+**Network:** GenLayer Studionet, chain ID 61999  
+**New V3 contract:** `0x506205eBc1ba011707D63d8a152625baaC63002D`  
+**Studio:** https://studio.genlayer.com/?import-contract=0x506205eBc1ba011707D63d8a152625baaC63002D  
+**Deploy transaction:** https://explorer-studio.genlayer.com/tx/0xd7f3d90b020734129699f207cab4e11b4562a3d7f5876c2903cfb69c2b2aa4b5  
+**Work #1 certification transaction (operator-supplied):** https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0  
+**Contract candidate source:** https://github.com/bearbaba/spotter/blob/feat/spotter-v3-fresh-contract/contracts/proofgate.py  
+**Development PR and testing evidence:** https://github.com/bearbaba/spotter/pull/28
 
-## Concrete workflow and consequence
+## Consequential work-certification workflow
 
-Spotter work contract verifies completion of a **specific assigned software contribution**, not whether an arbitrary webpage contains certain text. A client creates a work record that fixes the worker, GitHub owner/repository, target branch, PR number and acceptance rubric. The worker submits it for review. GenLayer checks a trusted, canonical GitHub API route for that exact PR, validates its merge into the agreed branch and evaluates whether the title and description substantiate the qualitative rubric. A successful result produces an on-chain **ACCEPTED** state. Authorized participants can then issue an on-chain **CERTIFIED** acceptance record.
+A client signs `create_work(worker,owner,repository,target_branch,pr_number,required_label,acceptance_rubric)`, permanently locking a specific software contribution and source evidence boundary. The nominated worker can move the new Work from OPEN to SUBMITTED. Once submitted, any caller may request evaluation; GenLayer consensus checks the exact GitHub PR's merge and repository metadata. If metadata passes, qualitative AI checks the PR's title/description against the mandatory fixed rubric. The result can become ACCEPTED; **only the nominated client or worker can subsequently issue CERTIFIED**.
 
-**The consequential outcome is work certification.** This permits an auditable acceptance decision in the work lifecycle and prevents issuing a valid certificate for work that has not reached ACCEPTED. Certification is **not** a payment, token transfer, escrow disbursement or production guarantee.
+A successful GenLayer transaction is not inherently a successful Work evaluation: `get_work` readback is the authoritative state. REVIEW outcomes may retry; CERTIFIED and REJECTED are final. Work starts at ID 1 on this independent V3 deployment; no legacy records are migrated.
 
-## Enforced evidence boundary in contract source
+## Locked source and AI boundaries
 
-The Spotter Intelligent Contract `contracts/proofgate.py` on the main branch:
+- The canonical GitHub URL is assembled from stored owner/repo/PR number and cannot be replaced by the caller.
+- The exact repository, repository URL, PR number, target branch, merged+closed status, merge commit SHA and optional label are checked before qualitative AI evaluation.
+- Source read consistency uses `strict_eq`; a second checked read must retain the same policy and merge commit.
+- Rubric is **mandatory** in contract (16–500 characters), not merely a UI condition.
+- AI checks only qualitative claims supported by PR title/body and treats the external prose as untrusted evidence, not instructions.
+- AI output requires strict ACCEPTED/REVIEW verdict and bounded explanation. A valid 222-character explanation cannot reverse an otherwise valid ACCEPTED verdict simply because the stored summary is truncated to 200 characters.
+- `evidence_digest` commits to source and locked policy, consensus-checked PR title/body, result and merge SHA, but **does not prove the GitHub implementation is secure or correct**.
+- Wrong worker cannot submit; wrong wallet cannot issue certificate; no automated GEN payments or escrow functionality exists.
 
-- Constructs the canonical URL `https://api.github.com/repos/{owner}/{repository}/pulls/{pr_number}` from the locked work fields; a worker cannot substitute a self-selected evidence URL.
-- Validates returned PR number, repository identity, target branch, merge status and required label (when configured); invalid evidence does not progress to ACCEPTED.
-- Uses GenLayer strict-equivalence checks for the external GitHub data and consistency of merge commit across evidence-gathering stages.
-- Evaluates title/description *only after* structural source checks succeed. The AI is tasked with qualitative claims in the rubric, not re-proving independently checked merge metadata.
-- Returns REVIEW when evidence is missing, inconsistent, insufficient or cannot be verified. It does not certify arbitrary user assertions.
-- Restricts certification to participating parties and requires the work state to be ACCEPTED.
+## Operator-observed V3 Work #1 success
 
-The GitHub PR content itself is untrusted third-party text. The policy establishes provenance and merge constraints; it is **not** a guarantee of code quality, a security audit, or proof that a PR's description is true in every detail.
+- PR: [bearbaba/spotter #26](https://github.com/bearbaba/spotter/pull/26), merged into `main`.
+- User's Studio readback records progression **OPEN → SUBMITTED → ACCEPTED → CERTIFIED**.
+- Locked merge commit: `84c1b5d74bc7ca8a63b7a363cb919f53c331ea0a`.
+- `evidence_digest`: `9aff4aca44f1395a2d6348f9f43719f8a98b7a44d8ca4669bbc0b9c65881ab22`.
+- Certificate link: https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0
+- Deployment link: https://explorer-studio.genlayer.com/tx/0xd7f3d90b020734129699f207cab4e11b4562a3d7f5876c2903cfb69c2b2aa4b5
 
-## Completed GenLayer test
+**Verification limits:** The Work #1 state and Studio deploy log came from the operator's readbacks/screenshots. Current tools did not independently retrieve receipt fields for either deploy or certificate, establish byte-for-byte deployed-source parity with the GitHub contract file, or execute real negative-case transactions. Mocked CI scenarios cannot close those gaps. The original exact 222-character AI response from the prior contract has a fixed offline regression, but this particular V3 Work #1 trace is not proof that the exact same response length was reproduced.
 
-The operator's Studio readback for **Work #1** showed:
+## Version, code, and preview readiness
 
-- Locked evidence: `bearbaba/spotter` PR #24, branch `main`.
-- Acceptance rubric: merge into main plus concrete automatic Studionet network-configuration guidance for MetaMask users.
-- States observed during the test: **OPEN → SUBMITTED → ACCEPTED → CERTIFIED**.
-- PR merge commit: `080afca461de824fa7d1bf173f73c4b4df3c349e`.
-- Recorded evidence digest: `e3a62a3c772e33717d5a01d7b08d987e43460d843961f872fb7cbffc3073ff6c`.
-- `issue_acceptance(1)` transaction `0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599` executed against `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`, **FINALIZED**, GenVM **SUCCESS**, consensus **Accepted**, **0 GEN** transferred.
+The new contract's operator-observed `get_version()` is `3.0.0`; `get_work_count()` was `0` before creating Work #1. The V3 website is a preview against that exact address, isolates browser transaction history by chain/contract, and uses the contract's work count for latest-work discovery.
 
-Read-only reproduction: import the contract into GenLayer Studio, call `get_work("1")` and inspect `state`, `merge_commit`, `evidence_digest` and `evidence_api`. Follow the issuance transaction in Explorer and compare the contract destination with the Studio instance. No wallet signature is required to inspect the recorded readback.
-
-The readback and transaction details were supplied by the operator; deployed-source parity, independent negative live cases and hashes for all earlier positive transitions have not yet been documented.
-
-## Official Spotter application
-
-The only public application is https://bearbaba.github.io/spotter/. It uses the deployed work-certification contract at `0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7`. The read-only certified Work #1 result and the work lifecycle interface are available on this website. All state-changing actions require explicit wallet authorization; live browser wallet completion has not yet been independently verified.
-
-## What is implemented versus planned
-
-Implemented and tested: current work-certification contract logic, offline negative policy and authorization regressions, a positive on-chain certificate result, and a Foundry-tested Solidity escrow **prototype** on a separate development branch.
-
-Not yet deployed or demonstrated: an authenticated GenLayer-to-EVM finality bridge, escrow settlement triggered by a proof, a live indexed work marketplace, independent on-chain negative tests, or real-value custody. The Solidity prototype currently uses a permissioned verifier, not a trustless bridge.
-
-## Local verification
-
-```bash
-npm run verify
-python3 -m unittest discover -s tests -p 'test_proofgate*.py' -v
-forge build && forge test -vvv
-```
-
-The work-certification Python tests and unified work interface are on `main`. The Foundry escrow prototype remains on a separate development branch and is not part of the official website. Browser wallet transaction completion must still be independently verified.
+The source, offline contract lifecycle tests, frontend tests, deployment integrity tests and release-state checks are maintained on the V3 PR. Preview wallet E2E verification and adversarial live tests must pass before treating this as an audited production release. All actions that write chain state require explicit wallet signing.

@@ -4,8 +4,8 @@ from dataclasses import dataclass
 import json
 import hashlib
 
-# ProofGate V2: GitHub pull-request merge acceptance.
-# V1 is deliberately untouched. This source is NOT yet deployed.
+# Spotter ProofGate V3 — fresh independent Studionet state, beginning at Work #1.
+# Not deployed yet. No migration, escrow, or real-value settlement.
 
 @allow_storage
 @dataclass
@@ -63,6 +63,22 @@ def canonical_api_url(owner: str, repository: str, number: int) -> str:
         raise Exception("invalid pull request number")
     return "https://api.github.com/repos/" + owner + "/" + repository + "/pulls/" + str(number)
 
+def parse_qualitative_result(value) -> dict:
+    """Parse strict AI JSON while keeping verdict separate from display truncation."""
+    for _ in range(3):
+        if isinstance(value, dict):
+            break
+        if not isinstance(value, str):
+            raise ValueError("invalid qualitative response type")
+        value = json.loads(value)
+    if not isinstance(value, dict) or value.get("verdict") not in ("ACCEPTED", "REVIEW"):
+        raise ValueError("invalid qualitative verdict")
+    reason = value.get("reason")
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
+        raise ValueError("invalid qualitative reason")
+    return {"verdict": value["verdict"], "reason": reason.strip()}
+
+
 def verify_api_payload(data: dict, owner: str, repository: str, number: int, branch: str, required_label: str = "") -> dict:
     """Inspect structured GitHub PR fields, not PR prose or arbitrary submitted URLs."""
     expected = "https://github.com/" + owner + "/" + repository
@@ -117,8 +133,9 @@ class ProofGate(gl.Contract):
             raise Exception("invalid target branch")
         if required_label and (len(required_label) > 64 or not all(c.isascii() and (c.isalnum() or c in "-_.") for c in required_label)):
             raise Exception("invalid required label")
-        if len(acceptance_rubric) > 500 or (acceptance_rubric and len(acceptance_rubric.strip()) < 16):
-            raise Exception("invalid acceptance rubric")
+        if (not isinstance(acceptance_rubric, str) or len(acceptance_rubric) > 500
+            or len(acceptance_rubric.strip()) < 16):
+            raise Exception("acceptance rubric required (16-500 characters)")
         worker = normalize_address(worker)
         client = normalize_address(gl.message.sender_address)
         if worker == Address("0x0000000000000000000000000000000000000000"):
@@ -181,9 +198,10 @@ class ProofGate(gl.Contract):
             state = "REVIEW"
             report = {"state": state, "reason": "Invalid merge commit", "merge_commit": ""}
 
-        # Stage 2: qualitative GenLayer evaluation is reached ONLY after Stage 1.
-        # PR title/body are untrusted text, treated as evidence, never instructions.
-        if state == "ACCEPTED" and rubric:
+        # Stage 2: every Work requires qualitative GenLayer evaluation.
+        # PR prose is untrusted evidence, never validator instructions.
+        evidence_material = ""
+        if state == "ACCEPTED":
             def collect_claim() -> str:
                 response = gl.nondet.web.request(url, method="GET")
                 if response.status != 200:
@@ -207,6 +225,7 @@ class ProofGate(gl.Contract):
                     raise ValueError("qualitative evidence preflight failed")
                 if not isinstance(claim.get("title"), str) or not isinstance(claim.get("description"), str):
                     raise ValueError("invalid PR evidence")
+                evidence_material = checked_claim
                 def evidence_for_ai() -> str:
                     return checked_claim
                 ai_raw = gl.eq_principle.prompt_non_comparative(
@@ -233,19 +252,11 @@ class ProofGate(gl.Contract):
                         "JSON keys verdict and reason only."
                     ),
                 )
-                ai = ai_raw if isinstance(ai_raw, dict) else json.loads(str(ai_raw))
-                if not isinstance(ai, dict) or ai.get("verdict") not in ("ACCEPTED", "REVIEW"):
-                    raise ValueError("invalid qualitative verdict")
-                reason = ai.get("reason")
-                # Validation applies to the untrusted AI payload, not to the
-                # 200-character storage/display field. A valid verdict must not
-                # become REVIEW only because the explanation is 201+ characters.
-                # Still fail closed for absent, non-string or unbounded output.
-                if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
-                    raise ValueError("invalid qualitative reason")
+                ai = parse_qualitative_result(ai_raw)
                 if ai["verdict"] == "REVIEW":
                     state = "REVIEW"
-                report["reason"] = ("Rubric assessment: " + reason.strip())[:200]
+                # The display field is 200 characters; valid AI reasons may be longer.
+                report["reason"] = ("Rubric assessment: " + ai["reason"])[:200]
             except Exception as err:
                 state = "REVIEW"
                 # Expose the failure category, never untrusted exception text or proof data.
@@ -260,9 +271,18 @@ class ProofGate(gl.Contract):
             rec.state = state
             rec.explanation = "Invalid consensus merge commit"
         rec.merge_commit = sha.lower() if state == "ACCEPTED" else ""
-        rec.evidence_digest = hashlib.sha256(
-            (url + "|" + rec.merge_commit + "|" + state).encode("utf-8")
-        ).hexdigest()
+        # Commit to locked policy AND the checked qualitative source snapshot.
+        snapshot = json.dumps({
+            "version": 3,
+            "source": url,
+            "branch": branch,
+            "required_label": required_label,
+            "rubric": rubric,
+            "state": state,
+            "merge_commit": rec.merge_commit,
+            "qualitative_evidence": evidence_material,
+        }, sort_keys=True, separators=(",", ":"))
+        rec.evidence_digest = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         self.works[work_id] = rec
 
     @gl.public.write
@@ -276,11 +296,20 @@ class ProofGate(gl.Contract):
         self.works[work_id] = rec
 
     @gl.public.view
+    def get_version(self) -> str:
+        return "3.0.0"
+
+    @gl.public.view
+    def get_work_count(self) -> str:
+        return str(int(self.next_id) - 1)
+
+    @gl.public.view
     def get_work(self, work_id: str) -> str:
         if work_id not in self.works:
             return "{}"
         rec = self.works[work_id]
         return json.dumps({
+            "contract_version": "3.0.0",
             "id": work_id, "client": str(rec.client), "worker": str(rec.worker),
             "owner": rec.owner, "repository": rec.repository,
             "target_branch": rec.target_branch, "required_label": rec.required_label, "acceptance_rubric": rec.acceptance_rubric, "pr_number": int(rec.pr_number),

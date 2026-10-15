@@ -1,17 +1,20 @@
 import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, parseWorkCount, parseGitHubPullUrl, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
-const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
+const ADDRESS = "0x506205eBc1ba011707D63d8a152625baaC63002D";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
 const ZERO = "0x0000000000000000000000000000000000000000";
 const $ = id => document.getElementById(id);
 const client = createClient({chain:studionet,endpoint:ENDPOINT,account:ZERO});
-const KEY = "spotter.work.pending";
-const HISTORY_KEY = "spotter.work.history.v1";
+// Browser transaction state must never cross deployments. Legacy V2 hashes belong
+// to another contract even when they share Work IDs; do not import their locks.
+const SCOPE = CHAIN + ":" + ADDRESS.toLowerCase();
+const KEY = "spotter.work.pending." + SCOPE;
+const HISTORY_KEY = "spotter.work.history.v2." + SCOPE;
 const history = () => {try{return compactHistory(JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"));}catch{return [];}};
 function remember(entry){
  if(!/^0x[0-9a-fA-F]{64}$/.test(entry?.hash||""))throw Error("Cannot save invalid transaction hash.");
@@ -78,6 +81,20 @@ async function checkPrReadiness(config,target){
   }catch(e){if(revision===prReadSequence)preflightView(target,null,String(e?.message||e));return null;}
 }
 
+async function verifyCreatePrIdentity(config){
+  // A work agreement is created BEFORE delivery/merge. Identity must match,
+  // but do not require a merged PR until evaluate() on GenLayer.
+  const {owner,repository,branch,number}=config;
+  const url="https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+encodeURIComponent(number);
+  const response=await fetch(url,{headers:{Accept:"application/vnd.github+json"},cache:"no-store"});
+  if(!response.ok)throw Error("Could not verify the GitHub pull request before signing (HTTP "+response.status+").");
+  const pr=await response.json();
+  const correctRepo=String(pr.base?.repo?.full_name||"").toLowerCase()===(owner+"/"+repository).toLowerCase();
+  if(String(pr.number)!==String(number) || !correctRepo || pr.base?.ref!==branch)
+    throw Error("PR repository, number or branch differs from the locked agreement. No wallet signature requested.");
+  return true;
+}
+
 let lastWork = null;
 let busy = false;
 let connectedAccount = "";
@@ -124,21 +141,33 @@ function transactionBlocks(method){
 }
 function refreshPending() {
   const p = pending();
-  const relevant=p && (p.method==="create_work" || p.method==="recovered transaction" || String(p.workId)===$("workId").value.trim());
-  const oldPending=history().find(e=>["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(e.status) && e.workId && String(e.workId)===$("workId").value.trim());
-  $("workPending").hidden = !relevant && !oldPending;
-  if (relevant) {
-    const tracked=history().find(entry=>entry.hash.toLowerCase()===String(p.hash).toLowerCase());
-    $("workPending").textContent = (tracked?.status==="FINALIZED · EXECUTION UNVERIFIED"?"Consensus FINALIZED; GenVM result unverified: ":"Transaction awaiting confirmation: ") + p.method + " / " + p.hash + ". Never sign again until independently resolved.";
-    $("workClear").hidden = true; // Manual receipt overrides are disabled; keep the legacy control hidden.
-    $("workCheck").hidden = false;
-    $("workTxLink").hidden = false;
-    $("workTxLink").href = "https://explorer-studio.genlayer.com/tx/" + encodeURIComponent(p.hash);
-  } else {
-    if(oldPending)$("workPending").textContent="A prior transaction for this Work has an unverified execution ("+oldPending.hash.slice(0,12)+"…). Read-only recovery continues. Never send a duplicate.";
-    $("workClear").hidden = true;
-    $("workCheck").hidden = true;
-    $("workTxLink").hidden = true;
+  // Never sacrifice transaction safety for a clean idle UI: an unresolved
+  // receipt remains visible even after switching Work or refreshing the tab.
+  const unresolved = history().find(entry =>
+    ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status)
+    && /^0x[0-9a-fA-F]{64}$/.test(entry.hash||"")
+  );
+  const active = p?.hash ? p : unresolved;
+  const panel = $("workTxPanel");
+  panel.hidden = !active;
+  $("workPending").hidden = !active;
+  $("workClear").hidden = true; // Never offer manual "success" overrides.
+  $("workCheck").hidden = !p;
+  $("workTxLink").hidden = !active;
+  if(active){
+    const status = history().find(entry=>entry.hash.toLowerCase()===active.hash.toLowerCase())?.status;
+    const prefix=status==="FINALIZED · EXECUTION UNVERIFIED"
+      ? "Consensus FINALIZED; execution unverified"
+      : status==="FINALIZED · ID UNKNOWN" || status==="FINALIZED · VERIFY ID"
+      ? "Work ID verification required"
+      : "Unresolved transaction";
+    $("workPending").textContent =
+      prefix+": "+(active.method||"transaction")+" / "+active.hash+
+      ". Check Explorer before any repeat submission.";
+    $("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(active.hash);
+  }else{
+    $("workPending").textContent="";
+    $("workTxLink").href="#";
   }
   syncButtons();
 }
@@ -175,7 +204,7 @@ async function read() {
   if (!/^[1-9][0-9]*$/.test(id)) throw Error("Enter an existing positive numeric Work ID.");
   const raw = await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
   const work = parseWork(raw);
-  if (!work || work.id !== id) throw Error("Finalized work record not found or response invalid.");
+  if (!work || work.id !== id || work.contract_version !== "3.0.0") throw Error("V3 finalized work record not found or version mismatch.");
   render(work);
 
 }
@@ -202,6 +231,10 @@ function args(method) {
   if (!/^[a-zA-Z0-9-]{1,39}$/.test(owner) || !/^[a-zA-Z0-9_.-]{1,100}$/.test(repo)) throw Error("Enter a valid GitHub owner/repository.");
   if (!branch || branch.length > 100 || !/^[1-9][0-9]*$/.test(pr) || Number(pr)>4294967295) throw Error("Enter a target branch and 32-bit PR number.");
   if (rubric.trim().length < 16 || rubric.length > 500 || label.length > 64) throw Error("Write specific acceptance requirements (16–500 characters); labels must be 64 characters or less.");
+  const parsedPr=parseGitHubPullUrl($("workPrUrl").value);
+  if(!parsedPr)throw Error("Paste a valid https://github.com/owner/repo/pull/123 URL before creating work.");
+  if(parsedPr.owner.toLowerCase()!==owner.toLowerCase() || parsedPr.repository.toLowerCase()!==repo.toLowerCase() || parsedPr.number!==pr)
+    throw Error("Advanced GitHub owner, repository or PR number differs from the PR URL. Verify the source before signing.");
   return [worker,owner,repo,branch,Number(pr),label,rubric];
 }
 let preparingSignature=false;
@@ -220,13 +253,22 @@ async function performAct(method) {
       const id=$("workId").value.trim();
       const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
       const current=parseWork(raw);
-      if(!current || current.id!==id || !workActionAllowed(method,current.state)){
+      if(!current || current.id!==id || current.contract_version!=="3.0.0" || !workActionAllowed(method,current.state)){
         if(current)render(current);
         throw Error("Work state changed on-chain; action canceled without a wallet signature. Read the latest Work state.");
       }
       lastWork=current;
     }
     callArgs=args(method);
+    if(method==="create_work"){
+      // An open, unmerged PR is valid for a new agreement. Require verified
+      // GitHub identity/branch, not evidence of completed work.
+      await verifyCreatePrIdentity({
+        owner:callArgs[1],repository:callArgs[2],
+        branch:callArgs[3],number:callArgs[4]
+      });
+      preflightView("createPrPreflight",null,"GitHub PR identity verified before signing. Merge and qualitative acceptance are checked later on-chain.");
+    }
     account=await wallet();
     if(method!=="create_work" && !signerAllowed(method,lastWork,account))
       throw Error("Wrong signing wallet. This action requires the nominated worker or an authorized participant.");
@@ -313,7 +355,7 @@ async function checkTransaction(){
     if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});sessionStorage.removeItem(KEY);refreshPending();return;}
     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
     const work=parseWork(raw);
-    if(!work || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
+    if(!work || work.contract_version!=="3.0.0" || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
       remember({...p,status:"FINALIZED · VERIFY ID"});sessionStorage.removeItem(KEY);refreshPending();
       scopedNote("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
     }
@@ -349,7 +391,7 @@ async function verifyHistoricalReceipts(){
     try{
      const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[update.candidateWorkId],transactionHashVariant:"latest-final"});
      const work=parseWork(raw);
-     if(work && work.id===update.candidateWorkId && work.client?.toLowerCase()===current.account?.toLowerCase() && work.owner?.toLowerCase()===current.owner?.toLowerCase() && work.repository?.toLowerCase()===current.repository?.toLowerCase() && String(work.pr_number)===String(current.pr)){
+     if(work && work.contract_version==="3.0.0" && work.id===update.candidateWorkId && work.client?.toLowerCase()===current.account?.toLowerCase() && work.owner?.toLowerCase()===current.owner?.toLowerCase() && work.repository?.toLowerCase()===current.repository?.toLowerCase() && String(work.pr_number)===String(current.pr)){
       update={...update,status:"FINALIZED (RECEIPT VERIFIED)",workId:work.id};
      }
     }catch{/* Receipt finalized; contract readback remains unverified. */}
@@ -401,25 +443,41 @@ function generateRubric() {
 }
 let loadingPrUrl="";
 async function loadPrUrl(){
- const value=$("workPrUrl").value.trim();if(!value||value===loadingPrUrl)return;
- let url;try{url=new URL(value);}catch{return;}
- const match=url.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/);
- if(url.hostname!=="github.com"||!match)return;
- loadingPrUrl=value;
- const [,owner,repository,number]=match;
- $("workOwner").value=owner;$("workRepo").value=repository;$("workPr").value=number;
- $("workRubricHelp").textContent="Loading GitHub PR #"+number+"…";
- try{
-  const response=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+number,{headers:{Accept:"application/vnd.github+json"}});
-  if(!response.ok)throw Error("GitHub API returned "+response.status);
-  const pr=await response.json();
-  if(pr.base?.repo?.full_name?.toLowerCase()!==(owner+"/"+repository).toLowerCase())throw Error("PR target repository does not match.");
-  if($("workPrUrl").value.trim()!==value)return;
-  $("workBranch").value=pr.base.ref;
-  suggestionVersion++;generateRubric();
-  await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
-  $("workRubricHelp").textContent="GitHub PR loaded. Verify the worker address and acceptance criteria before signing.";
- }catch(e){$("workRubricHelp").textContent="PR number filled. Check target branch manually: "+String(e.message||e);loadingPrUrl="";}
+  const value=$("workPrUrl").value.trim();
+  if(!value){loadingPrUrl="";return;}
+  if(value===loadingPrUrl)return;
+  const parsed=parseGitHubPullUrl(value);
+  if(!parsed){
+    loadingPrUrl="";
+    $("workRubricHelp").textContent="Paste a public GitHub PR link (https://github.com/owner/repo/pull/123).";
+    return;
+  }
+  loadingPrUrl=value;
+  const {owner,repository,number}=parsed;
+  $("workOwner").value=owner;
+  $("workRepo").value=repository;
+  $("workPr").value=number;
+  $("workBranch").value="";
+  $("workRubricHelp").textContent="Loading GitHub PR #"+number+"…";
+  $("createPrPreflight").textContent="Checking GitHub PR source…";
+  try {
+    const response=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+number,{headers:{Accept:"application/vnd.github+json"},cache:"no-store"});
+    if(!response.ok)throw Error("GitHub API returned "+response.status);
+    const pr=await response.json();
+    if(pr.base?.repo?.full_name?.toLowerCase()!==(owner+"/"+repository).toLowerCase() || String(pr.number)!==number)throw Error("GitHub PR does not match the URL.");
+    if($("workPrUrl").value.trim()!==value)return;
+    $("workBranch").value=pr.base.ref;
+    suggestionVersion++;
+    generateRubric();
+    const checks=await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
+    if($("workPrUrl").value.trim()!==value)return;
+    $("workRubricHelp").textContent=checks?.ready?"GitHub PR loaded. Review the contributor wallet and acceptance criteria.":"PR identity loaded. An unmerged PR is allowed for a new agreement; GenLayer checks completion when evaluated. Review Advanced settings if metadata is wrong.";
+  }catch(e){
+    if($("workPrUrl").value.trim()===value){
+      $("workRubricHelp").textContent="Could not verify PR automatically: "+String(e?.message||e)+". Retry or inspect Advanced settings.";
+      loadingPrUrl="";
+    }
+  }
 }
 $("workPrUrl").addEventListener("input",()=>{void loadPrUrl();});
 $("workPrUrl").addEventListener("change",()=>{void loadPrUrl();});
@@ -495,24 +553,28 @@ async function findMine(){
  const lookupAccount=connectedAccount.toLowerCase();
  display.textContent="Reading work records from GenLayer…";if(primary)primary.textContent="Loading your work…";
  const found=[];
- let missed=0,checked=0;
- // Bounded scan: no indexer exists in the current contract.
- for(let id=1;id<=100;id++){
-   try {
+ let checked=0;
+ try {
+   // The V3 contract exposes an authoritative sequential Work count. Never
+   // guess an ID ceiling or stop after gaps that could hide assigned work.
+   const countRaw=await client.readContract({address:ADDRESS,functionName:"get_work_count",args:[],transactionHashVariant:"latest-final"});
+   const count=parseWorkCount(countRaw);
+   if(count===null)throw Error("Invalid contract work count.");
+   const first=Math.max(1,count-99);
+   for(let id=count;id>=first;id--){
      const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[String(id)],transactionHashVariant:"latest-final"});
      const work=parseWork(raw);
      checked++;
-     if(!work){missed++;if(missed>=5 && id>5)break;continue;}
-     missed=0;
+     if(!work || work.contract_version!=="3.0.0" || work.id!==String(id))throw Error("Inconsistent V3 work record.");
      if([work.client,work.worker].some(x=>typeof x==="string"&&x.toLowerCase()===lookupAccount))found.push(work);
-   }catch(e){if(connectedAccount.toLowerCase()===lookupAccount){display.textContent="Could not finish reading on-chain work. Try Refresh my work.";if(primary)primary.textContent="GitHub/GenLayer read unavailable. Refresh my work to retry.";}return;}
- }
+   }
+ }catch(e){if(connectedAccount.toLowerCase()===lookupAccount){display.textContent="Could not finish reading V3 work. Try Refresh my work.";if(primary)primary.textContent="GenLayer V3 reads unavailable. Refresh my work to retry.";}return;}
  if(connectedAccount.toLowerCase()!==lookupAccount)return; // another wallet selection superseded this scan
  display.replaceChildren();if(primary)primary.replaceChildren();
- if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
+ if(!found.length){const message="No V3 work assigned to this wallet in the latest "+checked+" records.";display.textContent=message;if(primary)primary.textContent=message;return;}
  // Work records are displayed, never used to infer an unrelated transaction hash succeeded.
- if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[found.length-1].id;void read().catch(e=>note(e.message,true));}
- for(const work of found.reverse()){
+ if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[0].id;void read().catch(e=>note(e.message,true));}
+ for(const work of found){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
   btn.textContent="Work #"+work.id+" · "+work.state+" · PR #"+work.pr_number+" ↗";
   btn.style.margin="4px";
