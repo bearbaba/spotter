@@ -13,8 +13,9 @@
   "productionCutover": false,
   "observedStudioState": "Finalized",
   "observedFrom": "Operator-provided GenLayer Studio screenshot and import-contract URL",
-  "versionReadback": null,
-  "workCountReadback": null,
+  "versionReadback": "3.0.0",
+  "workCountReadback": "0",
   "deployReceiptSource": "Operator Studio screenshot 2026-10-15: deploy transaction FINALIZED, GenVM logs Contract deployed and execution finished",
-  "deployExecutionOutcome": "NOT_INDEPENDENTLY_VERIFIED"
+  "deployExecutionOutcome": "NOT_INDEPENDENTLY_VERIFIED",
+  "readbackEvidence": "Operator provided GenLayer Studio get_version and get_work_count responses on 2026-10-15; exact contract provenance still unverified"
 }

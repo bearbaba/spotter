@@ -37,8 +37,8 @@ test("No production cutover is permitted without a verifiable V3 deployment reco
    assert.ok(["Accepted","Finalized"].includes(manifest.observedStudioState));
    assert.equal(manifest.verifiedSourceCommit,null);
    assert.equal(manifest.verifiedSourceSha256,null);
-   assert.equal(manifest.versionReadback,null);
-   assert.equal(manifest.workCountReadback,null);
+   assert.ok([null,"3.0.0"].includes(manifest.versionReadback),"Observed version may only be V3");
+   assert.ok([null,"0"].includes(manifest.workCountReadback),"Observed fresh count may only be 0");
   }
   if(manifest.status==="NOT_DEPLOYED")assert.equal(manifest.deployTxHash,null);
   else assert.match(manifest.deployTxHash,/^0x[0-9a-fA-F]{64}$/);
