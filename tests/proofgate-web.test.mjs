@@ -90,12 +90,12 @@ test("V3 workspace puts My Work and Work details left, new agreement and transac
   assert.ok(left.includes('id="'+id+'"'),"left column must contain "+id);
   assert.equal(right.includes('id="'+id+'"'),false,"right column must not contain "+id);
  }
- for(const id of ["workCreateSection","workHistory","workPending","workTxLink","workCheck","workImportHash","workImport"]){
+ for(const id of ["workCreateSection","workHistory","workPending","workTxLink","workCheck","workTxTitle","workTxState","workTxDismiss"]){
   assert.ok(right.includes('id="'+id+'"'),"right column must contain "+id);
   assert.equal(left.includes('id="'+id+'"'),false,"left column must not contain "+id);
  }
  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
- for(const id of ["workCreateSection","workHistory","workSummary","workPrimaryList","workStatus","workPending","workTxLink","workImport"]){
+ for(const id of ["workCreateSection","workHistory","workSummary","workPrimaryList","workStatus","workPending","workTxLink","workTxDismiss"]){
   assert.equal(ids.filter(x=>x===id).length,1,"no duplicated interactive DOM ID: "+id);
  }
  assert.ok(html.includes('@media(max-width:900px){.work-product .work-two-columns{grid-template-columns:minmax(0,1fr)}'),"mobile must stack columns");
@@ -110,15 +110,15 @@ test("Create Work has three primary inputs and no pre-filled demo PR identity",(
  for(const id of ["workPrUrl","workWorker","workRubric"])assert.ok(compact.includes('id="'+id+'"'),"primary field: "+id);
  const advanced=right.split('id="workAdvancedSection"')[1].split('</details>')[0];
  for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"])assert.ok(advanced.includes('id="'+id+'"'),"advanced field: "+id);
- assert.ok(right.includes('id="workImportHash"'),"recovery remains available under transaction history");
+ assert.ok(right.includes('id="workHistory"'),"history remains available with hashes and Explorer links");
  assert.match(right,/<section id="workTxPanel"[^>]* hidden>/,"the idle tracker is hidden until a tx is unresolved");
  const history=right.split('<details class="work-history"')[1];
- assert.ok(history?.includes('id="workImportHash"'),"recovery field belongs in collapsed history");
+ assert.ok(history?.includes('id="workHistory"'),"history remains collapsed and hash-only");
  assert.doesNotMatch(right,/<div class="work-tx-proof"/,"certificate examples must not clutter transaction tracker");
  assert.ok(right.indexOf('id="workTxPanel"')<right.indexOf('id="workCreateSection"'),"active txn becomes visible before the create form only when necessary");
  assert.doesNotMatch(compact,/<h3>Create a work agreement<\/h3>/,"no duplicated heading");
  assert.doesNotMatch(right,/value="bearbaba"|value="spotter"|placeholder="24"/,"never pre-fill somebody else's GitHub repo");
- for(const id of ["workCreateSection","workAdvancedSection","workRubric","workHistory","workPending","workImportHash","workImport"]){
+ for(const id of ["workCreateSection","workAdvancedSection","workRubric","workHistory","workPending","workTxTitle","workTxState","workTxDismiss"]){
   const count=[...html.matchAll(/\bid="([^"]+)"/g)].filter(match=>match[1]===id).length;
   assert.equal(count,1,"unique DOM ID "+id);
  }
@@ -139,17 +139,20 @@ test("Only real GitHub PR URLs may select locked repository and PR number",()=>{
  assert.doesNotMatch(ui,/if\(!checked\?\.ready\)throw/,"do not block legitimate unmerged PRs at creation");
 });
 
-test("transaction status is contextual but an unresolved hash stays visible",()=>{
+test("live transaction tracker is contextual and hash history contains only Explorer links",()=>{
  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
- assert.match(html,/<section id="workTxPanel"[^>]* hidden>/);
- assert.match(html,/<details class="work-history">/,"history starts collapsed");
- assert.match(ui,/panel\.hidden = !active/);
+ assert.match(html,/<section id="workTxPanel"[^>]*hidden>/);
+ assert.match(html,/<details class="work-history">/,"hash history starts collapsed");
+ assert.match(ui,/panel\.hidden=!view/);
  assert.match(ui,/\["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"\]/);
  assert.match(ui,/\$\("workTxLink"\)\.href="https:\/\/explorer-studio\.genlayer\.com\/tx\/"/);
- assert.match(ui,/\$\("workPending"\)\.textContent=""/,"empty status resets");
+ assert.match(ui,/\$\("workTxState"\)\.textContent=labels\[phase\]/);
+ const history=html.split('<details class="work-history">')[1].split('</details>')[0];
+ assert.ok(history.includes('id="workHistory"'));
+ assert.doesNotMatch(history,/workImportHash|workImport|Add transaction to history/);
  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
- for(const id of ["workTxPanel","workPending","workTxLink","workCheck","workImport","workImportHash"])
+ for(const id of ["workTxPanel","workPending","workTxLink","workCheck","workTxState","workTxDismiss","workTxUpdated"])
   assert.equal(ids.filter(x=>x===id).length,1,"unique transaction control "+id);
 });
 
@@ -164,4 +167,107 @@ test("wallet mismatch displays an explicit one-click Studionet switch before cre
   assert.match(ui,/window\.ethereum\?\.on\?\.\("chainChanged"/);
   assert.match(ui,/if \(!isStudionetChainId\(chain\)\)/);
   assert.ok(build.includes('"wallet-network.mjs"'));
+});
+
+test("new user sees creator signing wallet separately from contributor assignment",()=>{
+  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+  const app=html.split('id="work-app"')[1].split('id="certified-work"')[0];
+  const right=app.split('<aside class="work-right-column"')[1];
+  assert.ok(right.includes('id="workSignerStatus"'));
+  assert.ok(right.includes('id="workConnectWallet"'));
+  assert.ok(right.includes('id="walletNetworkNotice"'));
+  assert.ok(right.indexOf('id="workSignerStatus"')<right.indexOf('data-work-method="create_work"'));
+  assert.match(html,/Use my wallet as contributor/);
+  assert.match(ui,/workConnectWallet"\)\.addEventListener\("click"/);
+  assert.match(ui,/Do you want the same wallet to be the contributor/);
+  assert.match(ui,/The assigned contributor must connect their wallet/);
+  assert.doesNotMatch(ui,/Read-only preview\. The deployed GenLayer contract/);
+  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
+  for(const id of ["workSignerStatus","workConnectWallet","walletNetworkNotice","walletSwitch"])
+    assert.equal(ids.filter(x=>x===id).length,1,"unique wallet control: "+id);
+});
+
+test("V3 does not call proven earlier states active transactions or block a different next action",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/!workConfirmsPriorStage\(entry,lastWork\)/);
+ assert.match(ui,/p\?\.hash\s*&&\s*!workConfirmsPriorStage\(p,lastWork\)/);
+ assert.match(ui,/fromState:method==="create_work"/);
+ assert.match(ui,/do not sign the same action again/);
+});
+
+test("My Work refresh is visible beside assigned work, not buried inside transaction recovery",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ const left=html.split('<div class="work-left-column"')[1].split('<aside class="work-right-column"')[0];
+ const right=html.split('<aside class="work-right-column"')[1];
+ assert.ok(left.includes('id="workFindMine"'));
+ assert.ok(!right.includes('id="workFindMine"'));
+ assert.match(ui,/\$\("workFindMine"\)\.addEventListener\("click"/);
+ assert.match(ui,/\$\("workExample"\)\.hidden=work\.id!=="1"/);
+ assert.equal([...html.matchAll(/id="workFindMine"/g)].length,1);
+});
+
+test("video regression: REVIEW-to-REVIEW re-evaluation cannot be reconciled without a receipt",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const advanced=workConfirmsPriorStage\(p,work\)/);
+ assert.doesNotMatch(ui,/p\.method==="evaluate"&&\["REVIEW","ACCEPTED","CERTIFIED"\]/);
+});
+
+test("transaction hashes are accessible without technical receipt jargon inside history",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/link\.href="https:\/\/explorer-studio\.genlayer\.com\/tx\/"/);
+ assert.match(ui,/root\.append\(item\)/);
+ assert.doesNotMatch(ui,/label\.textContent=action\+" · "\+detail/);
+ assert.doesNotMatch(ui,/\$\("workImport"\)\.addEventListener/);
+});
+
+test("tracking starts with MetaMask approval, polls every 7 seconds, and never conflates finality with success",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(html,/LIVE TRANSACTION TRACKING/);
+ assert.match(html,/id="workTxStepWallet"/);
+ assert.match(html,/id="workTxStepNetwork"/);
+ assert.match(html,/id="workTxStepResult"/);
+ assert.match(ui,/showTxMonitor\("wallet"/);
+ assert.match(ui,/showTxMonitor\("pending"/);
+ assert.match(ui,/showTxMonitor\("unknown"/);
+ assert.match(ui,/showTxMonitor\("failure"/);
+ assert.match(ui,/showTxMonitor\("success"/);
+ assert.match(ui,/setInterval\(\(\)=>\{if\(document\.visibilityState==="visible" && pending\(\)\)void checkTransaction\(\);\},7000\)/);
+ assert.match(ui,/document\.addEventListener\?\.\("visibilitychange"/);
+ assert.match(ui,/finalizedReceipt\(receipt\)/);
+ assert.match(ui,/FINALIZED_UNVERIFIED/);
+ assert.match(ui,/GenVM execution succeeded, but the updated Work record could not be read yet/);
+});
+
+test("every DOM control accessed by live transaction UI exists in the page",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ const uiIds=[...new Set([...ui.matchAll(/\$\("([^"]+)"\)/g)].map(m=>m[1]))];
+ const domIds=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]));
+ for(const id of uiIds)assert.ok(domIds.has(id),"missing runtime DOM ID: "+id);
+ assert.ok(html.includes('id="walletWorks" hidden'),"legacy My Work render target remains in My Work but not history");
+});
+
+test("reloaded finalized-but-unverified tx stays explicitly uncertain, not waiting or successful",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const settledButUnknown=stored && \["FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"\]/);
+ assert.match(ui,/phase:settledButUnknown\?"unknown":"pending"/);
+ assert.match(ui,/GenLayer has finalized this transaction, but the execution outcome/);
+ assert.match(ui,/if\(!returnedHash \|\| String\(returnedHash\)\.toLowerCase\(\)!==p\.hash\.toLowerCase\(\)\)/);
+ assert.match(ui,/const view=currentMonitor \|\| \(active \?/,"terminal notices should not be overwritten by old pending entries");
+});
+
+test("chain-confirmed Work progression reports receipt uncertainty explicitly",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/remember\(\{\.\.\.p,status:"WORK STATE VERIFIED ON-CHAIN \(RECEIPT NOT CHECKED\)"/);
+ assert.match(ui,/showTxMonitor\("unknown",p,"Work #"/);
+ assert.match(ui,/The transaction receipt itself is not yet independently verified/);
+});
+
+test("tracker scrolls into view on actual phase changes without stealing focus on each poll",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const changed=!currentMonitor \|\| currentMonitor\.phase!==phase \|\| currentMonitor\.hash!==safeHash/);
+ assert.match(ui,/if\(changed\)\$\("workTxPanel"\)\.scrollIntoView\?\.\(/);
 });

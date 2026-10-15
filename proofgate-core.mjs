@@ -81,18 +81,34 @@ export function finalizedReceipt(receipt) {
   return "FINALIZED_UNVERIFIED";
 }
 
-/** Prevent duplicate submissions without freezing unrelated work. */
-export function unresolvedTransactionBlocks(records, method, workId) {
-  if(!Array.isArray(records))return false;
-  return records.some(entry=>{
-    if(!entry || entry.method==="recovered transaction")return false;
-    if(entry.method==="create_work"){
-      // Even after a successful create receipt, do not recreate while its Work ID
-      // is unknown or awaiting independent contract readback.
-      const outstanding=["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"];
-      return method==="create_work" && outstanding.includes(entry.status);
-    }
-    if(!["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(entry.status) || method==="create_work")return false;
-    return Boolean(entry.workId && String(entry.workId)===String(workId));
-  });
+/** A later on-chain Work state confirms a stage advanced, not which receipt succeeded. */
+export function workConfirmsPriorStage(entry,work) {
+  if(!entry || !work || work.contract_version!=="3.0.0" ||
+     String(entry.workId||"")!==String(work.id||""))return false;
+  if(entry.method==="submit_for_review")
+    return ["SUBMITTED","REVIEW","ACCEPTED","CERTIFIED"].includes(work.state);
+  if(entry.method==="evaluate")
+    // REVIEW -> REVIEW cannot prove that another evaluate completed.
+    return ["ACCEPTED","CERTIFIED"].includes(work.state)
+      || work.state==="REVIEW" && entry.fromState==="SUBMITTED";
+  if(entry.method==="issue_acceptance")return work.state==="CERTIFIED";
+  return false;
+}
+
+/** Prevent duplicate submissions of the same unresolved step.
+ * The next DISTINCT step is allowed only after the UI separately checks
+ * the finalized contract state and validates the selected signing wallet.
+ */
+export function unresolvedTransactionBlocks(records,method,workId) {
+ if(!Array.isArray(records))return false;
+ return records.some(entry=>{
+  if(!entry || entry.method==="recovered transaction")return false;
+  if(entry.method==="create_work"){
+   return method==="create_work" &&
+     ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status);
+  }
+  if(entry.method!==method ||
+     !["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(entry.status))return false;
+  return Boolean(entry.workId && String(entry.workId)===String(workId));
+ });
 }
