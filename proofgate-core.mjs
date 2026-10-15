@@ -1,3 +1,13 @@
+export function parseGitHubPullUrl(raw) {
+  if(typeof raw!=="string")return null;
+  let url;
+  try {url=new URL(raw.trim());}catch{return null;}
+  if(url.protocol!=="https:" || url.hostname!=="github.com" || url.username || url.password || url.port)return null;
+  const match=url.pathname.match(/^\/([A-Za-z0-9-]{1,39})\/([A-Za-z0-9_.-]{1,100})\/pull\/([1-9][0-9]*)\/?$/);
+  if(!match || Number(match[3])>4294967295)return null;
+  return {owner:match[1],repository:match[2],number:match[3]};
+}
+
 export function parseWorkCount(raw) {
   // GenLayer Studio and the JS SDK may return a number, a numeric string,
   // or JSON-encoded / doubly encoded strings. Reject malformed/unbounded IDs.

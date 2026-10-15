@@ -1,7 +1,7 @@
 import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash, parseWork, parseWorkCount, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, parseWorkCount, parseGitHubPullUrl, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
 const ADDRESS = "0x506205eBc1ba011707D63d8a152625baaC63002D";
@@ -205,6 +205,10 @@ function args(method) {
   if (!/^[a-zA-Z0-9-]{1,39}$/.test(owner) || !/^[a-zA-Z0-9_.-]{1,100}$/.test(repo)) throw Error("Enter a valid GitHub owner/repository.");
   if (!branch || branch.length > 100 || !/^[1-9][0-9]*$/.test(pr) || Number(pr)>4294967295) throw Error("Enter a target branch and 32-bit PR number.");
   if (rubric.trim().length < 16 || rubric.length > 500 || label.length > 64) throw Error("Write specific acceptance requirements (16–500 characters); labels must be 64 characters or less.");
+  const parsedPr=parseGitHubPullUrl($("workPrUrl").value);
+  if(!parsedPr)throw Error("Paste a valid https://github.com/owner/repo/pull/123 URL before creating work.");
+  if(parsedPr.owner.toLowerCase()!==owner.toLowerCase() || parsedPr.repository.toLowerCase()!==repo.toLowerCase() || parsedPr.number!==pr)
+    throw Error("Advanced GitHub owner, repository or PR number differs from the PR URL. Verify the source before signing.");
   return [worker,owner,repo,branch,Number(pr),label,rubric];
 }
 let preparingSignature=false;
@@ -230,6 +234,14 @@ async function performAct(method) {
       lastWork=current;
     }
     callArgs=args(method);
+    if(method==="create_work"){
+      // No MetaMask signature is permitted before validating the locked PR.
+      const checked=await checkPrReadiness({
+        owner:callArgs[1],repository:callArgs[2],branch:callArgs[3],
+        number:callArgs[4],requiredLabel:callArgs[5]
+      },"createPrPreflight");
+      if(!checked?.ready)throw Error("GitHub verification did not pass. Review the PR and Advanced settings before signing.");
+    }
     account=await wallet();
     if(method!=="create_work" && !signerAllowed(method,lastWork,account))
       throw Error("Wrong signing wallet. This action requires the nominated worker or an authorized participant.");
@@ -404,25 +416,41 @@ function generateRubric() {
 }
 let loadingPrUrl="";
 async function loadPrUrl(){
- const value=$("workPrUrl").value.trim();if(!value||value===loadingPrUrl)return;
- let url;try{url=new URL(value);}catch{return;}
- const match=url.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/);
- if(url.hostname!=="github.com"||!match)return;
- loadingPrUrl=value;
- const [,owner,repository,number]=match;
- $("workOwner").value=owner;$("workRepo").value=repository;$("workPr").value=number;
- $("workRubricHelp").textContent="Loading GitHub PR #"+number+"…";
- try{
-  const response=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+number,{headers:{Accept:"application/vnd.github+json"}});
-  if(!response.ok)throw Error("GitHub API returned "+response.status);
-  const pr=await response.json();
-  if(pr.base?.repo?.full_name?.toLowerCase()!==(owner+"/"+repository).toLowerCase())throw Error("PR target repository does not match.");
-  if($("workPrUrl").value.trim()!==value)return;
-  $("workBranch").value=pr.base.ref;
-  suggestionVersion++;generateRubric();
-  await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
-  $("workRubricHelp").textContent="GitHub PR loaded. Verify the worker address and acceptance criteria before signing.";
- }catch(e){$("workRubricHelp").textContent="PR number filled. Check target branch manually: "+String(e.message||e);loadingPrUrl="";}
+  const value=$("workPrUrl").value.trim();
+  if(!value){loadingPrUrl="";return;}
+  if(value===loadingPrUrl)return;
+  const parsed=parseGitHubPullUrl(value);
+  if(!parsed){
+    loadingPrUrl="";
+    $("workRubricHelp").textContent="Paste a public GitHub PR link (https://github.com/owner/repo/pull/123).";
+    return;
+  }
+  loadingPrUrl=value;
+  const {owner,repository,number}=parsed;
+  $("workOwner").value=owner;
+  $("workRepo").value=repository;
+  $("workPr").value=number;
+  $("workBranch").value="";
+  $("workRubricHelp").textContent="Loading GitHub PR #"+number+"…";
+  $("createPrPreflight").textContent="Checking GitHub PR source…";
+  try {
+    const response=await fetch("https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+number,{headers:{Accept:"application/vnd.github+json"},cache:"no-store"});
+    if(!response.ok)throw Error("GitHub API returned "+response.status);
+    const pr=await response.json();
+    if(pr.base?.repo?.full_name?.toLowerCase()!==(owner+"/"+repository).toLowerCase() || String(pr.number)!==number)throw Error("GitHub PR does not match the URL.");
+    if($("workPrUrl").value.trim()!==value)return;
+    $("workBranch").value=pr.base.ref;
+    suggestionVersion++;
+    generateRubric();
+    const checks=await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
+    if($("workPrUrl").value.trim()!==value)return;
+    $("workRubricHelp").textContent=checks?.ready?"GitHub PR loaded. Review the assigned worker and acceptance criteria.":"GitHub PR loaded, but readiness checks need attention. Open GitHub verification or Advanced settings.";
+  }catch(e){
+    if($("workPrUrl").value.trim()===value){
+      $("workRubricHelp").textContent="Could not verify PR automatically: "+String(e?.message||e)+". Retry or inspect Advanced settings.";
+      loadingPrUrl="";
+    }
+  }
 }
 $("workPrUrl").addEventListener("input",()=>{void loadPrUrl();});
 $("workPrUrl").addEventListener("change",()=>{void loadPrUrl();});
