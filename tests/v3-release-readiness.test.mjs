@@ -29,11 +29,20 @@ test("No production cutover is permitted without a verifiable V3 deployment reco
  assert.equal(manifest.chainId,61999);
  assert.equal(manifest.version,"3.0.0");
  assert.equal(manifest.source,"contracts/proofgate.py");
- if(manifest.status==="NOT_DEPLOYED"){
-  assert.equal(manifest.address,null);
+ if(["NOT_DEPLOYED","DEPLOYED_UNVERIFIED"].includes(manifest.status)){
+  if(manifest.status==="NOT_DEPLOYED")assert.equal(manifest.address,null);
+  if(manifest.status==="DEPLOYED_UNVERIFIED"){
+   assert.match(manifest.address,/^0x[0-9a-fA-F]{40}$/);
+   assert.notEqual(manifest.address.toLowerCase(),oldAddress.toLowerCase());
+   assert.ok(["Accepted","Finalized"].includes(manifest.observedStudioState));
+   assert.equal(manifest.verifiedSourceCommit,null);
+   assert.equal(manifest.verifiedSourceSha256,null);
+   assert.equal(manifest.versionReadback,null);
+   assert.equal(manifest.workCountReadback,null);
+  }
   assert.equal(manifest.deployTxHash,null);
   assert.equal(manifest.productionCutover,false);
-  assert.ok(ui.includes(oldAddress),"legacy web runtime must remain unchanged until real V3 deploy");
+  assert.ok(ui.includes(oldAddress),"web runtime must remain unchanged until real V3 source/chain verification");
   return;
  }
  assert.equal(manifest.status,"VERIFIED_ON_STUDIONET");

@@ -5,10 +5,14 @@
   "version": "3.0.0",
   "source": "contracts/proofgate.py",
   "sourceBranch": "feat/spotter-v3-fresh-contract",
-  "status": "NOT_DEPLOYED",
-  "address": null,
+  "status": "DEPLOYED_UNVERIFIED",
+  "address": "0x506205eBc1ba011707D63d8a152625baaC63002D",
   "deployTxHash": null,
   "verifiedSourceCommit": null,
   "verifiedSourceSha256": null,
-  "productionCutover": false
+  "productionCutover": false,
+  "observedStudioState": "Accepted",
+  "observedFrom": "Operator-provided GenLayer Studio screenshot and import-contract URL",
+  "versionReadback": null,
+  "workCountReadback": null
 }
