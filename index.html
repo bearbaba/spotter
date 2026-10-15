@@ -260,6 +260,25 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 /* Make the refresh action discoverable without opening transaction-recovery settings. */
 .work-product .work-left-column .work-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .work-product #workFindMine{font-size:12px;white-space:nowrap}
+
+/* Transaction status is a live, evidence-aware journey, never a persistent empty card. */
+.work-product #workTxPanel[hidden]{display:none!important}
+.work-product #workTxPanel{padding:17px 19px;background:#0e2521;border:1px solid #3f7469}
+.work-product .work-transaction-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.work-product .work-transaction-heading h3{margin:4px 0 0;font-size:18px}
+.work-product .work-tx-state{font-size:12px;font-weight:800;line-height:1.4;border-radius:30px;padding:5px 10px;background:#27443d;color:#ccede2}
+.work-product #workTxPanel[data-phase="success"] .work-tx-state{color:#0c4436;background:#73edcf}
+.work-product #workTxPanel[data-phase="failure"] .work-tx-state{color:#ffd3c6;background:#74372f}
+.work-product #workTxPanel[data-phase="unknown"] .work-tx-state{color:#ffdeb0;background:#63472e}
+.work-product .work-tx-steps{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px}
+.work-product .work-tx-steps span{padding:7px 9px;border-radius:8px;font-size:11px;background:#152f2c;border:1px solid #31544e;color:#94b7ad}
+.work-product .work-tx-steps span[data-done="true"]{background:#174e42;color:#b1f6db;border-color:#399f84}
+.work-product .work-tx-explanation{font-size:13px;line-height:1.55;margin:8px 0;overflow-wrap:anywhere;color:#e2f7ee}
+.work-product .work-tx-checked{font-size:11px;color:#9fbfb5;margin:6px 0}
+.work-product .work-hash-list{display:flex;flex-direction:column;gap:7px;padding-top:12px;max-height:320px;overflow-y:auto}
+.work-product .work-hash-list .work-hash-item{padding:9px 0;border-bottom:1px solid #29443e}
+.work-product .work-hash-list .work-hash-item a{font-size:13px;overflow-wrap:anywhere}
+@media(max-width:520px){.work-product .work-tx-steps span{flex:1 1 100%}}
 </style>
 </head>
 <body>
@@ -318,15 +337,25 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </div>
   <aside class="work-right-column" aria-label="Create agreement and transaction tools">
     
-    <section id="workTxPanel" class="work-tx-panel" aria-label="Current transaction status" role="status" hidden>
-  <h3>Transaction in progress</h3>
-  <p id="workPending" class="notice pending" hidden></p>
+    <section id="workTxPanel" class="work-tx-panel" aria-label="Live transaction tracking" aria-live="polite" aria-atomic="false" data-phase="idle" hidden>
+  <div class="work-transaction-heading">
+    <div><span class="work-signing-label">LIVE TRANSACTION TRACKING</span><h3 id="workTxTitle">Transaction status</h3></div>
+    <span id="workTxState" class="work-tx-state" role="status">Checking…</span>
+  </div>
+  <div class="work-tx-steps" aria-label="Transaction milestones">
+    <span id="workTxStepWallet">1. Wallet approval</span>
+    <span id="workTxStepNetwork">2. Network confirmation</span>
+    <span id="workTxStepResult">3. Execution result</span>
+  </div>
+  <p id="workPending" class="work-tx-explanation" role="status">Waiting for a transaction.</p>
+  <p id="workTxUpdated" class="work-tx-checked" aria-live="off"></p>
   <div class="work-pending-actions">
-    <a id="workTxLink" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer" hidden>View transaction in Explorer ↗</a>
-    <button id="workCheck" type="button" class="btn btn-subtle" hidden>Check status ↻</button>
+    <a id="workTxLink" class="btn btn-subtle btn-small" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in GenLayer Explorer ↗</a>
+    <button id="workCheck" type="button" class="btn btn-subtle btn-small" hidden>Check status now ↻</button>
+    <button id="workTxDismiss" type="button" class="btn btn-subtle btn-small" hidden>Close notice</button>
     <button id="workClear" type="button" class="btn btn-subtle btn-small" hidden>Check recorded transaction status</button>
   </div>
-  <p class="hint">Read-only checks. Never resend an unresolved transaction.</p>
+  <p class="hint">Updated automatically while this tab is open. Finalized does not always mean executed successfully.</p>
 </section>
 <details id="workCreateSection" class="work-create-section" open>
  <summary><span>Create a new work agreement</span><span class="work-panel-hint">GitHub PR · contributor · acceptance criteria</span></summary>
@@ -361,12 +390,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   <p class="hint">Review the PR, contributor and criteria. Confirm only once in MetaMask; pending transactions appear above.</p>
  </div>
 </details>
-<details class="work-history"><summary><span>Transaction hashes &amp; recovery</span><span class="work-panel-hint">Review, open, or recover a transaction on Explorer</span></summary><div id="walletWorks" style="padding-top:12px">Connect MetaMask to find work assigned to your wallet.</div><p class="hint">Wallet work items update in My Work above. Transaction history here is local to this browser.</p><div id="workHistory" style="display:flex;flex-direction:column;gap:12px;padding-top:14px">No transactions recorded in this browser.</div><p class="hint">Local history only. Records from other browsers require Explorer. Clearing a pending transaction does not cancel it.</p><div class="work-hash-recovery field">
-  <label for="workImportHash">Recover a transaction by hash</label>
-  <input id="workImportHash" placeholder="0x… transaction hash" autocomplete="off" spellcheck="false" />
-  <button type="button" id="workImport" class="btn btn-subtle btn-small">Add transaction to history</button>
-  <p class="hint">Read-only lookup; never signs or resends a transaction.</p>
-</div></details>
+<details class="work-history">
+ <summary><span>Transaction history</span><span class="work-panel-hint">Transaction hashes and GenLayer Explorer links</span></summary>
+ <p class="hint">Saved in this browser. Choose a hash to check the original transaction on Explorer.</p>
+ <div id="workHistory" class="work-hash-list">No transactions saved in this browser.</div>
+</details>
   </aside>
 </div>
 </section>
@@ -390,6 +418,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 
-<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-video-ux"></script>
+<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-live-tracking"></script>
 </body>
 </html>
