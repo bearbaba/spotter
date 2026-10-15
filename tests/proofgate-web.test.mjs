@@ -110,7 +110,12 @@ test("Create Work has three primary inputs and no pre-filled demo PR identity",(
  for(const id of ["workPrUrl","workWorker","workRubric"])assert.ok(compact.includes('id="'+id+'"'),"primary field: "+id);
  const advanced=right.split('id="workAdvancedSection"')[1].split('</details>')[0];
  for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"])assert.ok(advanced.includes('id="'+id+'"'),"advanced field: "+id);
- assert.ok(right.includes('id="workImportHash"'),"hash recovery always available in transaction panel");
+ assert.ok(right.includes('id="workImportHash"'),"recovery remains available under transaction history");
+ assert.match(right,/<section id="workTxPanel"[^>]* hidden>/,"the idle tracker is hidden until a tx is unresolved");
+ const history=right.split('<details class="work-history"')[1];
+ assert.ok(history?.includes('id="workImportHash"'),"recovery field belongs in collapsed history");
+ assert.doesNotMatch(right,/<div class="work-tx-proof"/,"certificate examples must not clutter transaction tracker");
+ assert.ok(right.indexOf('id="workTxPanel"')<right.indexOf('id="workCreateSection"'),"active txn becomes visible before the create form only when necessary");
  assert.doesNotMatch(compact,/<h3>Create a work agreement<\/h3>/,"no duplicated heading");
  assert.doesNotMatch(right,/value="bearbaba"|value="spotter"|placeholder="24"/,"never pre-fill somebody else's GitHub repo");
  for(const id of ["workCreateSection","workAdvancedSection","workRubric","workHistory","workPending","workImportHash","workImport"]){
@@ -132,4 +137,18 @@ test("Only real GitHub PR URLs may select locked repository and PR number",()=>{
  assert.match(ui,/pr\.base\?\.ref!==branch/,"branch confirmed from GitHub API");
  assert.match(ui,/An open, unmerged PR is valid/,"creating work cannot require the PR to already be merged");
  assert.doesNotMatch(ui,/if\(!checked\?\.ready\)throw/,"do not block legitimate unmerged PRs at creation");
+});
+
+test("transaction status is contextual but an unresolved hash stays visible",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(html,/<section id="workTxPanel"[^>]* hidden>/);
+ assert.match(html,/<details class="work-history">/,"history starts collapsed");
+ assert.match(ui,/panel\.hidden = !active/);
+ assert.match(ui,/\["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"\]/);
+ assert.match(ui,/\$\("workTxLink"\)\.href="https:\/\/explorer-studio\.genlayer\.com\/tx\/"/);
+ assert.match(ui,/\$\("workPending"\)\.textContent=""/,"empty status resets");
+ const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+ for(const id of ["workTxPanel","workPending","workTxLink","workCheck","workImport","workImportHash"])
+  assert.equal(ids.filter(x=>x===id).length,1,"unique transaction control "+id);
 });
