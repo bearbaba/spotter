@@ -190,12 +190,18 @@ function refreshPending(){
    && !workConfirmsPriorStage(entry,lastWork)
  );
  const active=p?.hash&&!workConfirmsPriorStage(p,lastWork)?p:unresolved;
- let view=currentMonitor;
- if(active && (!view?.hash || view.hash.toLowerCase()!==active.hash.toLowerCase()) &&
-     (!view || view.phase==="success"||view.phase==="failure"||view.phase==="canceled"))
-   view={phase:"pending",hash:active.hash,method:active.method,workId:active.workId,message:"Checking the GenLayer transaction. Do not sign this action again.",checkedAt:Date.now()};
- if(!view && active)
-   view={phase:"pending",hash:active.hash,method:active.method,workId:active.workId,message:"Checking the GenLayer transaction. Do not sign this action again.",checkedAt:Date.now()};
+ const stored=active?.hash?history().find(item=>item.hash.toLowerCase()===active.hash.toLowerCase()):null;
+ const settledButUnknown=stored && ["FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(stored.status);
+ const historicalMessage=settledButUnknown
+  ?"GenLayer has finalized this transaction, but the execution outcome or new Work ID is not yet independently verifiable. Check Explorer; do not resend."
+  :"The transaction was submitted. Checking the network automatically; do not sign the same action again.";
+ // Keep a verified final message visible until explicitly dismissed, even if
+ // a different, older browser history entry still needs manual inspection.
+ const view=currentMonitor || (active ? {
+   phase:settledButUnknown?"unknown":"pending",
+   hash:active.hash,method:active.method,workId:active.workId,
+   message:historicalMessage,checkedAt:Date.now(),networkFinalized:Boolean(settledButUnknown)
+ } : null);
  const panel=$("workTxPanel");
  panel.hidden=!view || (view.hash && dismissedMonitorHash===view.hash);
  $("workPending").hidden=panel.hidden;
@@ -229,7 +235,7 @@ function refreshPending(){
  $("workTxUpdated").textContent="Last updated: "+new Date(view.checkedAt||Date.now()).toLocaleTimeString()
    +(safeHash?" · "+safeHash.slice(0,12)+"…"+safeHash.slice(-8):"");
  const walletDone=Boolean(safeHash)||["success","failure"].includes(phase);
- const networkDone=phase==="success"||phase==="failure";
+ const networkDone=phase==="success"||phase==="failure"||Boolean(view.networkFinalized);
  const resultDone=phase==="success"||phase==="failure";
  $("workTxStepWallet").dataset.done=String(walletDone);
  $("workTxStepNetwork").dataset.done=String(networkDone);
@@ -419,8 +425,9 @@ async function checkTransaction(){
   const receipt=await getVerifiedReceipt(hash=>client.getTransaction({hash}),fetch,ENDPOINT,{...p,contract:ADDRESS}); // Read-only GenLayer SDK + raw RPC.
   if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return; // Another task resolved this hash.
   const returnedHash=receipt?.hash??receipt?.txId??receipt?.id;
-  if(returnedHash && String(returnedHash).toLowerCase()!==p.hash.toLowerCase()){
-   scopedNote("RPC returned a different transaction hash. Outcome remains unverified; no retry or signature.",true);
+  if(!returnedHash || String(returnedHash).toLowerCase()!==p.hash.toLowerCase()){
+   showTxMonitor("unknown",p,"GenLayer response did not verify this exact transaction hash. Outcome remains unverified; do not resend.");
+   scopedNote("RPC receipt identity missing or mismatched. Outcome remains unverified; no retry or signature.",true);
    return;
   }
   const status=finalizedReceipt(receipt);
