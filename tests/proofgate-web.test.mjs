@@ -193,7 +193,7 @@ test("V3 does not call proven earlier states active transactions or block a diff
  assert.match(ui,/!workConfirmsPriorStage\(entry,lastWork\)/);
  assert.match(ui,/p\?\.hash\s*&&\s*!workConfirmsPriorStage\(p,lastWork\)/);
  assert.match(ui,/fromState:method==="create_work"/);
- assert.match(ui,/Do not sign this action again/);
+ assert.match(ui,/do not sign the same action again/);
 });
 
 test("My Work refresh is visible beside assigned work, not buried inside transaction recovery",()=>{
