@@ -178,9 +178,13 @@ let currentMonitor=null;
 let dismissedMonitorHash="";
 function showTxMonitor(phase,entry={},message=""){
   const safeHash=/^0x[0-9a-fA-F]{64}$/.test(entry?.hash||"")?entry.hash:"";
+  const changed=!currentMonitor || currentMonitor.phase!==phase || currentMonitor.hash!==safeHash;
   currentMonitor={phase,hash:safeHash,method:entry.method||"",workId:entry.workId||"",message,checkedAt:Date.now()};
   dismissedMonitorHash="";
   refreshPending();
+  // Bring the real outcome into view, but never scroll every 7-second poll.
+  // Particularly important after Create: the form button is below this panel.
+  if(changed)$("workTxPanel").scrollIntoView?.({behavior:"smooth",block:"nearest"});
 }
 function refreshPending(){
  const p=pending();
