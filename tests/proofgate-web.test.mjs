@@ -259,11 +259,13 @@ test("reloaded finalized-but-unverified tx stays explicitly uncertain, not waiti
  assert.match(ui,/const view=currentMonitor \|\| \(active \?/,"terminal notices should not be overwritten by old pending entries");
 });
 
-test("chain-confirmed Work progression reports receipt uncertainty explicitly",()=>{
+test("chain-confirmed Work progression shows an honest, dismissible recent status and archives old hashes",()=>{
  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
  assert.match(ui,/remember\(\{\.\.\.p,status:"WORK STATE VERIFIED ON-CHAIN \(RECEIPT NOT CHECKED\)"/);
- assert.match(ui,/showTxMonitor\("unknown",p,"Work #"/);
- assert.match(ui,/The transaction receipt itself is not yet independently verified/);
+ assert.match(ui,/if\(isRecentTransaction\(p\)\)/);
+ assert.match(ui,/showTxMonitor\("confirmed",p,"Work #"/);
+ assert.match(ui,/The receipt still requires independent verification/);
+ assert.doesNotMatch(ui,/showTxMonitor\("unknown",p,"Work #"/);
 });
 
 test("tracker scrolls into view on actual phase changes without stealing focus on each poll",()=>{
