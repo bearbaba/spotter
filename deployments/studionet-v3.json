@@ -17,5 +17,15 @@
   "workCountReadback": "0",
   "deployReceiptSource": "Operator Studio screenshot 2026-10-15: deploy transaction FINALIZED, GenVM logs Contract deployed and execution finished",
   "deployExecutionOutcome": "NOT_INDEPENDENTLY_VERIFIED",
-  "readbackEvidence": "Operator provided GenLayer Studio get_version and get_work_count responses on 2026-10-15; exact contract provenance still unverified"
+  "readbackEvidence": "Operator provided GenLayer Studio get_version and get_work_count responses on 2026-10-15; exact contract provenance still unverified",
+  "positiveCaseReadback": {
+    "workId": "1",
+    "contractVersion": "3.0.0",
+    "state": "ACCEPTED",
+    "source": "https://api.github.com/repos/bearbaba/spotter/pulls/26",
+    "mergeCommit": "84c1b5d74bc7ca8a63b7a363cb919f53c331ea0a",
+    "evidenceDigest": "9aff4aca44f1395a2d6348f9f43719f8a98b7a44d8ca4669bbc0b9c65881ab22",
+    "evidence": "Operator-supplied get_work(\"1\") readback; evaluation transaction hash and independent verification not yet recorded",
+    "certificationPending": true
+  }
 }
