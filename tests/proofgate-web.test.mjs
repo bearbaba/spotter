@@ -36,12 +36,26 @@ test("receipt must report FINALIZED before success",()=>{
 });
 
 test("receipt watcher fails closed on incomplete and negative executions",()=>{
- assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"PENDING");
- assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NOT_VOTED"}),"PENDING");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"FINALIZED_UNVERIFIED");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NOT_VOTED"}),"FINALIZED_UNVERIFIED");
  assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"TIMEOUT"}),"FAILED");
  assert.equal(finalizedReceipt({statusName:"FINALIZED",txExecutionResultName:"NONDET_DISAGREE"}),"FAILED");
  assert.equal(finalizedReceipt({statusName:"PENDING",txExecutionResultName:"FINISHED_WITH_RETURN"}),"PENDING");
  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
- assert.match(ui,/client\.getTransaction\(\{hash:p\.hash\}\)/);
+ assert.match(ui,/getVerifiedReceipt\(hash=>client\.getTransaction\(\{hash\}\)/);
  assert.doesNotMatch(ui,/waitForTransactionReceipt\(\{hash:p\.hash/);
+});
+
+test("numeric GenVM success from Studio receipt verifies finalized transaction",()=>{
+ const receipt={id:"0x"+"8".repeat(64),statusName:"FINALIZED",txExecutionResult:1};
+ assert.equal(finalizedReceipt(receipt),"FINALIZED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResult:"1"}),"FINALIZED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResult:2}),"FAILED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResult:3}),"FAILED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResult:4}),"FAILED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResult:5}),"FAILED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResult:0}),"FINALIZED_UNVERIFIED");
+ assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"FINALIZED_UNVERIFIED");
+ assert.equal(finalizedReceipt({...receipt,txExecutionResultName:"FINISHED_WITH_ERROR"}),"FINALIZED_UNVERIFIED");
+ assert.equal(finalizedReceipt({...receipt,statusName:"ACCEPTED"}),"PENDING");
 });
