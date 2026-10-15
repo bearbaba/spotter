@@ -265,3 +265,9 @@ test("chain-confirmed Work progression reports receipt uncertainty explicitly",(
  assert.match(ui,/showTxMonitor\("unknown",p,"Work #"/);
  assert.match(ui,/The transaction receipt itself is not yet independently verified/);
 });
+
+test("tracker scrolls into view on actual phase changes without stealing focus on each poll",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const changed=!currentMonitor \|\| currentMonitor\.phase!==phase \|\| currentMonitor\.hash!==safeHash/);
+ assert.match(ui,/if\(changed\)\$\("workTxPanel"\)\.scrollIntoView\?\.\(/);
+});
