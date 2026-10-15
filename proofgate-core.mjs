@@ -99,13 +99,23 @@ export function workConfirmsPriorStage(entry,work) {
  * The next DISTINCT step is allowed only after the UI separately checks
  * the finalized contract state and validates the selected signing wallet.
  */
-export function unresolvedTransactionBlocks(records,method,workId) {
+// A prior Create Work with an unverified receipt must block another Create
+// for the SAME GitHub PR, not every unrelated future contribution forever.
+// Missing source identity fails closed: never infer that a duplicate is safe.
+export function unresolvedTransactionBlocks(records,method,workId,createContext=null) {
  if(!Array.isArray(records))return false;
  return records.some(entry=>{
   if(!entry || entry.method==="recovered transaction")return false;
   if(entry.method==="create_work"){
-   return method==="create_work" &&
-     ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status);
+   if(method!=="create_work" ||
+     !["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status))return false;
+   if(!createContext || !entry.owner || !entry.repository ||
+      !/^[1-9][0-9]*$/.test(String(entry.pr||"")) ||
+      !createContext.owner || !createContext.repository ||
+      !/^[1-9][0-9]*$/.test(String(createContext.pr||"")))return true;
+   return entry.owner.toLowerCase()===String(createContext.owner).toLowerCase() &&
+     entry.repository.toLowerCase()===String(createContext.repository).toLowerCase() &&
+     String(entry.pr)===String(createContext.pr);
   }
   if(entry.method!==method ||
      !["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(entry.status))return false;
