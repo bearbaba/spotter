@@ -26,51 +26,33 @@ function remember(entry){
  localStorage.setItem(HISTORY_KEY,JSON.stringify(compactHistory(records)));
  renderHistory();
 }
+// The history is a neutral audit index of hashes; the live monitor owns
+// transaction progress and must never claim success without GenVM evidence.
 function renderHistory(){
- const root=$("workHistory");if(!root)return;root.replaceChildren();
- const rows=history();
- const selected=$("workId")?.value.trim()||lastWork?.id||"";
- const current=selected?rows.filter(p=>String(p.workId)===String(selected)):rows;
- const previous=selected?rows.filter(p=>String(p.workId)!==String(selected)):[];
- const draw=(target,records)=>{
-   for(const p of records){
-     const item=document.createElement("div");
-     item.style.cssText="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #284448;padding:10px 0";
-     const label=document.createElement("span");
-     const active=pending()?.hash?.toLowerCase()===p.hash?.toLowerCase();
-     const status=p.status==="PENDING"&&!active?"UNVERIFIED LOCAL HISTORY":(p.status||"UNVERIFIED");
-     // Presentation labels only; preserve the exact receipt evidence status.
-     const action={create_work:"Create agreement",submit_for_review:"Submit work",evaluate:"AI evaluation",issue_acceptance:"Issue certificate"}[p.method]||"Recovered transaction";
-     const detail={
-       "PENDING":"Waiting for network confirmation",
-       "UNVERIFIED LOCAL HISTORY":"Receipt not checked",
-       "FINALIZED · EXECUTION UNVERIFIED":"Consensus finalized · execution receipt not verified",
-       "FINALIZED · ID UNKNOWN":"Network finalized · Work ID not verified",
-       "FINALIZED · VERIFY ID":"Network finalized · Work requires verification",
-       "WORK STATE VERIFIED ON-CHAIN (RECEIPT NOT CHECKED)":"Work updated on-chain · receipt not checked",
-       "FINALIZED (RECEIPT VERIFIED)":"Receipt verified",
-       "FINALIZED":"Network finalized"
-     }[status]||status;
-     label.textContent=action+" · "+detail+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();
-     const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);
-     link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";
-     item.append(label,link);target.append(item);
-   }
- };
- if(selected){
-   const intro=document.createElement("p");intro.textContent="Browser transactions for Work #"+selected+" only.";root.append(intro);
+ const root=$("workHistory");if(!root)return;
+ root.replaceChildren();
+ const records=history();
+ if(!records.length){
+  const empty=document.createElement("p");
+  empty.className="hint";
+  empty.textContent="No transaction hashes saved in this browser yet.";
+  root.append(empty);return;
  }
- if(current.length)draw(root,current);else {
-   const empty=document.createElement("p");empty.textContent="No browser transactions for this work. On-chain state is shown above.";root.append(empty);
- }
- if(previous.length){
-   const details=document.createElement("details");
-   const summary=document.createElement("summary");summary.textContent="Older / other work transaction history ("+previous.length+")";
-   const note=document.createElement("p");note.textContent="These are browser records, not verified chain results. Their statuses do not block the selected work.";
-   details.append(summary,note);draw(details,previous);root.append(details);
+ for(const entry of records){
+  const item=document.createElement("div");
+  item.className="work-hash-item";
+  const link=document.createElement("a");
+  link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(entry.hash);
+  link.target="_blank";link.rel="noopener noreferrer";
+  link.textContent=entry.hash.slice(0,12)+"…"+entry.hash.slice(-8)+" ↗";
+  const details=document.createElement("p");
+  details.className="hint";
+  details.textContent=(entry.workId?"Work #"+entry.workId+" · ":"")+
+    new Date(entry.created||Date.now()).toLocaleString();
+  item.append(link,details);
+  root.append(item);
  }
 }
-
 
 let prReadSequence=0;
 function preflightView(target,result,notice=""){
@@ -191,42 +173,76 @@ function transactionBlocks(method){
  if(method==="create_work")return false;
  return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
 }
-function refreshPending() {
-  const p = pending();
-  // Never sacrifice transaction safety for a clean idle UI: an unresolved
-  // receipt remains visible even after switching Work or refreshing the tab.
-  const unresolved = history().find(entry =>
-    ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status)
-    && /^0x[0-9a-fA-F]{64}$/.test(entry.hash||"")
-    // Later finalized Work reads can settle the NEXT action even if a
-    // previous transaction receipt is still not independently verifiable.
-    // Keep that old receipt in history, but do not call it "in progress".
-    && !workConfirmsPriorStage(entry,lastWork)
-  );
-  const active = p?.hash && !workConfirmsPriorStage(p,lastWork) ? p : unresolved;
-  const panel = $("workTxPanel");
-  panel.hidden = !active;
-  $("workPending").hidden = !active;
-  $("workClear").hidden = true; // Never offer manual "success" overrides.
-  $("workCheck").hidden = !p;
-  $("workTxLink").hidden = !active;
-  if(active){
-    const status = history().find(entry=>entry.hash.toLowerCase()===active.hash.toLowerCase())?.status;
-    const prefix=status==="FINALIZED · EXECUTION UNVERIFIED"
-      ? "Consensus is finalized; transaction execution receipt still needs verification"
-      : status==="FINALIZED · ID UNKNOWN" || status==="FINALIZED · VERIFY ID"
-      ? "Work ID verification required"
-      : "Unresolved transaction";
-    $("workPending").textContent =
-      prefix+": "+(active.method||"transaction")+" / "+active.hash+
-      ". Open Explorer to review this transaction. Do not repeat this same action without verifying its result.";
-    $("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(active.hash);
-  }else{
-    $("workPending").textContent="";
-    $("workTxLink").href="#";
-  }
-  syncButtons();
+// A lightweight read-only poller: no WebSocket promises, no wallet writes.
+let currentMonitor=null;
+let dismissedMonitorHash="";
+function showTxMonitor(phase,entry={},message=""){
+  const safeHash=/^0x[0-9a-fA-F]{64}$/.test(entry?.hash||"")?entry.hash:"";
+  currentMonitor={phase,hash:safeHash,method:entry.method||"",workId:entry.workId||"",message,checkedAt:Date.now()};
+  dismissedMonitorHash="";
+  refreshPending();
 }
+function refreshPending(){
+ const p=pending();
+ const unresolved=history().find(entry =>
+   ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status)
+   && /^0x[0-9a-fA-F]{64}$/.test(entry.hash||"")
+   && !workConfirmsPriorStage(entry,lastWork)
+ );
+ const active=p?.hash&&!workConfirmsPriorStage(p,lastWork)?p:unresolved;
+ let view=currentMonitor;
+ if(active && (!view?.hash || view.hash.toLowerCase()!==active.hash.toLowerCase()) &&
+     (!view || view.phase==="success"||view.phase==="failure"||view.phase==="canceled"))
+   view={phase:"pending",hash:active.hash,method:active.method,workId:active.workId,message:"Checking the GenLayer transaction. Do not sign this action again.",checkedAt:Date.now()};
+ if(!view && active)
+   view={phase:"pending",hash:active.hash,method:active.method,workId:active.workId,message:"Checking the GenLayer transaction. Do not sign this action again.",checkedAt:Date.now()};
+ const panel=$("workTxPanel");
+ panel.hidden=!view || (view.hash && dismissedMonitorHash===view.hash);
+ $("workPending").hidden=panel.hidden;
+ $("workClear").hidden=true;
+ $("workCheck").hidden=!p || panel.hidden;
+ $("workTxDismiss").hidden=!(view && ["success","failure","canceled"].includes(view.phase));
+ const safeHash=view?.hash||"";
+ $("workTxLink").hidden=!safeHash || panel.hidden;
+ if(safeHash)$("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(safeHash);
+ else $("workTxLink").href="#";
+ if(!view){syncButtons();return;}
+ const phase=view.phase;
+ const labels={
+  wallet:"Waiting for MetaMask",
+  pending:"Waiting for GenLayer",
+  unknown:"Verification incomplete",
+  success:"Verified success",
+  failure:"Transaction failed",
+  canceled:"Signature canceled"
+ };
+ panel.dataset.phase=phase;
+ const methods={
+  create_work:"Create agreement",
+  submit_for_review:"Submit work",
+  evaluate:"AI evaluation",
+  issue_acceptance:"Issue certificate"
+ };
+ $("workTxTitle").textContent=methods[view.method]||"Transaction status";
+ $("workTxState").textContent=labels[phase]||"Checking status";
+ $("workPending").textContent=view.message || "Checking the GenLayer network for a verified outcome.";
+ $("workTxUpdated").textContent="Last updated: "+new Date(view.checkedAt||Date.now()).toLocaleTimeString()
+   +(safeHash?" · "+safeHash.slice(0,12)+"…"+safeHash.slice(-8):"");
+ const walletDone=Boolean(safeHash)||["success","failure"].includes(phase);
+ const networkDone=phase==="success"||phase==="failure";
+ const resultDone=phase==="success"||phase==="failure";
+ $("workTxStepWallet").dataset.done=String(walletDone);
+ $("workTxStepNetwork").dataset.done=String(networkDone);
+ $("workTxStepResult").dataset.done=String(resultDone);
+ syncButtons();
+}
+$("workTxDismiss").addEventListener("click",()=>{
+ if(!currentMonitor || !["success","failure","canceled"].includes(currentMonitor.phase))return;
+ dismissedMonitorHash=currentMonitor.hash || "dismissed_without_hash";
+ currentMonitor=null;
+ refreshPending();
+});
+
 function reconcileProgress(work){
  const p=pending();
  if(!p || String(p.workId)!==String(work.id))return false;
@@ -355,6 +371,7 @@ async function performAct(method) {
   }
   busy=true;
   syncButtons();
+  showTxMonitor("wallet",{method},"Approve the transaction in MetaMask. Nothing has been submitted to GenLayer yet.");
   note("Waiting for MetaMask approval. No transaction has been confirmed yet.");
   try {
     note("Selected signing account: "+account.slice(0,6)+"…"+account.slice(-4)+". Confirm this exact address in MetaMask.");
@@ -365,15 +382,19 @@ async function performAct(method) {
     const entry={hash,method,fromState:method==="create_work"?"":lastWork?.state||"",account,created:Date.now(),status:"PENDING",workId:method==="create_work"?"":callArgs[0],owner:method==="create_work"?callArgs[1]:"",repository:method==="create_work"?callArgs[2]:"",pr:method==="create_work"?String(callArgs[4]):""};
     sessionStorage.setItem(KEY,JSON.stringify(entry));
     remember(entry);
-    refreshPending();
-    note("Transaction sent. Follow the Explorer transaction until FINALIZED and verify the contract state. Do not resend an unresolved write.");
+    showTxMonitor("pending",entry,"Transaction submitted. GenLayer is processing it; verification is automatic and never requires another signature.");
+    void checkTransaction();
+    note("Transaction sent. GenLayer is processing it. Open the live status panel for the current result.");
   } catch(e) {
     const message=String(e?.shortMessage||e?.message||e);
     if(/rate.limit|429|too many requests|eth_sendRawTransaction/i.test(message)){
+      showTxMonitor("unknown",{method},"Submission was interrupted. The wallet or GenLayer may have received the request. Check MetaMask Activity before trying again.");
       note("Studionet RPC reported a submission problem; it may still have reached the network. Inspect MetaMask Activity and re-read the Work. Never resend blindly.",true);
     }else if(e?.code===4001 || /user rejected|user denied/i.test(message)){
+      showTxMonitor("canceled",{method},"Signature canceled in MetaMask. No transaction hash was returned and nothing was submitted by this action.");
       note("Signature rejected in MetaMask; no transaction hash was recorded.");
     }else{
+      showTxMonitor("unknown",{method},"Wallet submission could not be confirmed. Check MetaMask Activity before doing anything else. "+message.slice(0,130));
       note("Submission returned an error. Inspect MetaMask Activity before retrying. "+message.slice(0,180),true);
     }
   } finally {
@@ -388,20 +409,6 @@ for(const button of document.querySelectorAll("[data-work-method]")) {
   button.addEventListener("click",async()=>{try {await act(button.dataset.workMethod);}catch(e){note(e.message,true);}});
 }
 $("workId").addEventListener("input",()=>{lastWork=null;syncButtons();});
-$("workImport").addEventListener("click",()=>{
-  const hash=$("workImportHash").value.trim();
-  if(!/^0x[0-9a-fA-F]{64}$/.test(hash)){note("Enter a complete 0x transaction hash (64 hexadecimal characters).",true);return;}
-  const existing=history().find(x=>x.hash.toLowerCase()===hash.toLowerCase());
-  if(existing){note("This transaction is already in local history. Open its Explorer link.");return;}
-  remember({hash,method:"recovered transaction",created:Date.now(),status:"UNVERIFIED"});
-  $("workImportHash").value="";
-  if(!pending()){
-    sessionStorage.setItem(KEY,JSON.stringify({hash,method:"recovered transaction",created:Date.now()}));
-    refreshPending();
-    void checkTransaction();
-  }
-  note("Transaction added to local history without signing. Its real status must be confirmed from Explorer/GenLayer; no Work ID was assumed.");
-});
 let checkInProgress=false;
 async function checkTransaction(){
  const p=pending();
@@ -417,30 +424,38 @@ async function checkTransaction(){
    return;
   }
   const status=finalizedReceipt(receipt);
-  if(status==="FAILED"){remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
-  if(status==="FINALIZED_UNVERIFIED"){remember({...p,status:"FINALIZED · EXECUTION UNVERIFIED"});refreshPending();scopedNote("Consensus FINALIZED but GenVM execution result is still unverified. Read-only recovery continues. Never sign a duplicate.",true);return;}
-   if(status!=="FINALIZED"){scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
+  if(status==="FAILED"){showTxMonitor("failure",p,"GenLayer finalized this transaction with a GenVM execution failure. Open Explorer to see the error. Do not assume Work advanced.");remember({...p,status:"FAILED (GENVM)"});sessionStorage.removeItem(KEY);refreshPending();scopedNote("Transaction FINALIZED with execution failure. Check Explorer for contract error before considering another attempt.",true);return;}
+  if(status==="FINALIZED_UNVERIFIED"){showTxMonitor("unknown",p,"Consensus has finalized, but GenVM execution outcome is not yet verifiable. Status checks continue; do not resend.");remember({...p,status:"FINALIZED · EXECUTION UNVERIFIED"});refreshPending();scopedNote("Consensus FINALIZED but GenVM execution result is still unverified. Read-only recovery continues. Never sign a duplicate.",true);return;}
+   if(status!=="FINALIZED"){showTxMonitor("pending",p,"GenLayer status: "+String(receipt?.statusName||receipt?.status||"not available")+". Checking automatically, without another wallet signature.");scopedNote("Transaction status: "+String(receipt?.statusName||receipt?.status||"UNKNOWN")+" / "+String(receipt?.txExecutionResultName||"NOT_DECIDED")+". Read-only tracking continues; no new signature needed.");return;}
   if(p.method==="recovered transaction"){
+    showTxMonitor("success",p,"GenVM execution succeeded. For a recovered hash, read the Work record separately to check the resulting state.");
     remember({...p,status:"FINALIZED (RECEIPT VERIFIED)"});
     sessionStorage.removeItem(KEY);refreshPending();
     scopedNote("Recovered transaction FINALIZED; read its Work ID to verify the contract state.");return;
   }
   if(p.method==="create_work"){
     const id=createdWorkId(receipt);
-    if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});sessionStorage.removeItem(KEY);refreshPending();return;}
+    if(!id){showTxMonitor("unknown",p,"GenVM execution succeeded, but the Work ID was not decoded. Inspect the receipt before retrying.");scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});sessionStorage.removeItem(KEY);refreshPending();return;}
     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
     const work=parseWork(raw);
     if(!work || work.contract_version!=="3.0.0" || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
+      showTxMonitor("unknown",p,"Execution succeeded, but the new Work record has not been independently verified yet.");
       remember({...p,status:"FINALIZED · VERIFY ID"});sessionStorage.removeItem(KEY);refreshPending();
       scopedNote("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
     }
+    showTxMonitor("success",{...p,workId:id},"GenVM execution succeeded. Work #"+id+" has been verified in finalized contract state: "+work.state+".");
     $("workId").value=id;remember({...p,status:"FINALIZED",workId:id});sessionStorage.removeItem(KEY);refreshPending();render(work);scopedNote("Work #"+id+" created and verified on-chain. You can now switch to the nominated worker wallet.");return;
   }
   remember({...p,status:"FINALIZED"});
-  sessionStorage.removeItem(KEY);refreshPending();
+  sessionStorage.removeItem(KEY);
+  let confirmedWork=null;
+  if(p.workId){$("workId").value=p.workId;try{await read();confirmedWork=lastWork;}catch{}}
+  showTxMonitor(confirmedWork?"success":"unknown",p,
+    confirmedWork
+      ?"GenVM execution succeeded. Work #"+p.workId+" is now "+confirmedWork.state+" on the finalized contract."
+      :"GenVM execution succeeded, but the updated Work record could not be read yet. Refresh Work status to confirm the result.");
   scopedNote("Transaction FINALIZED. Read Work #"+p.workId+" to see the new contract state.");
-  if(p.workId){$("workId").value=p.workId;try{await read();}catch{}}
- }catch(e){if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return;scopedNote("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
+ }catch(e){if(pending()?.hash?.toLowerCase()!==p.hash.toLowerCase())return;showTxMonitor("unknown",p,"GenLayer receipt is temporarily unavailable. We will keep checking automatically. Do not resend the transaction.");scopedNote("Still checking transaction. No wallet signature or retry sent. "+String(e?.message||"").slice(0,120));}
  finally{checkInProgress=false;$("workCheck").disabled=false;}
 }
 // Audit all old browser hashes, not just the single transaction from sessionStorage.
@@ -485,7 +500,12 @@ if(!pending()){
 const previousPending=pending();
 if(previousPending?.hash && !history().some(x=>x.hash===previousPending.hash))remember({...previousPending,status:"PENDING",created:previousPending.created||previousPending.time||Date.now()});
 renderHistory();
-setInterval(()=>{if(document.visibilityState==="visible"){if(pending())void checkTransaction();void verifyHistoricalReceipts();}},15000);
+// Near-live polling while the page is visible; GenLayer provides eventual finality,
+// so this is a 7-second check, not a claim of a push-stream subscription.
+setInterval(()=>{if(document.visibilityState==="visible" && pending())void checkTransaction();},7000);
+setInterval(()=>{if(document.visibilityState==="visible")void verifyHistoricalReceipts();},30000);
+document.addEventListener?.("visibilitychange",()=>{if(document.visibilityState==="visible"){if(pending())void checkTransaction();void verifyHistoricalReceipts();}});
+window.addEventListener("focus",()=>{if(pending())void checkTransaction();});
 if(pending())void checkTransaction();
 void verifyHistoricalReceipts();
 $("workClear").addEventListener("click",()=>{
