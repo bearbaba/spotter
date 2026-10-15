@@ -231,6 +231,16 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .work-product #workTxPanel p{font-size:12px;overflow-wrap:anywhere}
 .work-product #workTxPanel .work-pending-actions{flex-direction:row!important;flex-wrap:wrap;gap:8px!important;margin:8px 0!important;align-items:center!important}
 .work-product .work-hash-recovery{padding:14px 0 0;border-top:1px solid #28514d;margin:14px 0 0}
+
+/* Make wallet chain mismatches actionable before Create/Submit signing. */
+.wallet-network-status{font-size:11px;color:#b6d5cb;padding:5px 9px;border:1px solid #315952;border-radius:999px;white-space:nowrap}
+.wallet-network-status[data-correct="false"]{color:#ffcfaf;border-color:#a66948;background:#3b201a}
+.work-product .work-network-notice[hidden]{display:none!important}
+.work-product .work-network-notice{margin:12px 0 16px;padding:15px;border-radius:12px;background:#321e1c;border:1px solid #ad6a4f;color:#ffe0c5}
+.work-product .work-network-notice strong{display:block;font-size:14px}
+.work-product .work-network-notice p{margin:5px 0 10px;font-size:12px;line-height:1.5}
+.work-product .work-network-notice button{font-size:12px;padding:9px 12px}
+@media(max-width:620px){.wallet-network-status{font-size:10px}}
 </style>
 </head>
 <body>
@@ -242,7 +252,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
     </a>
     <div class="nav-side">
       <span class="network"><span class="live-dot" aria-hidden="true"></span>GENLAYER STUDIONET · 61999</span>
-      <div class="wallet-box" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="walletCurrent" class="wallet-address">Wallet not connected</span><select id="walletAccount" aria-label="Signing wallet account" style="max-width:205px;min-height:38px;background:#102628;color:#ecfaf6;border:1px solid #4b7877;border-radius:8px" hidden></select><button id="walletConnect" type="button" class="btn btn-subtle btn-small">Connect wallet</button></div>
+      <div class="wallet-box" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="walletCurrent" class="wallet-address">Wallet not connected</span><span id="walletNetworkStatus" class="wallet-network-status" aria-label="MetaMask network" title="Checking network">Checking network…</span><select id="walletAccount" aria-label="Signing wallet account" style="max-width:205px;min-height:38px;background:#102628;color:#ecfaf6;border:1px solid #4b7877;border-radius:8px" hidden></select><button id="walletConnect" type="button" class="btn btn-subtle btn-small">Connect wallet</button></div>
     </div>
   </header>
 
@@ -311,6 +321,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
    <p class="hint">This policy will be locked on-chain. The owner, repository and PR number must match the URL.</p>
   </details>
   <details class="work-readiness"><summary><span>GitHub verification</span><span class="work-panel-hint">Checks are repeated before signing</span></summary><div id="createPrPreflight" class="work-preflight" role="status" aria-live="polite">Paste a GitHub PR URL first.</div><button id="createCheckPr" type="button" class="btn btn-subtle btn-small">Check GitHub readiness</button></details>
+  <div id="walletNetworkNotice" class="work-network-notice" role="status" aria-live="polite" hidden>
+    <strong>Wrong MetaMask network</strong>
+    <p>Before signing, switch MetaMask to GenLayer Studionet (61999). No transaction has been sent.</p>
+    <button id="walletSwitch" type="button" class="btn btn-primary btn-small">Switch to GenLayer Studionet ↗</button>
+  </div>
   <button type="button" class="btn btn-primary work-create-submit" data-work-method="create_work">Create on-chain work ↗</button>
   <p class="hint">GitHub evidence is checked before MetaMask approval. Sign only once. Any pending transaction will appear automatically above this form.</p>
  </div>
@@ -344,6 +359,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   </footer>
 </div>
 
-<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-contextual-tx"></script>
+<script type="module" src="./proofgate-ui.mjs?v=20261015-v3-network-switch"></script>
 </body>
 </html>

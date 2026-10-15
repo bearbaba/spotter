@@ -4,6 +4,7 @@ import {runInNewContext} from "node:vm";
 import {readFileSync} from "node:fs";
 import * as core from "../proofgate-core.mjs";
 import * as tracker from "../transaction-tracker.mjs";
+import * as network from "../wallet-network.mjs";
 
 test("Spotter boots without a wallet or browser transaction",()=>{
  const source=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8")
@@ -37,7 +38,7 @@ test("Spotter boots without a wallet or browser transaction",()=>{
    removeItem:key=>data.delete(key)
   };};
  const context={
-  ...core,...tracker, document, window:{addEventListener(){}},
+  ...core,...tracker,...network, document, window:{addEventListener(){}},
   sessionStorage:storage(), localStorage:storage(),
   createClient:()=>({readContract:async()=>null,getTransaction:async()=>null}),
   studionet:{},inspectPullRequest:()=>({ready:false}),
