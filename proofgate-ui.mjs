@@ -218,9 +218,9 @@ function refreshPending() {
 function reconcileProgress(work){
  const p=pending();
  if(!p || String(p.workId)!==String(work.id))return false;
- const advanced=p.method==="submit_for_review"&&["SUBMITTED","REVIEW","ACCEPTED","CERTIFIED"].includes(work.state)
-  || p.method==="evaluate"&&["REVIEW","ACCEPTED","CERTIFIED"].includes(work.state)
-  || p.method==="issue_acceptance"&&work.state==="CERTIFIED";
+ // Only real progress after the transaction's starting state proves a step
+ // advanced. REVIEW -> REVIEW is not evidence that a retry has completed.
+ const advanced=workConfirmsPriorStage(p,work);
  if(!advanced)return false;
  // Contract is authoritative for the Work state; it is NOT a transaction receipt.
  remember({...p,status:"WORK STATE VERIFIED ON-CHAIN (RECEIPT NOT CHECKED)",workId:work.id});
