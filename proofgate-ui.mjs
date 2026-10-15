@@ -259,6 +259,7 @@ function reconcileProgress(work){
  // Contract is authoritative for the Work state; it is NOT a transaction receipt.
  remember({...p,status:"WORK STATE VERIFIED ON-CHAIN (RECEIPT NOT CHECKED)",workId:work.id});
  sessionStorage.removeItem(KEY);
+ showTxMonitor("unknown",p,"Work #"+work.id+" is now "+work.state+" on finalized contract state. The transaction receipt itself is not yet independently verified. No repeat signature is needed.");
  return true;
 }
 function updateWorkGuidance(){
