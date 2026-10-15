@@ -313,3 +313,17 @@ test("featured certificate follows the newest selected CERTIFIED V3 Work without
  assert.match(ui,/tx\?"https:\/\/explorer-studio\.genlayer\.com\/tx\/"/);
  assert.match(ui,/:"https:\/\/explorer-studio\.genlayer\.com\/address\/"/);
 });
+
+test("stale finalized transactions never hijack the live tracker after page reload",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/if\(pending\(\) && !isRecentTransaction\(pending\(\)\)\)sessionStorage\.removeItem\(KEY\)/);
+ assert.match(ui,/const unresolved=history\(\)\.find\(x=>\["PENDING","FINALIZED · EXECUTION UNVERIFIED"\]\.includes\(x\.status\) && isRecentTransaction\(x\)/);
+ assert.match(ui,/&& isRecentTransaction\(entry\)/);
+ assert.match(ui,/const active=p\?\.hash && \(isRecentTransaction\(p\)\|\|currentMonitor\?/);
+ assert.match(ui,/const createContext=method==="create_work"/);
+ assert.match(ui,/unresolvedTransactionBlocks\(history\(\),method,\$\("workId"\)\.value\.trim\(\),createContext\)/);
+ assert.match(ui,/p\.method===method && p\.workId/,"same-action lock only; distinct validated stages remain available");
+ assert.match(ui,/workPrUrl"\)\.addEventListener\("input",\(\)=>\{void loadPrUrl\(\);syncButtons\(\);\}\)/);
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ assert.ok(html.includes("proofgate-ui.mjs?v=20261015-v3-stale-receipt-fix"));
+});
