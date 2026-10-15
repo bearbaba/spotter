@@ -81,6 +81,20 @@ async function checkPrReadiness(config,target){
   }catch(e){if(revision===prReadSequence)preflightView(target,null,String(e?.message||e));return null;}
 }
 
+async function verifyCreatePrIdentity(config){
+  // A work agreement is created BEFORE delivery/merge. Identity must match,
+  // but do not require a merged PR until evaluate() on GenLayer.
+  const {owner,repository,branch,number}=config;
+  const url="https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repository)+"/pulls/"+encodeURIComponent(number);
+  const response=await fetch(url,{headers:{Accept:"application/vnd.github+json"},cache:"no-store"});
+  if(!response.ok)throw Error("Could not verify the GitHub pull request before signing (HTTP "+response.status+").");
+  const pr=await response.json();
+  const correctRepo=String(pr.base?.repo?.full_name||"").toLowerCase()===(owner+"/"+repository).toLowerCase();
+  if(String(pr.number)!==String(number) || !correctRepo || pr.base?.ref!==branch)
+    throw Error("PR repository, number or branch differs from the locked agreement. No wallet signature requested.");
+  return true;
+}
+
 let lastWork = null;
 let busy = false;
 let connectedAccount = "";
@@ -235,12 +249,13 @@ async function performAct(method) {
     }
     callArgs=args(method);
     if(method==="create_work"){
-      // No MetaMask signature is permitted before validating the locked PR.
-      const checked=await checkPrReadiness({
-        owner:callArgs[1],repository:callArgs[2],branch:callArgs[3],
-        number:callArgs[4],requiredLabel:callArgs[5]
-      },"createPrPreflight");
-      if(!checked?.ready)throw Error("GitHub verification did not pass. Review the PR and Advanced settings before signing.");
+      // An open, unmerged PR is valid for a new agreement. Require verified
+      // GitHub identity/branch, not evidence of completed work.
+      await verifyCreatePrIdentity({
+        owner:callArgs[1],repository:callArgs[2],
+        branch:callArgs[3],number:callArgs[4]
+      });
+      preflightView("createPrPreflight",null,"GitHub PR identity verified before signing. Merge and qualitative acceptance are checked later on-chain.");
     }
     account=await wallet();
     if(method!=="create_work" && !signerAllowed(method,lastWork,account))
@@ -444,7 +459,7 @@ async function loadPrUrl(){
     generateRubric();
     const checks=await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
     if($("workPrUrl").value.trim()!==value)return;
-    $("workRubricHelp").textContent=checks?.ready?"GitHub PR loaded. Review the assigned worker and acceptance criteria.":"GitHub PR loaded, but readiness checks need attention. Open GitHub verification or Advanced settings.";
+    $("workRubricHelp").textContent=checks?.ready?"GitHub PR loaded. Review the contributor wallet and acceptance criteria.":"PR identity loaded. An unmerged PR is allowed for a new agreement; GenLayer checks completion when evaluated. Review Advanced settings if metadata is wrong.";
   }catch(e){
     if($("workPrUrl").value.trim()===value){
       $("workRubricHelp").textContent="Could not verify PR automatically: "+String(e?.message||e)+". Retry or inspect Advanced settings.";
