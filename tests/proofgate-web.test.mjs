@@ -210,3 +210,10 @@ test("video regression: REVIEW-to-REVIEW re-evaluation cannot be reconciled with
  assert.match(ui,/const advanced=workConfirmsPriorStage\(p,work\)/);
  assert.doesNotMatch(ui,/p\.method==="evaluate"&&\["REVIEW","ACCEPTED","CERTIFIED"\]/);
 });
+
+test("transaction history is readable but preserves contract and receipt truth",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ for(const label of ["Create agreement","Submit work","AI evaluation","Issue certificate","Work updated on-chain · receipt not checked","Consensus finalized · execution receipt not verified"])
+  assert.ok(ui.includes(label),"history action/outcome label "+label);
+ assert.match(ui,/\[status\]\|\|status/,"unknown receipt status must not be forged into success");
+});
