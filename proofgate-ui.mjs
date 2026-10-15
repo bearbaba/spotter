@@ -176,6 +176,11 @@ function transactionBlocks(method){
 // A lightweight read-only poller: no WebSocket promises, no wallet writes.
 let currentMonitor=null;
 let dismissedMonitorHash="";
+const LIVE_PROGRESS_MAX_AGE_MS=10*60*1000;
+function isRecentTransaction(entry,now=Date.now()){
+ const created=Number(entry?.created);
+ return Number.isFinite(created)&&created>0&&now>=created&&now-created<=LIVE_PROGRESS_MAX_AGE_MS;
+}
 function showTxMonitor(phase,entry={},message=""){
   const safeHash=/^0x[0-9a-fA-F]{64}$/.test(entry?.hash||"")?entry.hash:"";
   const changed=!currentMonitor || currentMonitor.phase!==phase || currentMonitor.hash!==safeHash;
@@ -211,7 +216,7 @@ function refreshPending(){
  $("workPending").hidden=panel.hidden;
  $("workClear").hidden=true;
  $("workCheck").hidden=!p || panel.hidden;
- $("workTxDismiss").hidden=!(view && ["success","failure","canceled"].includes(view.phase));
+ $("workTxDismiss").hidden=!(view && ["success","failure","canceled","confirmed"].includes(view.phase));
  const safeHash=view?.hash||"";
  $("workTxLink").hidden=!safeHash || panel.hidden;
  if(safeHash)$("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(safeHash);
@@ -224,7 +229,8 @@ function refreshPending(){
   unknown:"Verification incomplete",
   success:"Verified success",
   failure:"Transaction failed",
-  canceled:"Signature canceled"
+  canceled:"Signature canceled",
+  confirmed:"Work confirmed on-chain"
  };
  panel.dataset.phase=phase;
  const methods={
@@ -239,15 +245,16 @@ function refreshPending(){
  $("workTxUpdated").textContent="Last updated: "+new Date(view.checkedAt||Date.now()).toLocaleTimeString()
    +(safeHash?" · "+safeHash.slice(0,12)+"…"+safeHash.slice(-8):"");
  const walletDone=Boolean(safeHash)||["success","failure"].includes(phase);
- const networkDone=phase==="success"||phase==="failure"||Boolean(view.networkFinalized);
+ const networkDone=phase==="success"||phase==="failure"||phase==="confirmed"||Boolean(view.networkFinalized);
  const resultDone=phase==="success"||phase==="failure";
+ $("workTxStepResult").textContent=phase==="confirmed"?"3. Receipt not yet verified":"3. Execution result";
  $("workTxStepWallet").dataset.done=String(walletDone);
  $("workTxStepNetwork").dataset.done=String(networkDone);
  $("workTxStepResult").dataset.done=String(resultDone);
  syncButtons();
 }
 $("workTxDismiss").addEventListener("click",()=>{
- if(!currentMonitor || !["success","failure","canceled"].includes(currentMonitor.phase))return;
+ if(!currentMonitor || !["success","failure","canceled","confirmed"].includes(currentMonitor.phase))return;
  dismissedMonitorHash=currentMonitor.hash || "dismissed_without_hash";
  currentMonitor=null;
  refreshPending();
@@ -263,7 +270,13 @@ function reconcileProgress(work){
  // Contract is authoritative for the Work state; it is NOT a transaction receipt.
  remember({...p,status:"WORK STATE VERIFIED ON-CHAIN (RECEIPT NOT CHECKED)",workId:work.id});
  sessionStorage.removeItem(KEY);
- showTxMonitor("unknown",p,"Work #"+work.id+" is now "+work.state+" on finalized contract state. The transaction receipt itself is not yet independently verified. No repeat signature is needed.");
+ // Finalized Work is authoritative for its state, not proof of this receipt.
+ // Keep the unverified hash in history; do not resurface hours-old notices.
+ if(isRecentTransaction(p)){
+   showTxMonitor("confirmed",p,"Work #"+work.id+" is "+work.state+" in finalized contract state. The receipt still requires independent verification; closing this notice does not discard its hash.");
+ }else if(currentMonitor?.hash?.toLowerCase()===p.hash?.toLowerCase()){
+   currentMonitor=null;
+ }
  return true;
 }
 function updateWorkGuidance(){
@@ -281,8 +294,28 @@ function updateWorkGuidance(){
  else help.textContent="Refresh Work status to see the next action.";
 }
 
+function updateCertifiedFeature(work){
+ if(work?.state!=="CERTIFIED" || work.contract_version!=="3.0.0")return;
+ const badge=$("featuredWorkBadge");
+ const shown=Number(badge?.dataset?.workId||"1");
+ if(!badge||!Number.isSafeInteger(Number(work.id))||Number(work.id)<shown)return;
+ badge.dataset.workId=work.id;
+ badge.textContent="WORK #"+work.id+" · CERTIFIED";
+ const pr=$("featuredPrLink");
+ pr.textContent="PR #"+work.pr_number;
+ pr.href="https://github.com/"+encodeURIComponent(work.owner)+"/"+encodeURIComponent(work.repository)+"/pull/"+encodeURIComponent(work.pr_number);
+ $("featuredWorkDescription").firstChild.textContent="Work #"+work.id+" certified for merged ";
+ $("featuredWorkMeta").textContent="GenLayer Studionet · V3 contract: "+ADDRESS+" · Work ID: "+work.id+" · State: CERTIFIED";
+ const tx=history().find(item=>item.method==="issue_acceptance" && String(item.workId)===work.id && /^0x[0-9a-fA-F]{64}$/.test(item.hash));
+ const link=$("featuredTxLink");
+ link.href=tx?"https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(tx.hash):"https://explorer-studio.genlayer.com/address/"+ADDRESS;
+ link.textContent=tx?"Inspect certificate transaction ↗":"Inspect GenLayer contract ↗";
+ $("featuredEvidenceNote").textContent="Certified state comes from the finalized V3 Work record. Receipt and source/deployment audits remain separate checks.";
+}
+
 function render(work) {
   lastWork = work;
+  updateCertifiedFeature(work);
   $("workExample").hidden=work.id!=="1"; // Do not distract from currently selected Work #2 or later.
   const reconciled=reconcileProgress(work);
   renderHistory();
