@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWork,parseWorkCount,workActionAllowed,createdWorkId,finalizedReceipt } from "../proofgate-core.mjs";
+import { parseWork,parseWorkCount,parseGitHubPullUrl,workActionAllowed,createdWorkId,finalizedReceipt } from "../proofgate-core.mjs";
 test("work readback unwraps JSON encoded string",()=>{
  const raw=JSON.stringify(JSON.stringify({id:"1",state:"CERTIFIED",owner:"bearbaba"}));
  assert.deepEqual(parseWork(raw),{id:"1",state:"CERTIFIED",owner:"bearbaba"});
@@ -99,4 +99,37 @@ test("V3 workspace puts My Work and Work details left, new agreement and transac
   assert.equal(ids.filter(x=>x===id).length,1,"no duplicated interactive DOM ID: "+id);
  }
  assert.ok(html.includes('@media(max-width:900px){.work-product .work-two-columns{grid-template-columns:minmax(0,1fr)}'),"mobile must stack columns");
+});
+
+test("Create Work has three primary inputs and no pre-filled demo PR identity",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const app=html.split('id="work-app"')[1].split('id="certified-work"')[0];
+ const right=app.split('<aside class="work-right-column"')[1];
+ assert.ok(right.indexOf('class="work-tx-panel"')<right.indexOf('id="workCreateSection"'),"active transaction always above the create form");
+ const compact=right.split('id="workCreateSection"')[1].split('id="workAdvancedSection"')[0];
+ for(const id of ["workPrUrl","workWorker","workRubric"])assert.ok(compact.includes('id="'+id+'"'),"primary field: "+id);
+ const advanced=right.split('id="workAdvancedSection"')[1].split('</details>')[0];
+ for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"])assert.ok(advanced.includes('id="'+id+'"'),"advanced field: "+id);
+ assert.ok(right.includes('id="workImportHash"'),"hash recovery always available in transaction panel");
+ assert.doesNotMatch(compact,/<h3>Create a work agreement<\/h3>/,"no duplicated heading");
+ assert.doesNotMatch(right,/value="bearbaba"|value="spotter"|placeholder="24"/,"never pre-fill somebody else's GitHub repo");
+ for(const id of ["workCreateSection","workAdvancedSection","workRubric","workHistory","workPending","workImportHash","workImport"]){
+  const count=[...html.matchAll(/\bid="([^"]+)"/g)].filter(match=>match[1]===id).length;
+  assert.equal(count,1,"unique DOM ID "+id);
+ }
+});
+
+test("Only real GitHub PR URLs may select locked repository and PR number",()=>{
+ assert.deepEqual(parseGitHubPullUrl("https://github.com/bearbaba/spotter/pull/26"),{owner:"bearbaba",repository:"spotter",number:"26"});
+ for(const input of ["","github.com/owner/repo/pull/2","http://github.com/owner/repo/pull/2",
+  "https://github.com.evil.invalid/o/r/pull/2","https://github.com/o/r/issues/2",
+  "https://github.com/o/r/pull/0","https://github.com/o/r/pull/4294967296"]){
+  assert.equal(parseGitHubPullUrl(input),null,"invalid URL: "+input);
+ }
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/parsedPr\.number!==pr/,"locked PR and URL must match");
+ assert.match(ui,/await verifyCreatePrIdentity\(/,"identity verified before wallet access");
+ assert.match(ui,/pr\.base\?\.ref!==branch/,"branch confirmed from GitHub API");
+ assert.match(ui,/An open, unmerged PR is valid/,"creating work cannot require the PR to already be merged");
+ assert.doesNotMatch(ui,/if\(!checked\?\.ready\)throw/,"do not block legitimate unmerged PRs at creation");
 });
