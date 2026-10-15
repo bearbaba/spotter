@@ -1,7 +1,7 @@
 import { inspectPullRequest } from "./github-preflight.mjs";
 import { createClient } from "https://esm.sh/genlayer-js@0.18.10?bundle";
 import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
-import { transactionHash, parseWork, parseWorkCount, parseGitHubPullUrl, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
+import { transactionHash, parseWork, parseWorkCount, parseGitHubPullUrl, workConfirmsPriorStage, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
 import { isStudionetChainId, requestStudionetSwitch } from "./wallet-network.mjs";
@@ -186,8 +186,12 @@ function refreshPending() {
   const unresolved = history().find(entry =>
     ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status)
     && /^0x[0-9a-fA-F]{64}$/.test(entry.hash||"")
+    // Later finalized Work reads can settle the NEXT action even if a
+    // previous transaction receipt is still not independently verifiable.
+    // Keep that old receipt in history, but do not call it "in progress".
+    && !workConfirmsPriorStage(entry,lastWork)
   );
-  const active = p?.hash ? p : unresolved;
+  const active = p?.hash && !workConfirmsPriorStage(p,lastWork) ? p : unresolved;
   const panel = $("workTxPanel");
   panel.hidden = !active;
   $("workPending").hidden = !active;
@@ -197,13 +201,13 @@ function refreshPending() {
   if(active){
     const status = history().find(entry=>entry.hash.toLowerCase()===active.hash.toLowerCase())?.status;
     const prefix=status==="FINALIZED · EXECUTION UNVERIFIED"
-      ? "Consensus FINALIZED; execution unverified"
+      ? "Consensus is finalized; transaction execution receipt still needs verification"
       : status==="FINALIZED · ID UNKNOWN" || status==="FINALIZED · VERIFY ID"
       ? "Work ID verification required"
       : "Unresolved transaction";
     $("workPending").textContent =
       prefix+": "+(active.method||"transaction")+" / "+active.hash+
-      ". Check Explorer before any repeat submission.";
+      ". Open Explorer to review this transaction. Do not repeat this same action without verifying its result.";
     $("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(active.hash);
   }else{
     $("workPending").textContent="";
@@ -345,7 +349,7 @@ async function performAct(method) {
     const result=await writer.writeContract({address:ADDRESS,functionName:method,args:callArgs,value:0n});
     const hash=transactionHash(result);
     if(!hash)throw Error("Wallet response did not contain a recognized transaction hash; inspect wallet history before retrying.");
-    const entry={hash,method,account,created:Date.now(),status:"PENDING",workId:method==="create_work"?"":callArgs[0],owner:method==="create_work"?callArgs[1]:"",repository:method==="create_work"?callArgs[2]:"",pr:method==="create_work"?String(callArgs[4]):""};
+    const entry={hash,method,fromState:method==="create_work"?"":lastWork?.state||"",account,created:Date.now(),status:"PENDING",workId:method==="create_work"?"":callArgs[0],owner:method==="create_work"?callArgs[1]:"",repository:method==="create_work"?callArgs[2]:"",pr:method==="create_work"?String(callArgs[4]):""};
     sessionStorage.setItem(KEY,JSON.stringify(entry));
     remember(entry);
     refreshPending();

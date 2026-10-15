@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {outstandingReceipts,receiptResolution,verifyStoredReceipts,compactHistory,getVerifiedReceipt} from "../transaction-tracker.mjs";
-import {unresolvedTransactionBlocks} from "../proofgate-core.mjs";
+import {unresolvedTransactionBlocks,workConfirmsPriorStage} from "../proofgate-core.mjs";
 const hash=n=>"0x"+n.repeat(64);
 const receipt=(name,outcome,txId)=>({statusName:name,txExecutionResultName:outcome,txId});
 
@@ -132,4 +132,29 @@ test("unverified finalized receipt stays in history and blocks duplicate evaluat
  assert.equal(unresolvedTransactionBlocks([record],"evaluate","2"),false);
  assert.equal(outstandingReceipts([record]).length,1);
  assert.equal(compactHistory([record,...Array.from({length:120},(_,i)=>({hash:"0x"+i.toString(16).padStart(64,"0"),status:"FINALIZED",created:i+2}))]).length,101);
+});
+
+test("Unverified earlier transaction does not block a distinct, validated next step",()=>{
+ const item={hash:"0x"+"1".repeat(64),method:"evaluate",workId:"2",status:"FINALIZED · EXECUTION UNVERIFIED"};
+ assert.equal(unresolvedTransactionBlocks([item],"evaluate","2"),true,"duplicate evaluate stays locked");
+ assert.equal(unresolvedTransactionBlocks([item],"issue_acceptance","2"),false,"old evaluation cannot lock certified next step");
+ assert.equal(unresolvedTransactionBlocks([item],"submit_for_review","2"),false,"unrelated step not blocked");
+ assert.equal(unresolvedTransactionBlocks([item],"evaluate","3"),false,"different Work not blocked");
+ const prior={...item,method:"submit_for_review"};
+ assert.equal(unresolvedTransactionBlocks([prior],"submit_for_review","2"),true);
+ assert.equal(unresolvedTransactionBlocks([prior],"evaluate","2"),false);
+});
+
+test("Only confirmed later Work states archive earlier receipt warnings, never fabricate receipt success",()=>{
+ const work={contract_version:"3.0.0",id:"2",state:"ACCEPTED"};
+ const submit={method:"submit_for_review",workId:"2"};
+ const evalTx={method:"evaluate",workId:"2",fromState:"SUBMITTED"};
+ assert.equal(workConfirmsPriorStage(submit,work),true);
+ assert.equal(workConfirmsPriorStage(evalTx,work),true);
+ assert.equal(workConfirmsPriorStage({...evalTx,workId:"3"},work),false);
+ assert.equal(workConfirmsPriorStage({...evalTx,method:"issue_acceptance"},work),false);
+ assert.equal(workConfirmsPriorStage({...evalTx,method:"evaluate",fromState:"REVIEW"},{...work,state:"REVIEW"}),false,"REVIEW -> REVIEW cannot prove completion");
+ assert.equal(workConfirmsPriorStage(evalTx,{...work,state:"REVIEW"}),true,"SUBMITTED -> REVIEW is a state advance");
+ assert.equal(workConfirmsPriorStage(evalTx,{...work,contract_version:"2.0.0"}),false);
+ assert.equal(workConfirmsPriorStage({...submit,workId:""},{...work,state:"SUBMITTED"}),false);
 });

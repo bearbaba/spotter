@@ -184,3 +184,11 @@ test("new user sees creator signing wallet separately from contributor assignmen
   for(const id of ["workSignerStatus","workConnectWallet","walletNetworkNotice","walletSwitch"])
     assert.equal(ids.filter(x=>x===id).length,1,"unique wallet control: "+id);
 });
+
+test("V3 does not call proven earlier states active transactions or block a different next action",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/!workConfirmsPriorStage\(entry,lastWork\)/);
+ assert.match(ui,/p\?\.hash && !workConfirmsPriorStage\(p,lastWork\)/);
+ assert.match(ui,/fromState:method==="create_work"/);
+ assert.match(ui,/same action without verifying its result/);
+});
