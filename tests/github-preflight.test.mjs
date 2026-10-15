@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { inspectPullRequest } from "../github-preflight.mjs";
 
 const expected={owner:"bearbaba",repository:"spotter",branch:"main",number:26,requiredLabel:""};
-function pr(overrides={}){return {number:26,base:{ref:"main",repo:{full_name:"bearbaba/spotter"}},merged:true,merged_at:"2026-10-13T11:00:00Z",merge_commit_sha:"a".repeat(40),title:"Add public GitHub PR preflight regression coverage",body:"This change adds deterministic tests for the public PR preflight. It checks merge eligibility and prevents misleading ready badges on invalid evidence.",labels:[],...overrides};}
+function pr(overrides={}){return {number:26,base:{ref:"main",repo:{full_name:"bearbaba/spotter",html_url:"https://github.com/bearbaba/spotter"}},state:"closed",merged:true,merged_at:"2026-10-13T11:00:00Z",merge_commit_sha:"a".repeat(40),title:"Add public GitHub PR preflight regression coverage",body:"This change adds deterministic tests for the public PR preflight. It checks merge eligibility and prevents misleading ready badges on invalid evidence.",labels:[],...overrides};}
 
 test("merged PR with meaningful description is ready for review",()=>{
  const result=inspectPullRequest(pr(),expected);
  assert.equal(result.ready,true);
- assert.equal(result.checks.length,7);
+ assert.equal(result.checks.length,9);
 });
 test("unmerged draft PR cannot be displayed as ready",()=>{
  assert.equal(inspectPullRequest(pr({merged:false,merge_commit_sha:null}),expected).ready,false);
