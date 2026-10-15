@@ -158,3 +158,23 @@ test("Only confirmed later Work states archive earlier receipt warnings, never f
  assert.equal(workConfirmsPriorStage(evalTx,{...work,contract_version:"2.0.0"}),false);
  assert.equal(workConfirmsPriorStage({...submit,workId:""},{...work,state:"SUBMITTED"}),false);
 });
+
+test("historical Create Work receipt locks its own PR, not a later unrelated PR",()=>{
+ const oldCreate={hash:hash("d"),method:"create_work",status:"FINALIZED · EXECUTION UNVERIFIED",created:1,
+   account:"0x"+"4".repeat(40),owner:"bearbaba",repository:"spotter",pr:"29",workId:""};
+ const current=(pr)=>({owner:"bearbaba",repository:"spotter",pr:String(pr)});
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",current(29)),true,
+   "the same GitHub contribution must never be submitted twice blindly");
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",current(32)),false,
+   "an older PR #29 cannot prevent a fresh PR #32 agreement");
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",{owner:"someone",repository:"spotter",pr:"29"}),false);
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",{owner:"bearbaba",repository:"another",pr:"29"}),false);
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",{owner:"BearBaba",repository:"Spotter",pr:29}),true);
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",null),true,
+   "unknown target must fail closed");
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"create_work","",{}),true);
+ assert.equal(unresolvedTransactionBlocks([{...oldCreate,pr:""}],"create_work","",current(32)),true,
+   "missing old PR identity must fail closed");
+ assert.equal(unresolvedTransactionBlocks([oldCreate],"issue_acceptance","2"),false,
+   "different on-chain step is independently controlled");
+});
