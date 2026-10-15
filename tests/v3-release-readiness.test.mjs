@@ -40,7 +40,8 @@ test("No production cutover is permitted without a verifiable V3 deployment reco
    assert.equal(manifest.versionReadback,null);
    assert.equal(manifest.workCountReadback,null);
   }
-  assert.equal(manifest.deployTxHash,null);
+  if(manifest.status==="NOT_DEPLOYED")assert.equal(manifest.deployTxHash,null);
+  else assert.match(manifest.deployTxHash,/^0x[0-9a-fA-F]{64}$/);
   assert.equal(manifest.productionCutover,false);
   assert.ok(ui.includes(oldAddress),"web runtime must remain unchanged until real V3 source/chain verification");
   return;
