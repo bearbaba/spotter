@@ -152,3 +152,16 @@ test("transaction status is contextual but an unresolved hash stays visible",()=
  for(const id of ["workTxPanel","workPending","workTxLink","workCheck","workImport","workImportHash"])
   assert.equal(ids.filter(x=>x===id).length,1,"unique transaction control "+id);
 });
+
+test("wallet mismatch displays an explicit one-click Studionet switch before create",()=>{
+  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+  const build=readFileSync(new URL("../scripts/build.mjs",import.meta.url),"utf8");
+  assert.match(html,/id="walletNetworkNotice"[^>]*hidden/);
+  assert.match(html,/id="walletSwitch"/);
+  assert.match(html,/id="walletNetworkStatus"/);
+  assert.match(ui,/await requestStudionetSwitch\(window\.ethereum\)/);
+  assert.match(ui,/window\.ethereum\?\.on\?\.\("chainChanged"/);
+  assert.match(ui,/if \(!isStudionetChainId\(chain\)\)/);
+  assert.ok(build.includes('"wallet-network.mjs"'));
+});

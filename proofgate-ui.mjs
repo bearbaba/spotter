@@ -4,6 +4,7 @@ import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, parseWorkCount, parseGitHubPullUrl, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
+import { isStudionetChainId, requestStudionetSwitch } from "./wallet-network.mjs";
 const ADDRESS = "0x506205eBc1ba011707D63d8a152625baaC63002D";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
@@ -94,6 +95,45 @@ async function verifyCreatePrIdentity(config){
     throw Error("PR repository, number or branch differs from the locked agreement. No wallet signature requested.");
   return true;
 }
+
+function showWalletNetwork(chain){
+  const installed=Boolean(window.ethereum?.request);
+  const correct=isStudionetChainId(chain);
+  const status=$("walletNetworkStatus");
+  status.dataset.correct=String(correct);
+  status.textContent=!installed?"MetaMask unavailable":correct?"Studionet ✓":"Wrong network";
+  status.title=!installed?"Install MetaMask to sign":correct?"MetaMask is on GenLayer Studionet (61999)":"Change MetaMask to GenLayer Studionet (61999) before signing";
+  $("walletNetworkNotice").hidden=!installed || correct;
+}
+let chainSequence=0;
+async function refreshWalletNetwork(){
+  const sequence=++chainSequence;
+  if(!window.ethereum?.request){showWalletNetwork(null);return;}
+  try{
+    const chain=await window.ethereum.request({method:"eth_chainId"});
+    if(sequence===chainSequence)showWalletNetwork(chain);
+  }catch{
+    if(sequence===chainSequence)showWalletNetwork(null);
+  }
+}
+$("walletSwitch").addEventListener("click",async()=>{
+  const button=$("walletSwitch");
+  button.disabled=true;
+  try{
+    // A chain switch is a wallet permission action only; never send create_work
+    // or re-trigger a previously unresolved transaction automatically.
+    const result=await requestStudionetSwitch(window.ethereum);
+    await refreshWalletNetwork();
+    note(result==="switched"
+      ?"MetaMask is now on Studionet (61999). Verify the selected Owner wallet, then click Create once."
+      :"Studionet is already selected. Verify the selected Owner wallet before creating work.");
+  }catch(error){
+    await refreshWalletNetwork();
+    note("Network switch was not completed. Check MetaMask's network selection. "+String(error?.message||error).slice(0,150),true);
+  }finally{button.disabled=false;}
+});
+void refreshWalletNetwork();
+window.ethereum?.on?.("chainChanged",()=>{void refreshWalletNetwork();});
 
 let lastWork = null;
 let busy = false;
@@ -211,7 +251,10 @@ async function read() {
 async function wallet() {
   if (!window.ethereum?.request) throw Error("MetaMask is required for contract writes.");
   const chain = await window.ethereum.request({method:"eth_chainId"});
-  if (Number.parseInt(String(chain),16) !== CHAIN) throw Error("Select GenLayer Studionet (61999) in MetaMask before signing.");
+  if (!isStudionetChainId(chain)) {
+     showWalletNetwork(chain);
+     throw Error("Wrong network. Click 'Switch to GenLayer Studionet' in Create Work before signing. No transaction was sent.");
+  }
   const accounts = await window.ethereum.request({method:"eth_accounts"});
   const selected = connectedAccount || "";
   if (!/^0x[a-fA-F0-9]{40}$/.test(selected) || !accounts.some(a=>a.toLowerCase()===selected.toLowerCase())) throw Error("Select and authorize the signing wallet using Connect wallet before signing.");
