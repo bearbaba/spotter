@@ -39,7 +39,19 @@ function renderHistory(){
      const label=document.createElement("span");
      const active=pending()?.hash?.toLowerCase()===p.hash?.toLowerCase();
      const status=p.status==="PENDING"&&!active?"UNVERIFIED LOCAL HISTORY":(p.status||"UNVERIFIED");
-     label.textContent=p.method+" · "+status+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();
+     // Presentation labels only; preserve the exact receipt evidence status.
+     const action={create_work:"Create agreement",submit_for_review:"Submit work",evaluate:"AI evaluation",issue_acceptance:"Issue certificate"}[p.method]||"Recovered transaction";
+     const detail={
+       "PENDING":"Waiting for network confirmation",
+       "UNVERIFIED LOCAL HISTORY":"Receipt not checked",
+       "FINALIZED · EXECUTION UNVERIFIED":"Consensus finalized · execution receipt not verified",
+       "FINALIZED · ID UNKNOWN":"Network finalized · Work ID not verified",
+       "FINALIZED · VERIFY ID":"Network finalized · Work requires verification",
+       "WORK STATE VERIFIED ON-CHAIN (RECEIPT NOT CHECKED)":"Work updated on-chain · receipt not checked",
+       "FINALIZED (RECEIPT VERIFIED)":"Receipt verified",
+       "FINALIZED":"Network finalized"
+     }[status]||status;
+     label.textContent=action+" · "+detail+(p.workId?" · Work #"+p.workId:"")+" · "+new Date(p.created||Date.now()).toLocaleString();
      const link=document.createElement("a");link.href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(p.hash);
      link.target="_blank";link.rel="noopener noreferrer";link.textContent=p.hash.slice(0,12)+"… ↗";
      item.append(label,link);target.append(item);
