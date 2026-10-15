@@ -163,15 +163,16 @@ function pending() {
 }
 function transactionBlocks(method){
  const p=pending();
- const unresolved=unresolvedTransactionBlocks(history(),method,$("workId").value.trim());
+ const createContext=method==="create_work"?{owner:$("workOwner").value.trim(),repository:$("workRepo").value.trim(),pr:$("workPr").value.trim()}:null;
+ const unresolved=unresolvedTransactionBlocks(history(),method,$("workId").value.trim(),createContext);
  if(unresolved)return true;
  if(!p)return false;
  if(p.method==="recovered transaction")return false;
  const stored=history().find(e=>e.hash.toLowerCase()===p.hash.toLowerCase());
  if(stored && !["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(stored.status))return false;
- if(p.method==="create_work")return method==="create_work";
+ if(p.method==="create_work")return method==="create_work" && unresolvedTransactionBlocks([p],method,"",createContext);
  if(method==="create_work")return false;
- return Boolean(p.workId && String(p.workId)===$("workId").value.trim());
+ return Boolean(p.method===method && p.workId && String(p.workId)===$("workId").value.trim());
 }
 // A lightweight read-only poller: no WebSocket promises, no wallet writes.
 let currentMonitor=null;
@@ -197,8 +198,10 @@ function refreshPending(){
    ["PENDING","FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(entry.status)
    && /^0x[0-9a-fA-F]{64}$/.test(entry.hash||"")
    && !workConfirmsPriorStage(entry,lastWork)
+   && isRecentTransaction(entry)
  );
- const active=p?.hash&&!workConfirmsPriorStage(p,lastWork)?p:unresolved;
+ const active=p?.hash && (isRecentTransaction(p)||currentMonitor?.hash?.toLowerCase()===p.hash.toLowerCase())
+   && !workConfirmsPriorStage(p,lastWork)?p:unresolved;
  const stored=active?.hash?history().find(item=>item.hash.toLowerCase()===active.hash.toLowerCase()):null;
  const settledButUnknown=stored && ["FINALIZED · EXECUTION UNVERIFIED","FINALIZED · ID UNKNOWN","FINALIZED · VERIFY ID"].includes(stored.status);
  const historicalMessage=settledButUnknown
@@ -537,9 +540,12 @@ async function verifyHistoricalReceipts(){
  } finally {historyScanRunning=false;}
 }
 $("workCheck").addEventListener("click",checkTransaction);
-// Restore unresolved hashes from durable history after a browser restart. Read-only; never replay writes.
+// Old finalized-but-unverified hashes remain in local transaction history,
+// not as an active wallet action. Never erase them or remove duplicate locks.
+if(pending() && !isRecentTransaction(pending()))sessionStorage.removeItem(KEY);
 if(!pending()){
- const unresolved=history().find(x=>["PENDING","FINALIZED · EXECUTION UNVERIFIED"].includes(x.status) && /^0x[0-9a-fA-F]{64}$/.test(x.hash||""));
+ const unresolved=history().find(x=>x.status==="PENDING" && isRecentTransaction(x)
+   && /^0x[0-9a-fA-F]{64}$/.test(x.hash||""));
  if(unresolved)sessionStorage.setItem(KEY,JSON.stringify(unresolved));
 }
 const previousPending=pending();
@@ -607,6 +613,7 @@ async function loadPrUrl(){
     if(pr.base?.repo?.full_name?.toLowerCase()!==(owner+"/"+repository).toLowerCase() || String(pr.number)!==number)throw Error("GitHub PR does not match the URL.");
     if($("workPrUrl").value.trim()!==value)return;
     $("workBranch").value=pr.base.ref;
+    syncButtons();
     suggestionVersion++;
     generateRubric();
     const checks=await checkPrReadiness({owner,repository,branch:pr.base.ref,number,requiredLabel:$("workLabel").value.trim()},"createPrPreflight");
@@ -619,12 +626,12 @@ async function loadPrUrl(){
     }
   }
 }
-$("workPrUrl").addEventListener("input",()=>{void loadPrUrl();});
+$("workPrUrl").addEventListener("input",()=>{void loadPrUrl();syncButtons();});
 $("workPrUrl").addEventListener("change",()=>{void loadPrUrl();});
 $("workRubric").addEventListener("input",()=>{rubricEdited=true;generateRubric();});
 $("workGenerateRubric").addEventListener("click",()=>{rubricEdited=false;generateRubric();});
 for(const id of ["workOwner","workRepo","workBranch","workPr","workLabel"]) {
-  $(id).addEventListener("input",()=>{suggestionVersion++;generateRubric();});
+  $(id).addEventListener("input",()=>{suggestionVersion++;generateRubric();syncButtons();});
 }
 $("createCheckPr").addEventListener("click",()=>{void checkPrReadiness({owner:$("workOwner").value.trim(),repository:$("workRepo").value.trim(),branch:$("workBranch").value.trim(),number:$("workPr").value.trim(),requiredLabel:$("workLabel").value.trim()},"createPrPreflight");});
 $("workFetchPr").addEventListener("click",async()=>{
