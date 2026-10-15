@@ -191,7 +191,8 @@ test("new user sees creator signing wallet separately from contributor assignmen
 test("V3 does not call proven earlier states active transactions or block a different next action",()=>{
  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
  assert.match(ui,/!workConfirmsPriorStage\(entry,lastWork\)/);
- assert.match(ui,/p\?\.hash\s*&&\s*!workConfirmsPriorStage\(p,lastWork\)/);
+ assert.match(ui,/p\?\.hash && \(isRecentTransaction\(p\)\|\|currentMonitor\?/);
+ assert.match(ui,/&& !workConfirmsPriorStage\(p,lastWork\)/);
  assert.match(ui,/fromState:method==="create_work"/);
  assert.match(ui,/do not sign the same action again/);
 });
