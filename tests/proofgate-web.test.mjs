@@ -165,3 +165,22 @@ test("wallet mismatch displays an explicit one-click Studionet switch before cre
   assert.match(ui,/if \(!isStudionetChainId\(chain\)\)/);
   assert.ok(build.includes('"wallet-network.mjs"'));
 });
+
+test("new user sees creator signing wallet separately from contributor assignment",()=>{
+  const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+  const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+  const app=html.split('id="work-app"')[1].split('id="certified-work"')[0];
+  const right=app.split('<aside class="work-right-column"')[1];
+  assert.ok(right.includes('id="workSignerStatus"'));
+  assert.ok(right.includes('id="workConnectWallet"'));
+  assert.ok(right.includes('id="walletNetworkNotice"'));
+  assert.ok(right.indexOf('id="workSignerStatus"')<right.indexOf('data-work-method="create_work"'));
+  assert.match(html,/Use my wallet as contributor/);
+  assert.match(ui,/workConnectWallet"\)\.addEventListener\("click"/);
+  assert.match(ui,/Do you want the same wallet to be the contributor/);
+  assert.match(ui,/The assigned contributor must connect their wallet/);
+  assert.doesNotMatch(ui,/Read-only preview\. The deployed GenLayer contract/);
+  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
+  for(const id of ["workSignerStatus","workConnectWallet","walletNetworkNotice","walletSwitch"])
+    assert.equal(ids.filter(x=>x===id).length,1,"unique wallet control: "+id);
+});
