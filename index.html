@@ -251,6 +251,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
 .work-product .work-signing-ready .hint{margin:7px 0 0;font-size:12px;line-height:1.4}
 .work-product #workConnectWallet{white-space:normal;text-align:center}
 @media(max-width:520px){.work-product .work-signing-row{align-items:stretch;flex-direction:column}.work-product #workConnectWallet{width:100%}}
+
+.work-product .work-lifecycle{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0 22px}
+.work-product .work-lifecycle>span{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #2c4b48;border-radius:999px;color:#c7e4dc;font-size:11px;line-height:1.4}
+.work-product .work-lifecycle strong{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#205648;color:#adfff0;font-size:11px}
+@media(max-width:620px){.work-product .work-lifecycle{gap:6px}.work-product .work-lifecycle>span{font-size:10px;padding:6px 8px}}
 </style>
 </head>
 <body>
@@ -287,6 +292,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-vi
   
 
   <section class="certified work-product" id="work-app" aria-labelledby="workAppHeading"><div class="eyebrow">SPOTTER · GENLAYER STUDIONET</div><h2 id="workAppHeading">Your work, verified.</h2><p>Find assigned work, follow its next step, or create a new agreement. Every result is read from GenLayer.</p>
+<div class="work-lifecycle" role="list" aria-label="Four steps to certify a GitHub contribution">
+ <span role="listitem"><strong>1</strong> Creator creates</span>
+ <span role="listitem"><strong>2</strong> Contributor submits</span>
+ <span role="listitem"><strong>3</strong> GitHub merge + AI review</span>
+ <span role="listitem"><strong>4</strong> Certificate issued</span>
+</div>
 <div class="work-two-columns">
   <div class="work-left-column" aria-label="Assigned work and selected work details">
     <section class="work-my-list"><div class="work-section-head"><div><h3>My work</h3><p>Assigned to your connected wallet</p></div></div><div id="workPrimaryList"><p class="hint">Connect MetaMask to load your work.</p></div></section>
