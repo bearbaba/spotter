@@ -21,11 +21,15 @@
   "positiveCaseReadback": {
     "workId": "1",
     "contractVersion": "3.0.0",
-    "state": "ACCEPTED",
+    "state": "CERTIFIED",
     "source": "https://api.github.com/repos/bearbaba/spotter/pulls/26",
     "mergeCommit": "84c1b5d74bc7ca8a63b7a363cb919f53c331ea0a",
     "evidenceDigest": "9aff4aca44f1395a2d6348f9f43719f8a98b7a44d8ca4669bbc0b9c65881ab22",
     "evidence": "Operator-supplied get_work(\"1\") readback; evaluation transaction hash and independent verification not yet recorded",
-    "certificationPending": true
+    "certificationPending": false,
+    "certificateReadback": "Operator-provided get_work('1') after issue_acceptance('1') on V3; state CERTIFIED and merge commit/evidence digest persisted",
+    "certificationTxHash": null,
+    "receiptIndependentlyVerified": false,
+    "observedAt": "2026-10-15"
   }
 }
