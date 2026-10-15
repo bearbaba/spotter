@@ -192,3 +192,15 @@ test("V3 does not call proven earlier states active transactions or block a diff
  assert.match(ui,/fromState:method==="create_work"/);
  assert.match(ui,/same action without verifying its result/);
 });
+
+test("My Work refresh is visible beside assigned work, not buried inside transaction recovery",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ const left=html.split('<div class="work-left-column"')[1].split('<aside class="work-right-column"')[0];
+ const right=html.split('<aside class="work-right-column"')[1];
+ assert.ok(left.includes('id="workFindMine"'));
+ assert.ok(!right.includes('id="workFindMine"'));
+ assert.match(ui,/\$\("workFindMine"\)\.addEventListener\("click"/);
+ assert.match(ui,/\$\("workExample"\)\.hidden=work\.id!=="1"/);
+ assert.equal([...html.matchAll(/id="workFindMine"/g)].length,1);
+});

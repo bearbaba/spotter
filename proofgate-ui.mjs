@@ -244,6 +244,7 @@ function updateWorkGuidance(){
 
 function render(work) {
   lastWork = work;
+  $("workExample").hidden=work.id!=="1"; // Do not distract from currently selected Work #2 or later.
   const reconciled=reconcileProgress(work);
   renderHistory();
   $("workOutput").textContent = JSON.stringify(work,null,2);
