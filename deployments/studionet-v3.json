@@ -28,8 +28,10 @@
     "evidence": "Operator-supplied get_work(\"1\") readback; evaluation transaction hash and independent verification not yet recorded",
     "certificationPending": false,
     "certificateReadback": "Operator-provided get_work('1') after issue_acceptance('1') on V3; state CERTIFIED and merge commit/evidence digest persisted",
-    "certificationTxHash": null,
+    "certificationTxHash": "0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0",
     "receiptIndependentlyVerified": false,
-    "observedAt": "2026-10-15"
+    "observedAt": "2026-10-15",
+    "certificationExplorerUrl": "https://explorer-studio.genlayer.com/tx/0x614e11c3675f0ab6c9d77fad4e713d2f8deb5ad5f47d6fbc99447021c1c310b0",
+    "certificateTxEvidence": "Operator-provided GenLayer Explorer transaction link; the on-chain Work #1 CERTIFIED state was previously independently supplied by operator via get_work; GenVM receipt details could not be independently fetched."
   }
 }
