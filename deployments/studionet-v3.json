@@ -35,5 +35,20 @@
     "certificateTxEvidence": "Operator-provided GenLayer Explorer transaction link; the on-chain Work #1 CERTIFIED state was previously independently supplied by operator via get_work; GenVM receipt details could not be independently fetched."
   },
   "previewCutover": true,
-  "previewTarget": "Vercel Preview only. Production prohibited pending source parity, independent receipt audit, live negative tests and browser wallet smoke."
+  "previewTarget": "Vercel Preview only. Production prohibited pending source parity, independent receipt audit, live negative tests and browser wallet smoke.",
+  "previewBrowserSmoke": {
+    "status": "PASS_OPERATOR_SCREENSHOT",
+    "observedDate": "2026-10-15",
+    "previewCommit": "bac3d947fc70389b1da41ec904a51a24a2dbed38",
+    "previewDeploymentId": "dpl_3kLBAsEB65GJeMtjhx9sQBHtasKm",
+    "previewUrl": "https://spotter-e3ns27ara-khaiptk1998-8088s-projects.vercel.app/",
+    "checks": {
+      "myWorkLists": "Work #1 · CERTIFIED · PR #26",
+      "selectedWorkState": "CERTIFIED",
+      "selectedPrNumber": 26,
+      "readbackContractVersion": "3.0.0",
+      "readOnlyRecordVisible": true
+    },
+    "evidence": "User-provided screenshot of the V3 Preview showing My Work and Work details; write signing, negative tests, exact deployed-source parity and independent receipt verification remain untested"
+  }
 }
