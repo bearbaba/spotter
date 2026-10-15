@@ -167,7 +167,7 @@ function refreshPending() {
     $("workTxLink").href="https://explorer-studio.genlayer.com/tx/"+encodeURIComponent(active.hash);
   }else{
     $("workPending").textContent="";
-    $("workTxLink").removeAttribute("href");
+    $("workTxLink").href="#";
   }
   syncButtons();
 }
