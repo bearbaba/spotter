@@ -4,14 +4,17 @@ import { studionet } from "https://esm.sh/genlayer-js@0.18.10/chains?bundle";
 import { transactionHash, parseWork, workActionAllowed, createdWorkId, finalizedReceipt, unresolvedTransactionBlocks } from "./proofgate-core.mjs";
 import { outstandingReceipts, verifyStoredReceipts, compactHistory, getVerifiedReceipt } from "./transaction-tracker.mjs";
 import { withExclusiveWriteLock } from "./wallet-write-guard.mjs";
-const ADDRESS = "0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7";
+const ADDRESS = "0x506205eBc1ba011707D63d8a152625baaC63002D";
 const ENDPOINT = "https://studio.genlayer.com/api";
 const CHAIN = 61999;
 const ZERO = "0x0000000000000000000000000000000000000000";
 const $ = id => document.getElementById(id);
 const client = createClient({chain:studionet,endpoint:ENDPOINT,account:ZERO});
-const KEY = "spotter.work.pending";
-const HISTORY_KEY = "spotter.work.history.v1";
+// Browser transaction state must never cross deployments. Legacy V2 hashes belong
+// to another contract even when they share Work IDs; do not import their locks.
+const SCOPE = CHAIN + ":" + ADDRESS.toLowerCase();
+const KEY = "spotter.work.pending." + SCOPE;
+const HISTORY_KEY = "spotter.work.history.v2." + SCOPE;
 const history = () => {try{return compactHistory(JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]"));}catch{return [];}};
 function remember(entry){
  if(!/^0x[0-9a-fA-F]{64}$/.test(entry?.hash||""))throw Error("Cannot save invalid transaction hash.");
@@ -175,7 +178,7 @@ async function read() {
   if (!/^[1-9][0-9]*$/.test(id)) throw Error("Enter an existing positive numeric Work ID.");
   const raw = await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
   const work = parseWork(raw);
-  if (!work || work.id !== id) throw Error("Finalized work record not found or response invalid.");
+  if (!work || work.id !== id || work.contract_version !== "3.0.0") throw Error("V3 finalized work record not found or version mismatch.");
   render(work);
 
 }
@@ -220,7 +223,7 @@ async function performAct(method) {
       const id=$("workId").value.trim();
       const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
       const current=parseWork(raw);
-      if(!current || current.id!==id || !workActionAllowed(method,current.state)){
+      if(!current || current.id!==id || current.contract_version!=="3.0.0" || !workActionAllowed(method,current.state)){
         if(current)render(current);
         throw Error("Work state changed on-chain; action canceled without a wallet signature. Read the latest Work state.");
       }
@@ -313,7 +316,7 @@ async function checkTransaction(){
     if(!id){scopedNote("Transaction finalized, but Work ID could not be safely decoded. Inspect the transaction output in Studio; do not create again.",true);remember({...p,status:"FINALIZED · ID UNKNOWN"});sessionStorage.removeItem(KEY);refreshPending();return;}
     const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[id],transactionHashVariant:"latest-final"});
     const work=parseWork(raw);
-    if(!work || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
+    if(!work || work.contract_version!=="3.0.0" || work.id!==id || work.client?.toLowerCase()!==p.account.toLowerCase() || work.owner?.toLowerCase()!==p.owner.toLowerCase() || work.repository?.toLowerCase()!==p.repository.toLowerCase() || String(work.pr_number)!==String(p.pr)){
       remember({...p,status:"FINALIZED · VERIFY ID"});sessionStorage.removeItem(KEY);refreshPending();
       scopedNote("Finalized receipt found, but the returned Work ID is not yet independently verified. Inspect Studio; never guess IDs.",true);return;
     }
@@ -349,7 +352,7 @@ async function verifyHistoricalReceipts(){
     try{
      const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[update.candidateWorkId],transactionHashVariant:"latest-final"});
      const work=parseWork(raw);
-     if(work && work.id===update.candidateWorkId && work.client?.toLowerCase()===current.account?.toLowerCase() && work.owner?.toLowerCase()===current.owner?.toLowerCase() && work.repository?.toLowerCase()===current.repository?.toLowerCase() && String(work.pr_number)===String(current.pr)){
+     if(work && work.contract_version==="3.0.0" && work.id===update.candidateWorkId && work.client?.toLowerCase()===current.account?.toLowerCase() && work.owner?.toLowerCase()===current.owner?.toLowerCase() && work.repository?.toLowerCase()===current.repository?.toLowerCase() && String(work.pr_number)===String(current.pr)){
       update={...update,status:"FINALIZED (RECEIPT VERIFIED)",workId:work.id};
      }
     }catch{/* Receipt finalized; contract readback remains unverified. */}
@@ -495,24 +498,33 @@ async function findMine(){
  const lookupAccount=connectedAccount.toLowerCase();
  display.textContent="Reading work records from GenLayer…";if(primary)primary.textContent="Loading your work…";
  const found=[];
- let missed=0,checked=0;
- // Bounded scan: no indexer exists in the current contract.
- for(let id=1;id<=100;id++){
-   try {
+ let checked=0;
+ try {
+   // The V3 contract exposes an authoritative sequential Work count. Never
+   // guess an ID ceiling or stop after gaps that could hide assigned work.
+   const countRaw=await client.readContract({address:ADDRESS,functionName:"get_work_count",args:[],transactionHashVariant:"latest-final"});
+   let count=countRaw;
+   for(let layer=0;layer<3 && typeof count==="string";layer++){
+     const value=count.trim();
+     if(/^\\d+$/.test(value)){count=Number(value);break;}
+     count=JSON.parse(value);
+   }
+   if(!Number.isSafeInteger(count) || count<0 || count>1000000000)throw Error("Invalid contract work count.");
+   const first=Math.max(1,count-99);
+   for(let id=count;id>=first;id--){
      const raw=await client.readContract({address:ADDRESS,functionName:"get_work",args:[String(id)],transactionHashVariant:"latest-final"});
      const work=parseWork(raw);
      checked++;
-     if(!work){missed++;if(missed>=5 && id>5)break;continue;}
-     missed=0;
+     if(!work || work.contract_version!=="3.0.0" || work.id!==String(id))throw Error("Inconsistent V3 work record.");
      if([work.client,work.worker].some(x=>typeof x==="string"&&x.toLowerCase()===lookupAccount))found.push(work);
-   }catch(e){if(connectedAccount.toLowerCase()===lookupAccount){display.textContent="Could not finish reading on-chain work. Try Refresh my work.";if(primary)primary.textContent="GitHub/GenLayer read unavailable. Refresh my work to retry.";}return;}
- }
+   }
+ }catch(e){if(connectedAccount.toLowerCase()===lookupAccount){display.textContent="Could not finish reading V3 work. Try Refresh my work.";if(primary)primary.textContent="GenLayer V3 reads unavailable. Refresh my work to retry.";}return;}
  if(connectedAccount.toLowerCase()!==lookupAccount)return; // another wallet selection superseded this scan
  display.replaceChildren();if(primary)primary.replaceChildren();
- if(!found.length){display.textContent="No work assigned to this wallet in the scanned range ("+checked+" IDs).";return;}
+ if(!found.length){const message="No V3 work assigned to this wallet in the latest "+checked+" records.";display.textContent=message;if(primary)primary.textContent=message;return;}
  // Work records are displayed, never used to infer an unrelated transaction hash succeeded.
  if(primary && found.length && !lastWork && !$("workId").value.trim()){$("workId").value=found[found.length-1].id;void read().catch(e=>note(e.message,true));}
- for(const work of found.reverse()){
+ for(const work of found){
   const btn=document.createElement("button");btn.type="button";btn.className="btn btn-subtle btn-small";
   btn.textContent="Work #"+work.id+" · "+work.state+" · PR #"+work.pr_number+" ↗";
   btn.style.margin="4px";

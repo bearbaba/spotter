@@ -25,7 +25,7 @@ test("V3 schema and public interface preserve exact agreed work lifecycle",()=>{
  assert.match(source,/qualitative_evidence/);
 });
 
-test("No production cutover is permitted without a verifiable V3 deployment record",()=>{
+test("Only a clearly flagged V3 preview can use the operator-observed contract before independent audits",()=>{
  assert.equal(manifest.chainId,61999);
  assert.equal(manifest.version,"3.0.0");
  assert.equal(manifest.source,"contracts/proofgate.py");
@@ -43,10 +43,24 @@ test("No production cutover is permitted without a verifiable V3 deployment reco
   if(manifest.status==="NOT_DEPLOYED")assert.equal(manifest.deployTxHash,null);
   else assert.match(manifest.deployTxHash,/^0x[0-9a-fA-F]{64}$/);
   assert.equal(manifest.productionCutover,false);
-  assert.ok(ui.includes(oldAddress),"web runtime must remain unchanged until real V3 source/chain verification");
+  if(manifest.previewCutover){
+   assert.equal(manifest.status,"DEPLOYED_UNVERIFIED","Preview needs a recorded deployment candidate");
+   assert.equal(manifest.versionReadback,"3.0.0");
+   assert.equal(manifest.positiveCaseReadback?.state,"CERTIFIED");
+   assert.equal(manifest.positiveCaseReadback?.receiptIndependentlyVerified,false);
+   assert.ok(ui.includes(manifest.address),"Preview UI must match V3 deployment address");
+   assert.ok(html.includes(manifest.address),"Preview page must link the V3 deployment");
+   assert.ok(readme.includes(manifest.address),"README must mention V3 deployment");
+   assert.ok(reviewer.includes(manifest.address),"Reviewer must mention V3 deployment");
+   for(const [name,source] of [["UI",ui],["HTML",html]]){
+    assert.ok(!source.includes(oldAddress),name+" cannot show the legacy contract");
+    assert.ok(!source.includes(oldCertificate),name+" cannot show the old certificate");
+   }
+  }else assert.ok(ui.includes(oldAddress),"do not cut over an unverified deployment without preview flag");
   return;
  }
  assert.equal(manifest.status,"VERIFIED_ON_STUDIONET");
+ assert.equal(manifest.previewCutover,true);
  assert.match(manifest.address,/^0x[0-9a-fA-F]{40}$/);
  assert.match(manifest.deployTxHash,/^0x[0-9a-fA-F]{64}$/);
  assert.match(manifest.verifiedSourceCommit,/^[0-9a-f]{40}$/);

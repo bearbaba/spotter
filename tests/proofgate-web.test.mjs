@@ -24,7 +24,9 @@ test("official page serves only certified-work interface",()=>{
  assert.match(html,/id="work-app"/);
  assert.match(html,/id="certified-work"/);
  assert.doesNotMatch(html,/id="workspace"|src="\.\/app\.mjs|0x730143dF831778569e15975Ef44dFDeCB668609b/);
- assert.match(html,/0xD57aE10754C44223ABf3bA04a43AC2023d92aBE7/);
+ assert.match(html,/0x506205eBc1ba011707D63d8a152625baaC63002D/);
+ assert.match(html,/PR #26/);
+ assert.doesNotMatch(html,/0xc3d1a5c2611111a8763d74582c07c75bdb8f4694a89f6363e3fabca933107599/);
 });
 
 test("receipt must report FINALIZED before success",()=>{
@@ -58,4 +60,13 @@ test("numeric GenVM success from Studio receipt verifies finalized transaction",
  assert.equal(finalizedReceipt({statusName:"FINALIZED"}),"FINALIZED_UNVERIFIED");
  assert.equal(finalizedReceipt({...receipt,txExecutionResultName:"FINISHED_WITH_ERROR"}),"FINALIZED_UNVERIFIED");
  assert.equal(finalizedReceipt({...receipt,statusName:"ACCEPTED"}),"PENDING");
+});
+
+test("V3 app keeps browser transactions scoped to its contract and avoids legacy work-index guesses",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const SCOPE = CHAIN \+ ":" \+ ADDRESS\.toLowerCase\(\)/);
+ assert.match(ui,/spotter\.work\.history\.v2/);
+ assert.match(ui,/functionName:"get_work_count"/);
+ assert.doesNotMatch(ui,/for\(let id=1;id<=100;id\+\+\)/);
+ assert.match(ui,/work\.contract_version !== "3\.0\.0"/);
 });
