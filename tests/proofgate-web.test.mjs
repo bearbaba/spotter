@@ -204,3 +204,9 @@ test("My Work refresh is visible beside assigned work, not buried inside transac
  assert.match(ui,/\$\("workExample"\)\.hidden=work\.id!=="1"/);
  assert.equal([...html.matchAll(/id="workFindMine"/g)].length,1);
 });
+
+test("video regression: REVIEW-to-REVIEW re-evaluation cannot be reconciled without a receipt",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ assert.match(ui,/const advanced=workConfirmsPriorStage\(p,work\)/);
+ assert.doesNotMatch(ui,/p\.method==="evaluate"&&\["REVIEW","ACCEPTED","CERTIFIED"\]/);
+});
