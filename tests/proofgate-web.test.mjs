@@ -271,3 +271,43 @@ test("tracker scrolls into view on actual phase changes without stealing focus o
  assert.match(ui,/const changed=!currentMonitor \|\| currentMonitor\.phase!==phase \|\| currentMonitor\.hash!==safeHash/);
  assert.match(ui,/if\(changed\)\$\("workTxPanel"\)\.scrollIntoView\?\.\(/);
 });
+
+test("old confirmed Work receipts remain in history instead of reopening live transaction tracking",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ assert.match(ui,/const LIVE_PROGRESS_MAX_AGE_MS=10\*60\*1000/);
+ assert.match(ui,/if\(isRecentTransaction\(p\)\)\{/);
+ assert.match(ui,/showTxMonitor\("confirmed",p,"Work #"/);
+ assert.match(ui,/currentMonitor=null;/);
+ assert.match(ui,/remember\(\{\.\.\.p,status:"WORK STATE VERIFIED ON-CHAIN \(RECEIPT NOT CHECKED\)"/);
+ assert.doesNotMatch(ui,/showTxMonitor\("unknown",p,"Work #"/);
+ assert.match(ui,/confirmed:"Work confirmed on-chain"/);
+ assert.match(ui,/\["success","failure","canceled","confirmed"\]/);
+ assert.match(html,/id="featuredWorkBadge"/);
+ assert.match(html,/id="featuredTxLink"/);
+});
+test("recency check distinguishes a live user action from an hours-old receipt",()=>{
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ const match=ui.match(/const LIVE_PROGRESS_MAX_AGE_MS=10\*60\*1000;[\s\S]*?function isRecentTransaction\(entry,now=Date\.now\(\)\)\{[\s\S]*?\n\}/);
+ assert.ok(match,"recent activity guard exists");
+ const fn=new Function(match[0]+";return isRecentTransaction;")();
+ const now=100000000;
+ assert.equal(fn({created:now-1000},now),true);
+ assert.equal(fn({created:now-9*60*1000},now),true);
+ assert.equal(fn({created:now-11*60*1000},now),false);
+ assert.equal(fn({created:0},now),false);
+ assert.equal(fn({},now),false);
+ assert.equal(fn({created:now+1000},now),false);
+});
+test("featured certificate follows the newest selected CERTIFIED V3 Work without forging an Explorer transaction",()=>{
+ const html=readFileSync(new URL("../index.html",import.meta.url),"utf8");
+ const ui=readFileSync(new URL("../proofgate-ui.mjs",import.meta.url),"utf8");
+ for(const id of ["featuredWorkBadge","featuredWorkDescription","featuredPrLink","featuredWorkMeta","featuredTxLink","featuredEvidenceNote"])
+   assert.equal([...html.matchAll(new RegExp('id="'+id+'"','g'))].length,1,"unique featured certificate node "+id);
+ assert.match(ui,/function updateCertifiedFeature\(work\)/);
+ assert.match(ui,/work\?\.state!=="CERTIFIED"/);
+ assert.match(ui,/Number\(work\.id\)<shown/);
+ assert.match(ui,/updateCertifiedFeature\(work\)/);
+ assert.match(ui,/tx\?"https:\/\/explorer-studio\.genlayer\.com\/tx\/"/);
+ assert.match(ui,/:"https:\/\/explorer-studio\.genlayer\.com\/address\/"/);
+});
